@@ -21,6 +21,10 @@ if ! command -v gh &>/dev/null; then
     sudo apt-get install -y gh
 fi
 
+echo "==> Cleaning up unnecessary packages..."
+sudo apt-get autoremove -y
+sudo apt-get clean
+
 echo "==> Essentials installed successfully:"
 git --version
 tmux -V
