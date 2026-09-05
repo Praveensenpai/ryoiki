@@ -13,7 +13,7 @@ use runner::Runner;
 #[derive(Parser)]
 #[command(name = "ryoiki")]
 #[command(author = "Praveensenpai <pvnt20@gmail.com>")]
-#[command(version = "0.1.0")]
+#[command(version = "0.1.1")]
 #[command(about = "Aesthetic, zero-clutter Ubuntu server provisioning orchestrator", long_about = None)]
 struct Cli {
     /// Install all modules without interactive prompt
