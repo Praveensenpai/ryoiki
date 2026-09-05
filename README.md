@@ -29,7 +29,8 @@ Select modules to install: (Space to toggle, Enter to run)
   [✓]  7. Nerd Fonts                 JetBrainsMono Nerd Font complete family
   [✓]  8. Prompt & Banner            Starship prompt & Fastfetch system stats
   [✓]  9. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
-  [✓] 10. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
+  [✓] 10. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
+  [✓] 11. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
 
   [↑/↓/j/k] Navigate   [Space] Toggle   [a] All   [n] None   [Enter] Launch   [q] Quit
 ```
@@ -53,6 +54,7 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 
 - 🔇 **Zero Visual Clutter** — Hides noisy `apt`, `dpkg`, and compiler scroll walls behind clean, single-line spinners. Full execution logs are saved quietly to `~/.local/state/ryoiki/install.log`.
 - 🖥️ **Interactive Ratatui TUI** — Lightweight, keyboard-driven terminal checklist. Effortlessly select exactly what you want installed.
+- 🌐 **Tailscale & MagicDNS** — Built-in WireGuard mesh. Connect via `ssh user@hostname` from anywhere without static IPs, port forwarding, or firewall holes.
 - ⏱️ **Granular Adaptive Timers** — Section, subsection, and overall total duration timings with dynamic unit formatting (`<1ms`, `420ms`, `12.4s`, `1m 24s`).
 - 📦 **Zero-Clone Embedded Dotfiles** — All configuration templates (`.tmux.conf`, `.bash_aliases`, `starship.toml`) are compiled directly into the binary with `include_str!`.
 - 🔤 **JetBrainsMono Nerd Font** — Automated download, extraction, and `fc-cache` fontconfig registration for crystal-clear terminal iconography.
@@ -75,7 +77,8 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 | `07` | **Nerd Fonts** | `fonts` | Complete JetBrainsMono Nerd Font family with ligatures & `fc-cache` index |
 | `08` | **Prompt & Banner** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch system stats |
 | `09` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
-| `10` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
+| `10` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
+| `11` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
 
 ---
 
@@ -145,6 +148,7 @@ ryoiki/
 │       ├── git_ssh.rs        # Git identity, Ed25519 SSH key & GitHub verification
 │       ├── prompt.rs         # Starship prompt & Fastfetch system stats
 │       ├── security.rs       # UFW firewall & Fail2Ban
+│       ├── tailscale.rs      # Tailscale WireGuard mesh VPN & MagicDNS
 │       └── trash.rs          # toss-rs safe trash manager
 ├── Cargo.toml                # Rust 2021 package manifest with strict lints
 ├── remote-install.sh         # Instant remote bootstrap script (curl | bash)

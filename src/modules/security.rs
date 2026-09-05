@@ -8,7 +8,13 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
         &["ufw", "fail2ban"],
     )?;
 
-    // Configure UFW rules
+    configure_ufw(runner)?;
+    configure_fail2ban(runner)?;
+
+    Ok(())
+}
+
+fn configure_ufw(runner: &mut Runner) -> Result<()> {
     runner.exec_silent(
         "Setting UFW default deny incoming",
         "sudo",
@@ -38,9 +44,10 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
         "Enabling UFW firewall...",
         "sudo",
         &["ufw", "--force", "enable"],
-    )?;
+    )
+}
 
-    // Fail2Ban configuration
+fn configure_fail2ban(runner: &mut Runner) -> Result<()> {
     if !Path::new("/etc/fail2ban/jail.local").exists()
         && Path::new("/etc/fail2ban/jail.conf").exists()
     {
@@ -55,7 +62,5 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
         "Enabling and starting Fail2Ban service...",
         "sudo",
         &["systemctl", "enable", "--now", "fail2ban"],
-    )?;
-
-    Ok(())
+    )
 }

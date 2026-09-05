@@ -58,58 +58,18 @@ fn main() -> Result<()> {
     print_banner();
 
     if let Some(cmd) = cli.command {
-        match cmd {
-            Commands::Dotfiles => {
-                let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-                let start = std::time::Instant::now();
-                configs::deploy_dotfiles(&home)?;
-                let dur = runner::format_duration(start.elapsed());
-                println!(
-                    "  {} Dotfiles deployed successfully to {} ({dur})",
-                    "✔".green().bold(),
-                    home.cyan()
-                );
-                return Ok(());
-            }
-            Commands::Check => {
-                run_system_check();
-                return Ok(());
-            }
-            Commands::Run { modules } => {
-                if modules::requires_sudo(&modules) {
-                    runner.ensure_sudo()?;
-                }
-                let (total_dur, timings) = run_modules(&modules, &mut runner, cli.yes)?;
-                print_summary(&modules, total_dur, &timings);
-                return Ok(());
-            }
-        }
+        return handle_subcommand(cmd, &mut runner, cli.yes);
     }
 
-    let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();
-
-    let chosen_modules = if non_interactive {
-        get_available_modules()
-            .into_iter()
-            .map(|m| m.id.to_string())
-            .collect()
-    } else {
-        let Some(mods) = tui::select_modules()? else {
-            println!("\n  {} Setup cancelled.", "•".dimmed());
-            return Ok(());
-        };
-        mods
-    };
-
-    if chosen_modules.is_empty() {
-        println!("\n  {} No modules selected.", "•".dimmed());
+    let Some(chosen_modules) = resolve_selected_modules(&cli)? else {
         return Ok(());
-    }
+    };
 
     if modules::requires_sudo(&chosen_modules) {
         runner.ensure_sudo()?;
     }
 
+    let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();
     println!(
         "\n  {} Running {} selected modules...\n",
         "▶".cyan().bold(),
@@ -120,6 +80,54 @@ fn main() -> Result<()> {
     print_summary(&chosen_modules, total_dur, &timings);
 
     Ok(())
+}
+
+fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()> {
+    match cmd {
+        Commands::Dotfiles => {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+            let start = std::time::Instant::now();
+            configs::deploy_dotfiles(&home)?;
+            let dur = runner::format_duration(start.elapsed());
+            println!(
+                "  {} Dotfiles deployed successfully to {} ({dur})",
+                "✔".green().bold(),
+                home.cyan()
+            );
+        }
+        Commands::Check => run_system_check(),
+        Commands::Run { modules } => {
+            if modules::requires_sudo(&modules) {
+                runner.ensure_sudo()?;
+            }
+            let (total_dur, timings) = run_modules(&modules, runner, yes)?;
+            print_summary(&modules, total_dur, &timings);
+        }
+    }
+    Ok(())
+}
+
+fn resolve_selected_modules(cli: &Cli) -> Result<Option<Vec<String>>> {
+    let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();
+    if non_interactive {
+        let all_ids = get_available_modules()
+            .into_iter()
+            .map(|m| m.id.to_string())
+            .collect();
+        return Ok(Some(all_ids));
+    }
+
+    let Some(mods) = tui::select_modules()? else {
+        println!("\n  {} Setup cancelled.", "•".dimmed());
+        return Ok(None);
+    };
+
+    if mods.is_empty() {
+        println!("\n  {} No modules selected.", "•".dimmed());
+        return Ok(None);
+    }
+
+    Ok(Some(mods))
 }
 
 fn print_banner() {
@@ -180,6 +188,21 @@ fn print_summary(
         println!();
     }
 
+    print_module_highlights(module_ids);
+
+    println!(
+        "  • {} Log saved to ~/.local/state/ryoiki/install.log",
+        "Debug:   ".dimmed()
+    );
+    println!("  {}\n", border.dimmed());
+}
+
+fn print_module_highlights(module_ids: &[String]) {
+    print_cli_highlights(module_ids);
+    print_infra_highlights(module_ids);
+}
+
+fn print_cli_highlights(module_ids: &[String]) {
     if module_ids
         .iter()
         .any(|m| m == "dotfiles" || m == "cli_tools" || m == "trash")
@@ -195,6 +218,15 @@ fn print_summary(
             "Runtimes:".dimmed()
         );
     }
+    if module_ids.iter().any(|m| m == "fonts") {
+        println!(
+            "  • {} JetBrainsMono Nerd Font (~/.local/share/fonts)",
+            "Fonts:   ".dimmed()
+        );
+    }
+}
+
+fn print_infra_highlights(module_ids: &[String]) {
     if module_ids.iter().any(|m| m == "security") {
         println!(
             "  • {} UFW (22, 80, 443) • Fail2Ban guard active",
@@ -207,18 +239,12 @@ fn print_summary(
             "Docker:  ".dimmed()
         );
     }
-    if module_ids.iter().any(|m| m == "fonts") {
+    if module_ids.iter().any(|m| m == "tailscale") {
         println!(
-            "  • {} JetBrainsMono Nerd Font (~/.local/share/fonts)",
-            "Fonts:   ".dimmed()
+            "  • {} Tailscale MagicDNS active (connect via hostname)",
+            "Mesh VPN:".dimmed()
         );
     }
-
-    println!(
-        "  • {} Log saved to ~/.local/state/ryoiki/install.log",
-        "Debug:   ".dimmed()
-    );
-    println!("  {}\n", border.dimmed());
 }
 
 fn run_system_check() {
@@ -240,6 +266,7 @@ fn run_system_check() {
         ("starship", "Starship shell prompt"),
         ("fastfetch", "Fastfetch system stats"),
         ("toss", "toss-rs trash manager"),
+        ("tailscale", "Tailscale Mesh VPN"),
     ];
 
     println!("  {} System Tool Audit:\n", "🔍".bold());

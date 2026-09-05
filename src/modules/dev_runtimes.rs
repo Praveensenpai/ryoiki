@@ -19,15 +19,7 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
         )?;
     }
 
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let bashrc_path = Path::new(&home).join(".bashrc");
-    if bashrc_path.exists() {
-        let bashrc = fs::read_to_string(&bashrc_path).unwrap_or_default();
-        if !bashrc.contains("cargo/env") {
-            let mut file = fs::OpenOptions::new().append(true).open(&bashrc_path)?;
-            file.write_all(b"\n# Cargo environment\n[ -f \"$HOME/.cargo/env\" ] && source \"$HOME/.cargo/env\"\n")?;
-        }
-    }
+    ensure_cargo_env()?;
 
     // 3. uv (Astral Python package manager)
     if !Runner::command_exists("uv") {
@@ -45,5 +37,18 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
         )?;
     }
 
+    Ok(())
+}
+
+fn ensure_cargo_env() -> Result<()> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let bashrc_path = Path::new(&home).join(".bashrc");
+    if bashrc_path.exists() {
+        let bashrc = fs::read_to_string(&bashrc_path).unwrap_or_default();
+        if !bashrc.contains("cargo/env") {
+            let mut file = fs::OpenOptions::new().append(true).open(&bashrc_path)?;
+            file.write_all(b"\n# Cargo environment\n[ -f \"$HOME/.cargo/env\" ] && source \"$HOME/.cargo/env\"\n")?;
+        }
+    }
     Ok(())
 }

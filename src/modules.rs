@@ -6,6 +6,7 @@ pub mod fonts;
 pub mod git_ssh;
 pub mod prompt;
 pub mod security;
+pub mod tailscale;
 pub mod trash;
 
 use crate::configs;
@@ -27,13 +28,26 @@ pub fn requires_sudo(modules: &[String]) -> bool {
     modules.iter().any(|m| {
         matches!(
             m.as_str(),
-            "essentials" | "cli_tools" | "dev_runtimes" | "security" | "docker" | "prompt"
+            "essentials"
+                | "cli_tools"
+                | "dev_runtimes"
+                | "security"
+                | "docker"
+                | "prompt"
+                | "tailscale"
         )
     })
 }
 
 /// Returns the registry of all available provisioning modules in execution order.
 pub fn get_available_modules() -> Vec<Module> {
+    let mut mods = core_modules();
+    mods.extend(platform_modules());
+    mods.extend(environment_modules());
+    mods
+}
+
+fn core_modules() -> Vec<Module> {
     vec![
         Module {
             id: "git_ssh",
@@ -59,6 +73,11 @@ pub fn get_available_modules() -> Vec<Module> {
             description: "Go, Rust (rustup), Python (uv), JavaScript (Bun)",
             default_enabled: true,
         },
+    ]
+}
+
+fn platform_modules() -> Vec<Module> {
+    vec![
         Module {
             id: "security",
             title: "Server Security",
@@ -77,6 +96,11 @@ pub fn get_available_modules() -> Vec<Module> {
             description: "JetBrainsMono Nerd Font complete family & ligatures",
             default_enabled: true,
         },
+    ]
+}
+
+fn environment_modules() -> Vec<Module> {
+    vec![
         Module {
             id: "prompt",
             title: "Prompt & Banner",
@@ -87,6 +111,12 @@ pub fn get_available_modules() -> Vec<Module> {
             id: "trash",
             title: "Trash Manager",
             description: "toss-rs (FreeDesktop trash TUI & rm alias)",
+            default_enabled: true,
+        },
+        Module {
+            id: "tailscale",
+            title: "Tailscale Mesh VPN",
+            description: "WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH",
             default_enabled: true,
         },
         Module {
@@ -110,6 +140,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "fonts" => fonts::setup(runner),
         "prompt" => prompt::setup(runner),
         "trash" => trash::setup(runner),
+        "tailscale" => tailscale::setup(runner, non_interactive),
         "dotfiles" => {
             let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
             if runner.dry_run {

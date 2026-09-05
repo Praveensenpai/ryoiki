@@ -6,7 +6,7 @@ use crossterm::{
 };
 use ratatui::{
     backend::CrosstermBackend,
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
@@ -76,7 +76,12 @@ fn render_ui(f: &mut Frame, modules: &[Module], selected: &[bool], cursor: usize
         ])
         .split(f.area());
 
-    // 1. Header
+    render_header(f, outer_chunks[0]);
+    render_body(f, outer_chunks[1], modules, selected, cursor);
+    render_footer(f, outer_chunks[2]);
+}
+
+fn render_header(f: &mut Frame, area: Rect) {
     let title = Line::from(vec![
         Span::styled(
             " 領域 ",
@@ -101,9 +106,10 @@ fn render_ui(f: &mut Frame, modules: &[Module], selected: &[bool], cursor: usize
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::DarkGray)),
     );
-    f.render_widget(header, outer_chunks[0]);
+    f.render_widget(header, area);
+}
 
-    // 2. Module Checklist
+fn render_body(f: &mut Frame, area: Rect, modules: &[Module], selected: &[bool], cursor: usize) {
     let lines = build_module_lines(modules, selected, cursor);
     let body = Paragraph::new(lines).block(
         Block::default()
@@ -113,9 +119,10 @@ fn render_ui(f: &mut Frame, modules: &[Module], selected: &[bool], cursor: usize
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::Cyan)),
     );
-    f.render_widget(body, outer_chunks[1]);
+    f.render_widget(body, area);
+}
 
-    // 3. Footer / Help
+fn render_footer(f: &mut Frame, area: Rect) {
     let footer_text = Line::from(vec![
         Span::styled(
             "[Space] ",
@@ -152,7 +159,7 @@ fn render_ui(f: &mut Frame, modules: &[Module], selected: &[bool], cursor: usize
                 .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(Color::DarkGray)),
         );
-    f.render_widget(footer, outer_chunks[2]);
+    f.render_widget(footer, area);
 }
 
 fn build_module_lines<'a>(
@@ -160,55 +167,50 @@ fn build_module_lines<'a>(
     selected: &[bool],
     cursor: usize,
 ) -> Vec<Line<'a>> {
-    let mut lines = Vec::new();
-    for (idx, module) in modules.iter().enumerate() {
-        let is_cursor = idx == cursor;
-        let is_checked = selected[idx];
+    modules
+        .iter()
+        .enumerate()
+        .map(|(idx, module)| format_module_line(module, selected[idx], idx == cursor))
+        .collect()
+}
 
-        let pointer = if is_cursor {
-            Span::styled(
-                " ▶ ",
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )
-        } else {
-            Span::raw("   ")
-        };
+fn format_module_line(module: &Module, is_checked: bool, is_cursor: bool) -> Line<'_> {
+    let pointer = if is_cursor {
+        Span::styled(
+            " ▶ ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )
+    } else {
+        Span::raw("   ")
+    };
 
-        let check = if is_checked {
-            Span::styled(
-                "[✓] ",
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            )
-        } else {
-            Span::styled("[ ] ", Style::default().fg(Color::DarkGray))
-        };
+    let check = if is_checked {
+        Span::styled(
+            "[✓] ",
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        )
+    } else {
+        Span::styled("[ ] ", Style::default().fg(Color::DarkGray))
+    };
 
-        let name = if is_cursor {
-            Span::styled(
-                format!("{:<24}", module.title),
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            )
-        } else {
-            Span::styled(
-                format!("{:<24}", module.title),
-                Style::default().fg(Color::White),
-            )
-        };
+    let title_style = if is_cursor {
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::White)
+    };
+    let name = Span::styled(format!("{:<24}", module.title), title_style);
+    let desc = Span::styled(
+        format!(" {}", module.description),
+        Style::default().fg(Color::DarkGray),
+    );
 
-        let desc = Span::styled(
-            format!(" {}", module.description),
-            Style::default().fg(Color::DarkGray),
-        );
-
-        lines.push(Line::from(vec![pointer, check, name, desc]));
-    }
-    lines
+    Line::from(vec![pointer, check, name, desc])
 }
 
 fn handle_key(

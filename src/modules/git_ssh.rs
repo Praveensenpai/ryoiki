@@ -28,21 +28,7 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
 }
 
 fn setup_git_identity(runner: &mut Runner, non_interactive: bool) -> Result<String> {
-    let current_user = std::process::Command::new("git")
-        .args(["config", "--global", "user.name"])
-        .output()
-        .map_or_else(
-            |_| String::new(),
-            |o| String::from_utf8_lossy(&o.stdout).trim().to_string(),
-        );
-
-    let current_email = std::process::Command::new("git")
-        .args(["config", "--global", "user.email"])
-        .output()
-        .map_or_else(
-            |_| String::new(),
-            |o| String::from_utf8_lossy(&o.stdout).trim().to_string(),
-        );
+    let (current_user, current_email) = read_current_git_config();
 
     let (git_user, git_email) = if non_interactive || runner.dry_run {
         let user = if current_user.is_empty() {
@@ -60,23 +46,47 @@ fn setup_git_identity(runner: &mut Runner, non_interactive: bool) -> Result<Stri
         prompt_git_identity(&current_user, &current_email)?
     };
 
+    apply_git_identity(runner, &git_user, &git_email)?;
+    Ok(git_email)
+}
+
+fn read_current_git_config() -> (String, String) {
+    let current_user = std::process::Command::new("git")
+        .args(["config", "--global", "user.name"])
+        .output()
+        .map_or_else(
+            |_| String::new(),
+            |o| String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        );
+
+    let current_email = std::process::Command::new("git")
+        .args(["config", "--global", "user.email"])
+        .output()
+        .map_or_else(
+            |_| String::new(),
+            |o| String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        );
+
+    (current_user, current_email)
+}
+
+fn apply_git_identity(runner: &mut Runner, git_user: &str, git_email: &str) -> Result<()> {
     runner.exec_silent(
         &format!("Configuring Git identity: {git_user} <{git_email}>"),
         "git",
-        &["config", "--global", "user.name", &git_user],
+        &["config", "--global", "user.name", git_user],
     )?;
     runner.exec_silent(
         "Setting Git global email",
         "git",
-        &["config", "--global", "user.email", &git_email],
+        &["config", "--global", "user.email", git_email],
     )?;
     runner.exec_silent(
         "Setting Git default branch to main",
         "git",
         &["config", "--global", "init.defaultBranch", "main"],
     )?;
-
-    Ok(git_email)
+    Ok(())
 }
 
 fn prompt_git_identity(current_user: &str, current_email: &str) -> Result<(String, String)> {
@@ -204,7 +214,13 @@ fn handle_ssh_output(stdout: &[u8], stderr: &[u8], test_dur: &str) {
             greeting.green(),
             format!("({test_dur})").dimmed()
         );
-    } else if resp.contains("Permission denied") {
+    } else {
+        show_ssh_unverified(&resp, test_dur);
+    }
+}
+
+fn show_ssh_unverified(resp: &str, test_dur: &str) {
+    if resp.contains("Permission denied") {
         println!(
             "  {} GitHub SSH not authenticated yet (key not added or pending). {}",
             "⚠".yellow().bold(),
