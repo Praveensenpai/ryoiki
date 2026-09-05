@@ -2,21 +2,32 @@
 
 Personal Ubuntu server provisioning and setup scripts.
 
-## Quickstart (Fresh Server)
+## Quickstart (One-liner Remote Install)
 
-To replicate this environment on a fresh Ubuntu server:
+On any fresh Ubuntu server, run:
 
 ```bash
-git clone git@github.com:Praveensenpai/ryoiki.git
+curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-install.sh | bash
+```
+
+> **What this does:** Ensures `curl` and `git` are installed, clones `ryoiki`, and automatically runs the full provisioning pipeline.
+
+---
+
+### Manual Clone (Alternative)
+
+```bash
+git clone https://github.com/Praveensenpai/ryoiki.git
 cd ryoiki
-bash install.sh
+./install.sh
 ```
 
 ## Structure
 
 ```text
 ryoiki/
-├── install.sh            # Master setup script
+├── remote-install.sh     # One-liner curl bootstrap script
+├── install.sh            # Master setup script (runs all 0X scripts)
 ├── scripts/
 │   ├── 00-git-ssh.sh     # Interactive Git config & GitHub SSH key setup
 │   ├── 01-essentials.sh  # Installs git, gh, tmux, neovim
