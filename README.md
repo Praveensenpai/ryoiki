@@ -21,7 +21,7 @@
 Select modules to install: (Space to toggle, Enter to run)
 
   [✓]  1. Git & SSH Key Setup        Ed25519 key generation & GitHub link
-  [✓]  2. System Essentials          git, tmux, neovim, and GitHub CLI (gh)
+  [✓]  2. System Essentials          git, tmux, neovim, adb, and GitHub CLI (gh)
   [✓]  3. Modern CLI Suite           eza, bat, zoxide, fzf, and ble.sh
   [✓]  4. Dev Runtimes               Go, Rust (rustup), Python (uv), Bun
   [✓]  5. Server Security            UFW Firewall & Fail2Ban brute-force guard
@@ -69,7 +69,7 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 | # | Module | Identifier | Included Components & Configuration |
 |:---:|:---|:---|:---|
 | `01` | **Git & SSH Key** | `git_ssh` | Ed25519 SSH keypair generation, GitHub CLI association & connection test |
-| `02` | **System Essentials** | `essentials` | `git`, `tmux`, `neovim`, `curl`, `build-essential`, official GitHub CLI (`gh`) |
+| `02` | **System Essentials** | `essentials` | `git`, `tmux`, `neovim`, `adb`, `curl`, `build-essential`, official GitHub CLI (`gh`) |
 | `03` | **Modern CLI Suite** | `cli_tools` | `eza` (modern ls), `bat` (cat with wings), `zoxide` (smart cd), `fzf`, `ble.sh` |
 | `04` | **Dev Runtimes** | `dev_runtimes` | Latest stable Go, Rust toolchain (`rustup`), Python (`uv`), JavaScript (`bun`) |
 | `05` | **Server Security** | `security` | UFW Firewall (ports 22, 80, 443) & Fail2Ban brute-force intrusion prevention |

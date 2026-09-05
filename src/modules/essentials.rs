@@ -1,6 +1,7 @@
 use crate::runner::Runner;
 use anyhow::Result;
 
+/// Installs essential tools including git, tmux, neovim, adb, and official GitHub CLI.
 pub fn setup(runner: &mut Runner) -> Result<()> {
     runner.apt_update()?;
 
@@ -10,8 +11,8 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
     )?;
 
     runner.apt_install(
-        "Installing essentials (git, tmux, neovim)...",
-        &["git", "tmux", "neovim"],
+        "Installing essentials (git, tmux, neovim, adb)...",
+        &["git", "tmux", "neovim", "adb"],
     )?;
 
     if !Runner::command_exists("gh") {

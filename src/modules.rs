@@ -59,7 +59,7 @@ fn core_modules() -> Vec<Module> {
         Module {
             id: "essentials",
             title: "System Essentials",
-            description: "git, tmux, neovim, and GitHub CLI (gh)",
+            description: "git, tmux, neovim, adb, and GitHub CLI (gh)",
             default_enabled: true,
         },
         Module {
