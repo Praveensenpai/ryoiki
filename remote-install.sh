@@ -38,4 +38,10 @@ fi
 echo -e "\n${GREEN}==> Launching ryoiki installer...${NC}\n"
 cd "$TARGET_DIR"
 chmod +x install.sh scripts/*.sh
-exec ./install.sh
+
+# Reconnect stdin to controlling terminal if available (crucial for curl | bash pipelines)
+if [ -c /dev/tty ]; then
+    exec ./install.sh < /dev/tty
+else
+    exec ./install.sh
+fi
