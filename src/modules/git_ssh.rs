@@ -77,11 +77,70 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
         )?;
     }
 
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = fs::set_permissions(&ssh_dir, fs::Permissions::from_mode(0o700));
+        if key_path.exists() {
+            let _ = fs::set_permissions(&key_path, fs::Permissions::from_mode(0o600));
+        }
+        if pubkey_path.exists() {
+            let _ = fs::set_permissions(&pubkey_path, fs::Permissions::from_mode(0o644));
+        }
+    }
+
     if let Ok(pubkey) = fs::read_to_string(&pubkey_path) {
         println!("\n  {}", "─── Your GitHub Public SSH Key ───".dimmed());
         println!("  {}", pubkey.trim().cyan().bold());
         println!("  {}", "───────────────────────────────────".dimmed());
-        println!("  Add to GitHub: {}\n", "https://github.com/settings/ssh/new".underline().blue());
+        println!("  Paste into: {}\n", "https://github.com/settings/ssh/new".underline().blue());
+    }
+
+    if !non_interactive && !runner.dry_run {
+        print!("  Press {} once added to GitHub to verify connection (or Enter to skip)... ", "[Enter]".bold());
+        io::stdout().flush()?;
+        let mut pause = String::new();
+        io::stdin().lock().read_line(&mut pause)?;
+
+        let pb = runner.create_spinner("Verifying GitHub SSH connection...");
+        let start_test = std::time::Instant::now();
+        let output = std::process::Command::new("ssh")
+            .args(["-T", "-o", "StrictHostKeyChecking=accept-new", "-o", "ConnectTimeout=8", "git@github.com"])
+            .output();
+        let test_dur = crate::runner::format_duration(start_test.elapsed());
+
+        match output {
+            Ok(out) => {
+                let resp = format!(
+                    "{}\n{}",
+                    String::from_utf8_lossy(&out.stdout),
+                    String::from_utf8_lossy(&out.stderr)
+                );
+                pb.finish_and_clear();
+                if resp.contains("successfully authenticated") {
+                    let greeting = resp
+                        .lines()
+                        .find(|l| l.contains("successfully authenticated"))
+                        .map(|l| l.trim())
+                        .unwrap_or("Hi! You've successfully authenticated.");
+                    println!("  {} GitHub SSH verified: {} {}", "✔".green().bold(), greeting.green(), format!("({})", test_dur).dimmed());
+                } else if resp.contains("Permission denied") {
+                    println!("  {} GitHub SSH not authenticated yet (key not added or pending). {}", "⚠".yellow().bold(), format!("({})", test_dur).dimmed());
+                    println!("    You can verify later with: {}", "ssh -T git@github.com".cyan());
+                } else {
+                    let msg = resp.trim();
+                    if msg.is_empty() {
+                        println!("  {} Could not verify GitHub connection. {}", "⚠".yellow().bold(), format!("({})", test_dur).dimmed());
+                    } else {
+                        println!("  {} SSH test response: {} {}", "⚠".yellow().bold(), msg.dimmed(), format!("({})", test_dur).dimmed());
+                    }
+                }
+            }
+            Err(e) => {
+                pb.finish_and_clear();
+                println!("  {} Failed to execute ssh: {} {}", "⚠".yellow().bold(), e, format!("({})", test_dur).dimmed());
+            }
+        }
     }
 
     Ok(())

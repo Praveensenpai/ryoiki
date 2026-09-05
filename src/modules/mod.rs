@@ -20,6 +20,13 @@ pub struct Module {
     pub default_enabled: bool,
 }
 
+pub fn requires_sudo(modules: &[String]) -> bool {
+    modules.iter().any(|m| match m.as_str() {
+        "essentials" | "cli_tools" | "dev_runtimes" | "security" | "docker" | "prompt" => true,
+        _ => false,
+    })
+}
+
 pub fn get_available_modules() -> Vec<Module> {
     vec![
         Module {
@@ -94,8 +101,14 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
             if runner.dry_run {
                 println!("  {} [dry-run] Deploying dotfiles to {}", "•".dimmed(), home);
             } else {
+                let start = std::time::Instant::now();
                 configs::deploy_dotfiles(&home)?;
-                println!("  {} Dotfiles deployed (~/.tmux.conf, ~/.bash_aliases, starship.toml)", "✔".green().bold());
+                let elapsed = crate::runner::format_duration(start.elapsed());
+                println!(
+                    "  {} Dotfiles deployed (~/.tmux.conf, ~/.bash_aliases, starship.toml) {}",
+                    "✔".green().bold(),
+                    format!("({})", elapsed).dimmed()
+                );
             }
             Ok(())
         }

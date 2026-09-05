@@ -7,6 +7,28 @@ use anyhow::{bail, Context, Result};
 use colored::*;
 use indicatif::{ProgressBar, ProgressStyle};
 
+pub fn format_duration(d: Duration) -> String {
+    let millis = d.as_millis();
+    if millis == 0 {
+        "<1ms".to_string()
+    } else if millis < 1000 {
+        format!("{millis}ms")
+    } else {
+        let total_secs = d.as_secs_f64();
+        if total_secs < 60.0 {
+            format!("{:.1}s", total_secs)
+        } else {
+            let mins = d.as_secs() / 60;
+            let secs = d.as_secs() % 60;
+            if secs == 0 {
+                format!("{mins}m")
+            } else {
+                format!("{mins}m {secs}s")
+            }
+        }
+    }
+}
+
 pub struct Runner {
     pub log_path: PathBuf,
     pub log_file: File,
@@ -114,6 +136,7 @@ impl Runner {
             return Ok(());
         }
 
+        let start = std::time::Instant::now();
         let pb = self.create_spinner(desc);
 
         let mut child = Command::new(program)
@@ -133,6 +156,7 @@ impl Runner {
         let _ = stderr.read_to_end(&mut err_buf);
 
         let status = child.wait()?;
+        let elapsed = format_duration(start.elapsed());
 
         // Log everything
         let _ = writeln!(self.log_file, "\n--- COMMAND: {} {} ---", program, args.join(" "));
@@ -147,11 +171,11 @@ impl Runner {
 
         if status.success() {
             pb.finish_and_clear();
-            println!("  {} {}", "✔".green().bold(), desc);
+            println!("  {} {} {}", "✔".green().bold(), desc, format!("({})", elapsed).dimmed());
             Ok(())
         } else {
             pb.finish_and_clear();
-            eprintln!("  {} {}", "✖".red().bold(), desc);
+            eprintln!("  {} {} {}", "✖".red().bold(), desc, format!("({})", elapsed).dimmed());
             let last_error = String::from_utf8_lossy(&err_buf);
             let summary = last_error.lines().rev().take(5).collect::<Vec<_>>();
             if !summary.is_empty() {
