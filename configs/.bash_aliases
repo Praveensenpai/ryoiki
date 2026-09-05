@@ -34,3 +34,13 @@ if command -v zoxide &>/dev/null; then
     eval "$(zoxide init bash)"
     alias cd='z'
 fi
+
+# Environment paths (Cargo for Rust, ~/.local/bin for uv)
+case ":$PATH:" in
+    *":$HOME/.cargo/bin:"*) ;;
+    *) export PATH="$HOME/.cargo/bin:$PATH" ;;
+esac
+case ":$PATH:" in
+    *":$HOME/.local/bin:"*) ;;
+    *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
