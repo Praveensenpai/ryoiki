@@ -15,7 +15,7 @@ use std::io::IsTerminal;
 #[derive(Parser)]
 #[command(name = "ryoiki")]
 #[command(author = "Praveensenpai <pvnt20@gmail.com>")]
-#[command(version = "0.1.6")]
+#[command(version = "0.1.7")]
 #[command(about = "Aesthetic, zero-clutter Ubuntu server provisioning orchestrator", long_about = None)]
 struct Cli {
     /// Install all modules without interactive prompt
@@ -216,12 +216,6 @@ fn print_cli_highlights(module_ids: &[String]) {
         println!(
             "  • {} Go • Rust (cargo) • Python (uv) • JavaScript (bun)",
             "Runtimes:".dimmed()
-        );
-    }
-    if module_ids.iter().any(|m| m == "fonts") {
-        println!(
-            "  • {} JetBrainsMono Nerd Font (~/.local/share/fonts)",
-            "Fonts:   ".dimmed()
         );
     }
 }

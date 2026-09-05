@@ -2,7 +2,6 @@ pub mod cli_tools;
 pub mod dev_runtimes;
 pub mod docker;
 pub mod essentials;
-pub mod fonts;
 pub mod git_ssh;
 pub mod prompt;
 pub mod security;
@@ -90,12 +89,6 @@ fn platform_modules() -> Vec<Module> {
             description: "Docker Engine CE & Docker Compose plugin",
             default_enabled: true,
         },
-        Module {
-            id: "fonts",
-            title: "Nerd Fonts",
-            description: "JetBrainsMono Nerd Font complete family & ligatures",
-            default_enabled: true,
-        },
     ]
 }
 
@@ -137,7 +130,6 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "dev_runtimes" => dev_runtimes::setup(runner),
         "security" => security::setup(runner),
         "docker" => docker::setup(runner),
-        "fonts" => fonts::setup(runner),
         "prompt" => prompt::setup(runner),
         "trash" => trash::setup(runner),
         "tailscale" => tailscale::setup(runner, non_interactive),

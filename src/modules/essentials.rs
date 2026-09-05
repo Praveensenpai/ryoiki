@@ -5,8 +5,8 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
     runner.apt_update()?;
 
     runner.apt_install(
-        "Installing prerequisites (curl, wget, ca-certificates, gnupg, fontconfig)...",
-        &["curl", "wget", "ca-certificates", "gnupg", "fontconfig"],
+        "Installing prerequisites (curl, wget, ca-certificates, gnupg)...",
+        &["curl", "wget", "ca-certificates", "gnupg"],
     )?;
 
     runner.apt_install(
