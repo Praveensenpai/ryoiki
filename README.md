@@ -1,6 +1,17 @@
-# 領域 (Ryoiki)
+<div align="center">
 
-A minimalist, clutter-free, and aesthetic Ubuntu server provisioning orchestrator written in Rust.
+# 🌸 領域 (Ryoiki)
+
+**Minimalist, zero-clutter Ubuntu server provisioning orchestrator written in Rust.**
+
+[![Release](https://img.shields.io/github/v/release/Praveensenpai/ryoiki?style=flat-square&color=cba6f7)](https://github.com/Praveensenpai/ryoiki/releases/latest)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/Praveensenpai/ryoiki/ci.yml?branch=main&label=CI&style=flat-square&color=a6e3a1)](https://github.com/Praveensenpai/ryoiki/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-89b4fa?style=flat-square)](LICENSE)
+[![Rust: 2021](https://img.shields.io/badge/Rust-2021%20Edition-f38ba8?style=flat-square&logo=rust&logoColor=white)](Cargo.toml)
+[![Platform: Ubuntu](https://img.shields.io/badge/Platform-Ubuntu%20%7C%20Debian-fab387?style=flat-square&logo=ubuntu&logoColor=white)](https://ubuntu.com/)
+[![Arch: x86_64 | aarch64](https://img.shields.io/badge/Arch-x86__64%20%7C%20aarch64-94e2d5?style=flat-square)](https://github.com/Praveensenpai/ryoiki/releases)
+
+<br/>
 
 ```text
   ┌─────────────────────────────────────────────────────────────┐
@@ -19,80 +30,143 @@ A minimalist, clutter-free, and aesthetic Ubuntu server provisioning orchestrato
   [✓] 8. Prompt & Banner           Starship prompt & Fastfetch system stats
   [✓] 9. Trash Manager             toss-rs (FreeDesktop trash TUI & rm alias)
   [✓] 10. Aesthetic Dotfiles       Deploy embedded dotfiles (tmux, aliases)
+
+  [↑/↓/j/k] Navigate  [Space] Toggle  [a] All  [n] None  [Enter] Launch  [q] Quit
 ```
 
-## ✨ Highlights
-- 🔇 **Zero Visual Clutter**: Hides noisy `apt`, `dpkg`, and compiler scroll walls behind clean, single-line spinners. Full output is logged quietly to `~/.local/state/ryoiki/install.log`.
-- 🖥️ **Interactive Ratatui TUI**: Seamless keyboard checklist navigation (`j`/`k`, `Space` to toggle, `Enter` to run, `a` to select all).
-- 📦 **Zero-Clone Embedded Dotfiles**: All configurations (`.tmux.conf`, `.bash_aliases`, `starship.toml`) are compiled directly into the binary with `include_str!`.
-- ⚡ **Dual Architecture Releases**: Pre-compiled static binaries for both `x86_64` and `aarch64` (ARM / AWS Graviton / Raspberry Pi).
+</div>
 
 ---
 
-## 🚀 Quickstart (One-Liner Binary Install)
+## ⚡ Quickstart
 
-On any fresh Ubuntu server, run:
+Bootstrap any fresh Ubuntu / Debian server with a single command:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-install.sh | bash
 ```
 
-> **What this does:** Detects architecture (`x86_64` or `aarch64`), downloads the pre-built `ryoiki` release binary into `~/.local/bin/ryoiki`, and launches the interactive setup.
+> [!TIP]
+> **Zero build dependencies required:** The script automatically detects your CPU architecture (`x86_64` or `aarch64`), streams the pre-compiled standalone binary from the latest GitHub Release to `~/.local/bin/ryoiki`, and immediately boots into the interactive TUI.
 
 ---
 
-## 🛠️ CLI Usage & Flags
+## ✨ Features
+
+- 🔇 **Zero Visual Clutter** — Hides noisy `apt`, `dpkg`, and compiler scroll walls behind clean, single-line spinners. Full execution logs are saved quietly to `~/.local/state/ryoiki/install.log`.
+- 🖥️ **Interactive Ratatui TUI** — Lightweight, keyboard-driven terminal checklist. Effortlessly select exactly what you want installed.
+- ⏱️ **Granular Adaptive Timers** — Section, subsection, and overall total duration timings with dynamic unit formatting (`<1ms`, `420ms`, `12.4s`, `1m 24s`).
+- 📦 **Zero-Clone Embedded Dotfiles** — All configuration templates (`.tmux.conf`, `.bash_aliases`, `starship.toml`) are compiled directly into the binary with `include_str!`.
+- 🔤 **JetBrainsMono Nerd Font** — Automated download, extraction, and `fc-cache` fontconfig registration for crystal-clear terminal iconography.
+- 🛡️ **Hardened Server Security** — Automated UFW firewall configuration (SSH, HTTP, HTTPS) and Fail2Ban intrusion prevention.
+- 🚀 **Dual Architecture Releases** — Native static binaries built for both `x86_64` and `aarch64` (AWS Graviton, Ampere, Raspberry Pi).
+- 🦀 **Strict Rust Standards** — Built under strict quality gates: `<300` LOC per file, `<40` LOC per function, zero unhandled `unwrap()` calls, and zero Clippy warnings.
+
+---
+
+## 🧩 Provisioning Modules
+
+| # | Module | Identifier | Included Components & Configuration |
+|:---:|:---|:---|:---|
+| `01` | **Git & SSH Key** | `git_ssh` | Ed25519 SSH keypair generation, GitHub CLI association & connection test |
+| `02` | **System Essentials** | `essentials` | `git`, `tmux`, `neovim`, `curl`, `build-essential`, official GitHub CLI (`gh`) |
+| `03` | **Modern CLI Suite** | `cli_tools` | `eza` (modern ls), `bat` (cat with wings), `zoxide` (smart cd), `fzf`, `ble.sh` |
+| `04` | **Dev Runtimes** | `dev_runtimes` | Latest stable Go, Rust toolchain (`rustup`), Python (`uv`), JavaScript (`bun`) |
+| `05` | **Server Security** | `security` | UFW Firewall (ports 22, 80, 443) & Fail2Ban brute-force intrusion prevention |
+| `06` | **Docker Platform** | `docker` | Official Docker CE Engine, `containerd`, and Docker Compose v2 plugin |
+| `07` | **Nerd Fonts** | `fonts` | Complete JetBrainsMono Nerd Font family with ligatures & `fc-cache` index |
+| `08` | **Prompt & Banner** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch system stats |
+| `09` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
+| `10` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
+
+---
+
+## ⌨️ TUI Keybindings
+
+| Key | Action |
+|:---:|:---|
+| <kbd>↑</kbd> / <kbd>k</kbd> | Move selection up |
+| <kbd>↓</kbd> / <kbd>j</kbd> | Move selection down |
+| <kbd>Space</kbd> | Toggle selected module on/off |
+| <kbd>a</kbd> | Select all modules |
+| <kbd>n</kbd> | Deselect all modules |
+| <kbd>Enter</kbd> | Confirm selection and begin provisioning |
+| <kbd>q</kbd> / <kbd>Esc</kbd> | Cancel and exit |
+
+---
+
+## 🛠️ CLI Usage & Commands
 
 ```bash
-# Interactive TUI selection (default)
+# Launch interactive TUI checklist (default)
 ryoiki
 
-# Run all modules automatically without prompts
+# Run all modules automatically without prompts (ideal for headless setups)
 ryoiki --all
 
-# Audit system to check which tools are installed
+# Audit the host system and report which tools are installed
 ryoiki check
 
-# Deploy or update embedded dotfiles only
+# Deploy or update embedded dotfiles only (~/.tmux.conf, ~/.bash_aliases, starship.toml)
 ryoiki dotfiles
 
-# Dry-run simulation (prints actions without modifying system)
+# Dry-run simulation (prints all planned actions without modifying system state)
 ryoiki --dry-run
 
-# Run specific modules by ID
-ryoiki run dev_runtimes docker
+# Run specific modules by identifier
+ryoiki run dev_runtimes docker security
 ```
 
 ---
 
-## 📂 Repository Structure
+## 📂 Repository Layout
 
 ```text
 ryoiki/
+├── .github/
+│   ├── release.yml           # Categorized GitHub release changelog config
+│   └── workflows/
+│       ├── ci.yml            # Automated CI: fmt, clippy (-D warnings), test & line limits
+│       └── release.yml       # Multi-arch binary builder & publisher (x86_64 & aarch64)
+├── configs/                  # Embedded configuration templates
+│   ├── .tmux.conf            # 256-color, vi-keys, mouse-scrolling tmux config
+│   ├── .bash_aliases         # Modern tool aliases (eza, bat, toss) & PATH exports
+│   └── starship.toml         # Minimalist Catppuccin-styled prompt with Nerd Font glyphs
 ├── src/
-│   ├── main.rs           # CLI argument parsing, subcommands & coordinator
-│   ├── tui.rs            # Interactive Ratatui checklist interface
-│   ├── runner.rs         # Silent subprocess executor & spinners
-│   ├── configs.rs        # Embedded dotfiles deployment
-│   └── modules/          # Modular server setup components
-│       ├── git_ssh.rs    # Git global config & Ed25519 SSH setup
-│       ├── essentials.rs # git, tmux, neovim, GitHub CLI keyring
-│       ├── cli_tools.rs  # eza, bat, zoxide, fzf, ble.sh
-│       ├── dev_runtimes.rs # Go, Rustup, uv, Bun
-│       ├── security.rs   # UFW Firewall & Fail2Ban
-│       ├── docker.rs     # Docker CE & Docker Compose
-│       ├── fonts.rs      # JetBrainsMono Nerd Font & fontconfig
-│       ├── prompt.rs     # Starship prompt & Fastfetch banner
-│       └── trash.rs      # toss-rs installation
-├── configs/              # Source configuration dotfiles
-│   ├── .tmux.conf        # Mouse scrolling, 256 colors, vi mode
-│   ├── .bash_aliases     # Aliases & PATH for cargo/uv/bun/zoxide/toss
-│   └── starship.toml     # Minimal aesthetic prompt styling
-├── .github/workflows/
-│   └── release.yml       # Dual-architecture release workflow (x86_64 & aarch64)
-├── remote-install.sh     # One-liner remote binary bootstrapper
-└── install.sh            # Local runner (compiles and executes ryoiki)
+│   ├── main.rs               # CLI coordinator, argument parser & execution banner
+│   ├── modules.rs            # Module registry, sudo requirements & dispatcher
+│   ├── runner.rs             # Subprocess runner, elapsed timers & quiet output logging
+│   ├── tui.rs                # Ratatui interactive checklist interface
+│   ├── configs.rs            # Embedded dotfile deployment routines
+│   └── modules/              # Single-responsibility provisioning modules
+│       ├── cli_tools.rs      # eza, bat, zoxide, fzf, ble.sh
+│       ├── dev_runtimes.rs   # Go, Rustup, uv, Bun
+│       ├── docker.rs         # Docker Engine CE & Docker Compose
+│       ├── essentials.rs     # Base utilities & official GitHub CLI
+│       ├── fonts.rs          # JetBrainsMono Nerd Font & fontconfig
+│       ├── git_ssh.rs        # Git identity, Ed25519 SSH key & GitHub verification
+│       ├── prompt.rs         # Starship prompt & Fastfetch system stats
+│       ├── security.rs       # UFW firewall & Fail2Ban
+│       └── trash.rs          # toss-rs safe trash manager
+├── Cargo.toml                # Rust 2021 package manifest with strict lints
+├── remote-install.sh         # Instant remote bootstrap script (curl | bash)
+└── install.sh                # Local installer script
 ```
 
+---
+
+## 🛡️ Code Quality Standards
+
+The codebase enforces strict, automated quality rules checked via CI on every pull request:
+
+- **Strict File Limits**: Max 300 lines (soft) / 400 lines (hard gate).
+- **Strict Function Limits**: Max 40 lines (soft) / 60 lines (hard gate).
+- **Zero Unhandled Errors**: No raw `unwrap()` or `expect()` in production modules.
+- **Zero Warnings**: `-D warnings` on both `cargo build` and `cargo clippy --all-targets --all-features`.
+- **Modern Module Structure**: Clean 2018+ module tree (`src/modules.rs` with `src/modules/*.rs`).
+
+---
+
 ## 📜 License
+
 Distributed under the [MIT License](LICENSE).
