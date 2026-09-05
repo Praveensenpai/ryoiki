@@ -18,9 +18,12 @@ else
     echo "==> Rust is already installed."
 fi
 
-# Source cargo environment for this script
+# Source cargo environment for this script and ensure it is in ~/.bashrc
 if [ -f "$HOME/.cargo/env" ]; then
     source "$HOME/.cargo/env"
+    if ! grep -q "cargo/env" "$HOME/.bashrc"; then
+        echo 'source "$HOME/.cargo/env"' >> "$HOME/.bashrc"
+    fi
 fi
 
 # 3. uv (Python package & project manager)
