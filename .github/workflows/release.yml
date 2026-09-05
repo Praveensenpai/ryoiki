@@ -71,5 +71,15 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: 領域 (Ryoiki) ${{ github.ref_name }}
           files: artifacts/*.tar.gz
           generate_release_notes: true
+          append_body: true
+          body: |
+            > [!TIP]
+            > ### Quick Remote Installation
+            > ```bash
+            > curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-install.sh | bash
+            > ```
+            > - **Standard 64-bit Servers (Intel / AMD)**: `ryoiki-x86_64-unknown-linux-gnu.tar.gz`
+            > - **ARM64 Servers (AWS Graviton, Ampere, Raspberry Pi)**: `ryoiki-aarch64-unknown-linux-gnu.tar.gz`

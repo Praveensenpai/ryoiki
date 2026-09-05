@@ -1,0 +1,24 @@
+changelog:
+  categories:
+    - title: "### ✨ New Features"
+      labels:
+        - "feature"
+        - "enhancement"
+        - "feat"
+    - title: "### 🚀 Improvements"
+      labels:
+        - "improvement"
+        - "perf"
+        - "performance"
+        - "refactor"
+    - title: "### ⚙️ Changes"
+      labels:
+        - "change"
+        - "chore"
+        - "dependencies"
+        - "docs"
+    - title: "### 🧩 Fixes"
+      labels:
+        - "fix"
+        - "bug"
+        - "bugfix"
