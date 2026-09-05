@@ -1,8 +1,8 @@
-use anyhow::Result;
 use crate::runner::Runner;
+use anyhow::Result;
 
 pub fn setup(runner: &mut Runner) -> Result<()> {
-    if runner.command_exists("toss") {
+    if Runner::command_exists("toss") {
         println!("  toss is already installed.");
         return Ok(());
     }

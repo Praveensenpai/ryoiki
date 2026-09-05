@@ -1,8 +1,8 @@
-use anyhow::Result;
 use crate::runner::Runner;
+use anyhow::Result;
 
 pub fn setup(runner: &mut Runner) -> Result<()> {
-    if runner.command_exists("docker") {
+    if Runner::command_exists("docker") {
         println!("  Docker is already installed.");
         return Ok(());
     }

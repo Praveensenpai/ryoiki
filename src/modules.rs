@@ -1,18 +1,19 @@
-pub mod git_ssh;
-pub mod essentials;
 pub mod cli_tools;
 pub mod dev_runtimes;
-pub mod security;
 pub mod docker;
-pub mod prompt;
-pub mod trash;
+pub mod essentials;
 pub mod fonts;
+pub mod git_ssh;
+pub mod prompt;
+pub mod security;
+pub mod trash;
 
-use anyhow::Result;
-use colored::*;
 use crate::configs;
 use crate::runner::Runner;
+use anyhow::Result;
+use colored::Colorize;
 
+/// Metadata describing an installable setup module.
 #[derive(Clone, Debug)]
 pub struct Module {
     pub id: &'static str,
@@ -21,13 +22,17 @@ pub struct Module {
     pub default_enabled: bool,
 }
 
+/// Checks if any of the selected module IDs require root (sudo) privileges.
 pub fn requires_sudo(modules: &[String]) -> bool {
-    modules.iter().any(|m| match m.as_str() {
-        "essentials" | "cli_tools" | "dev_runtimes" | "security" | "docker" | "prompt" => true,
-        _ => false,
+    modules.iter().any(|m| {
+        matches!(
+            m.as_str(),
+            "essentials" | "cli_tools" | "dev_runtimes" | "security" | "docker" | "prompt"
+        )
     })
 }
 
+/// Returns the registry of all available provisioning modules in execution order.
 pub fn get_available_modules() -> Vec<Module> {
     vec![
         Module {
@@ -93,6 +98,7 @@ pub fn get_available_modules() -> Vec<Module> {
     ]
 }
 
+/// Dispatches and executes a selected module by its unique identifier.
 pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: bool) -> Result<()> {
     match module_id {
         "git_ssh" => git_ssh::setup(runner, non_interactive),
@@ -107,7 +113,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "dotfiles" => {
             let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
             if runner.dry_run {
-                println!("  {} [dry-run] Deploying dotfiles to {}", "•".dimmed(), home);
+                println!("  {} [dry-run] Deploying dotfiles to {home}", "•".dimmed());
             } else {
                 let start = std::time::Instant::now();
                 configs::deploy_dotfiles(&home)?;
@@ -115,7 +121,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
                 println!(
                     "  {} Dotfiles deployed (~/.tmux.conf, ~/.bash_aliases, starship.toml) {}",
                     "✔".green().bold(),
-                    format!("({})", elapsed).dimmed()
+                    format!("({elapsed})").dimmed()
                 );
             }
             Ok(())

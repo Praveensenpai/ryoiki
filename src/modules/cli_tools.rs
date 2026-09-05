@@ -1,7 +1,8 @@
-use std::fs;
-use std::path::Path;
-use anyhow::Result;
 use crate::runner::Runner;
+use anyhow::Result;
+use std::fs;
+use std::io::Write;
+use std::path::Path;
 
 pub fn setup(runner: &mut Runner) -> Result<()> {
     runner.apt_install(
@@ -10,7 +11,7 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
     )?;
 
     // Fix batcat -> bat symlink on Ubuntu if needed
-    if runner.command_exists("batcat") && !runner.command_exists("bat") {
+    if Runner::command_exists("batcat") && !Runner::command_exists("bat") {
         runner.exec_silent(
             "Linking bat -> batcat...",
             "sudo",
@@ -35,7 +36,6 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
         let bashrc = fs::read_to_string(&bashrc_path).unwrap_or_default();
         if !bashrc.contains("blesh/ble.sh") {
             let mut file = fs::OpenOptions::new().append(true).open(&bashrc_path)?;
-            use std::io::Write;
             file.write_all(b"\n# ble.sh (Bash Line Editor)\n[[ $- == *i* ]] && source ~/.local/share/blesh/ble.sh --attach=none\n[[ ${BLE_VERSION-} ]] && ble-attach\n")?;
         }
     }

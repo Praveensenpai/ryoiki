@@ -1,6 +1,7 @@
-use std::fs;
-use std::path::Path;
 use anyhow::{Context, Result};
+use std::fs;
+use std::io::Write;
+use std::path::Path;
 
 pub const TMUX_CONF: &str = include_str!("../configs/.tmux.conf");
 pub const BASH_ALIASES: &str = include_str!("../configs/.bash_aliases");
@@ -10,8 +11,7 @@ pub fn deploy_dotfiles(home: &str) -> Result<()> {
     let home_path = Path::new(home);
 
     // 1. ~/.tmux.conf
-    fs::write(home_path.join(".tmux.conf"), TMUX_CONF)
-        .context("Failed to write ~/.tmux.conf")?;
+    fs::write(home_path.join(".tmux.conf"), TMUX_CONF).context("Failed to write ~/.tmux.conf")?;
 
     // 2. ~/.bash_aliases
     fs::write(home_path.join(".bash_aliases"), BASH_ALIASES)
@@ -42,7 +42,6 @@ pub fn deploy_dotfiles(home: &str) -> Result<()> {
                 .append(true)
                 .open(&bashrc_path)
                 .context("Failed to open ~/.bashrc for appending")?;
-            use std::io::Write;
             file.write_all(to_append.as_bytes())?;
         }
     }

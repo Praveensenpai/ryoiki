@@ -1,7 +1,8 @@
-use std::fs;
-use std::path::Path;
-use anyhow::Result;
 use crate::runner::Runner;
+use anyhow::Result;
+use std::fs;
+use std::io::Write;
+use std::path::Path;
 
 pub fn setup(runner: &mut Runner) -> Result<()> {
     // 1. Golang, build essentials, unzip
@@ -11,7 +12,7 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
     )?;
 
     // 2. Rust via rustup
-    if !runner.command_exists("rustc") {
+    if !Runner::command_exists("rustc") {
         runner.exec_bash(
             "Installing Rust toolchain (rustup)...",
             "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path",
@@ -24,13 +25,12 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
         let bashrc = fs::read_to_string(&bashrc_path).unwrap_or_default();
         if !bashrc.contains("cargo/env") {
             let mut file = fs::OpenOptions::new().append(true).open(&bashrc_path)?;
-            use std::io::Write;
             file.write_all(b"\n# Cargo environment\n[ -f \"$HOME/.cargo/env\" ] && source \"$HOME/.cargo/env\"\n")?;
         }
     }
 
     // 3. uv (Astral Python package manager)
-    if !runner.command_exists("uv") {
+    if !Runner::command_exists("uv") {
         runner.exec_bash(
             "Installing uv (Python package manager)...",
             "curl -LsSf https://astral.sh/uv/install.sh | sh",
@@ -38,7 +38,7 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
     }
 
     // 4. Bun (JavaScript/TypeScript runtime)
-    if !runner.command_exists("bun") {
+    if !Runner::command_exists("bun") {
         runner.exec_bash(
             "Installing Bun runtime & toolkit...",
             "curl -fsSL https://bun.sh/install | bash",

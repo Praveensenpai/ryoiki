@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::runner::Runner;
+use anyhow::Result;
 
 pub fn setup(runner: &mut Runner) -> Result<()> {
     runner.apt_update()?;
@@ -14,7 +14,7 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
         &["git", "tmux", "neovim"],
     )?;
 
-    if !runner.command_exists("gh") {
+    if !Runner::command_exists("gh") {
         runner.exec_bash(
             "Setting up official GitHub CLI (gh) repository...",
             r#"

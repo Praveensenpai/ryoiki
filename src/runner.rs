@@ -1,12 +1,13 @@
+use anyhow::{bail, Context, Result};
+use colored::Colorize;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
-use anyhow::{bail, Context, Result};
-use colored::*;
-use indicatif::{ProgressBar, ProgressStyle};
 
+/// Formats a time duration into a compact, human-readable string.
 pub fn format_duration(d: Duration) -> String {
     let millis = d.as_millis();
     if millis == 0 {
@@ -16,7 +17,7 @@ pub fn format_duration(d: Duration) -> String {
     } else {
         let total_secs = d.as_secs_f64();
         if total_secs < 60.0 {
-            format!("{:.1}s", total_secs)
+            format!("{total_secs:.1}s")
         } else {
             let mins = d.as_secs() / 60;
             let secs = d.as_secs() % 60;
@@ -29,6 +30,7 @@ pub fn format_duration(d: Duration) -> String {
     }
 }
 
+/// Orchestrates command execution, process tracking, and debug logging.
 pub struct Runner {
     pub log_path: PathBuf,
     pub log_file: File,
@@ -37,10 +39,12 @@ pub struct Runner {
 }
 
 impl Runner {
+    /// Creates a new Runner instance and initializes the persistent execution log.
     pub fn new(dry_run: bool, verbose: bool) -> Result<Self> {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
         let state_dir = Path::new(&home).join(".local/state/ryoiki");
-        fs::create_dir_all(&state_dir).context("Failed to create log directory ~/.local/state/ryoiki")?;
+        fs::create_dir_all(&state_dir)
+            .context("Failed to create log directory ~/.local/state/ryoiki")?;
 
         let log_path = state_dir.join("install.log");
         let log_file = OpenOptions::new()
@@ -58,7 +62,8 @@ impl Runner {
         })
     }
 
-    pub fn command_exists(&self, cmd: &str) -> bool {
+    /// Checks if a given command executable exists in PATH or at an absolute path.
+    pub fn command_exists(cmd: &str) -> bool {
         if let Ok(paths) = std::env::var("PATH") {
             for path in std::env::split_paths(&paths) {
                 let full = path.join(cmd);
@@ -70,6 +75,7 @@ impl Runner {
         Path::new(cmd).exists()
     }
 
+    /// Authenticates sudo privileges upfront if not already cached and keeps them alive in a background thread.
     pub fn ensure_sudo(&self) -> Result<()> {
         if self.dry_run {
             return Ok(());
@@ -83,11 +89,13 @@ impl Runner {
         let is_cached = Command::new("sudo")
             .args(["-n", "true"])
             .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false);
+            .is_ok_and(|o| o.status.success());
 
         if !is_cached {
-            println!("  {} Sudo credentials required for server setup.", "🔒".bold());
+            println!(
+                "  {} Sudo credentials required for server setup.",
+                "🔒".bold()
+            );
             let status = Command::new("sudo")
                 .arg("-v")
                 .stdin(Stdio::inherit())
@@ -103,21 +111,20 @@ impl Runner {
         }
 
         // Keep sudo timestamp alive in the background while ryoiki is executing
-        std::thread::spawn(|| {
-            loop {
-                std::thread::sleep(Duration::from_secs(60));
-                let _ = Command::new("sudo")
-                    .args(["-v"])
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .status();
-            }
+        std::thread::spawn(|| loop {
+            std::thread::sleep(Duration::from_secs(60));
+            let _ = Command::new("sudo")
+                .args(["-v"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
         });
 
         Ok(())
     }
 
-    pub fn create_spinner(&self, message: &str) -> ProgressBar {
+    /// Creates an aesthetic single-line terminal progress spinner with cyan accents.
+    pub fn create_spinner(message: &str) -> ProgressBar {
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(80));
         pb.set_style(
@@ -130,14 +137,20 @@ impl Runner {
         pb
     }
 
+    /// Silently executes a subprocess command while displaying a spinner, logging all stdout/stderr.
     pub fn exec_silent(&mut self, desc: &str, program: &str, args: &[&str]) -> Result<()> {
         if self.dry_run {
-            println!("  {} [dry-run] {} {}", "•".dimmed(), program, args.join(" "));
+            println!(
+                "  {} [dry-run] {} {}",
+                "•".dimmed(),
+                program,
+                args.join(" ")
+            );
             return Ok(());
         }
 
         let start = std::time::Instant::now();
-        let pb = self.create_spinner(desc);
+        let pb = Self::create_spinner(desc);
 
         let mut child = Command::new(program)
             .args(args)
@@ -146,8 +159,8 @@ impl Runner {
             .spawn()
             .with_context(|| format!("Failed to spawn command: {program}"))?;
 
-        let mut stdout = child.stdout.take().unwrap();
-        let mut stderr = child.stderr.take().unwrap();
+        let mut stdout = child.stdout.take().context("Failed to capture stdout")?;
+        let mut stderr = child.stderr.take().context("Failed to capture stderr")?;
 
         let mut out_buf = Vec::new();
         let mut err_buf = Vec::new();
@@ -159,7 +172,12 @@ impl Runner {
         let elapsed = format_duration(start.elapsed());
 
         // Log everything
-        let _ = writeln!(self.log_file, "\n--- COMMAND: {} {} ---", program, args.join(" "));
+        let _ = writeln!(
+            self.log_file,
+            "\n--- COMMAND: {} {} ---",
+            program,
+            args.join(" ")
+        );
         let _ = self.log_file.write_all(&out_buf);
         let _ = self.log_file.write_all(&err_buf);
         let _ = self.log_file.flush();
@@ -171,32 +189,52 @@ impl Runner {
 
         if status.success() {
             pb.finish_and_clear();
-            println!("  {} {} {}", "✔".green().bold(), desc, format!("({})", elapsed).dimmed());
+            println!(
+                "  {} {} {}",
+                "✔".green().bold(),
+                desc,
+                format!("({elapsed})").dimmed()
+            );
             Ok(())
         } else {
             pb.finish_and_clear();
-            eprintln!("  {} {} {}", "✖".red().bold(), desc, format!("({})", elapsed).dimmed());
+            eprintln!(
+                "  {} {} {}",
+                "✖".red().bold(),
+                desc,
+                format!("({elapsed})").dimmed()
+            );
             let last_error = String::from_utf8_lossy(&err_buf);
             let summary = last_error.lines().rev().take(5).collect::<Vec<_>>();
             if !summary.is_empty() {
                 eprintln!("    {}", summary.join("\n    ").dimmed());
             }
-            eprintln!("    See full logs: {}", self.log_path.display().to_string().cyan());
+            eprintln!(
+                "    See full logs: {}",
+                self.log_path.display().to_string().cyan()
+            );
             bail!("Command failed with exit code: {:?}", status.code());
         }
     }
 
+    /// Executes a bash command string with silent progress feedback and logging.
     pub fn exec_bash(&mut self, desc: &str, script: &str) -> Result<()> {
         self.exec_silent(desc, "bash", &["-c", script])
     }
 
+    /// Installs APT packages non-interactively via sudo apt-get install.
     pub fn apt_install(&mut self, desc: &str, packages: &[&str]) -> Result<()> {
         let mut args = vec!["apt-get", "install", "-y", "--no-install-recommends"];
         args.extend(packages);
         self.exec_silent(desc, "sudo", &args)
     }
 
+    /// Updates APT repository package indices.
     pub fn apt_update(&mut self) -> Result<()> {
-        self.exec_silent("Updating APT package lists...", "sudo", &["apt-get", "update", "-y"])
+        self.exec_silent(
+            "Updating APT package lists...",
+            "sudo",
+            &["apt-get", "update", "-y"],
+        )
     }
 }

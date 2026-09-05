@@ -3,13 +3,15 @@ mod modules;
 mod runner;
 mod tui;
 
-use std::io::IsTerminal;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use colored::*;
+use colored::Colorize;
 use modules::{execute_module, get_available_modules};
 use runner::Runner;
+use std::io::IsTerminal;
 
+// reason: CLI flag structure defined by clap command line interface
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Parser)]
 #[command(name = "ryoiki")]
 #[command(author = "Praveensenpai <pvnt20@gmail.com>")]
@@ -38,7 +40,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Deploy only embedded dotfiles (~/.tmux.conf, ~/.bash_aliases, starship.toml)
+    /// Deploy only embedded dotfiles (`~/.tmux.conf`, `~/.bash_aliases`, `starship.toml`)
     Dotfiles,
     /// Inspect current system status (check installed tools)
     Check,
@@ -62,11 +64,15 @@ fn main() -> Result<()> {
                 let start = std::time::Instant::now();
                 configs::deploy_dotfiles(&home)?;
                 let dur = runner::format_duration(start.elapsed());
-                println!("  {} Dotfiles deployed successfully to {} ({})", "✔".green().bold(), home.cyan(), dur.dimmed());
+                println!(
+                    "  {} Dotfiles deployed successfully to {} ({dur})",
+                    "✔".green().bold(),
+                    home.cyan()
+                );
                 return Ok(());
             }
             Commands::Check => {
-                run_system_check(&runner);
+                run_system_check();
                 return Ok(());
             }
             Commands::Run { modules } => {
@@ -83,15 +89,16 @@ fn main() -> Result<()> {
     let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();
 
     let chosen_modules = if non_interactive {
-        get_available_modules().into_iter().map(|m| m.id.to_string()).collect()
+        get_available_modules()
+            .into_iter()
+            .map(|m| m.id.to_string())
+            .collect()
     } else {
-        match tui::select_modules()? {
-            Some(mods) => mods,
-            None => {
-                println!("\n  {} Setup cancelled.", "•".dimmed());
-                return Ok(());
-            }
-        }
+        let Some(mods) = tui::select_modules()? else {
+            println!("\n  {} Setup cancelled.", "•".dimmed());
+            return Ok(());
+        };
+        mods
     };
 
     if chosen_modules.is_empty() {
@@ -103,7 +110,11 @@ fn main() -> Result<()> {
         runner.ensure_sudo()?;
     }
 
-    println!("\n  {} Running {} selected modules...\n", "▶".cyan().bold(), chosen_modules.len());
+    println!(
+        "\n  {} Running {} selected modules...\n",
+        "▶".cyan().bold(),
+        chosen_modules.len()
+    );
 
     let (total_dur, timings) = run_modules(&chosen_modules, &mut runner, non_interactive)?;
     print_summary(&chosen_modules, total_dur, &timings);
@@ -112,7 +123,11 @@ fn main() -> Result<()> {
 }
 
 fn print_banner() {
-    println!("\n  {} {}", "領域".cyan().bold(), "Ryoiki Server Setup".bold());
+    println!(
+        "\n  {} {}",
+        "領域".cyan().bold(),
+        "Ryoiki Server Setup".bold()
+    );
     println!("  {}\n", "─".repeat(42).dimmed());
 }
 
@@ -132,8 +147,9 @@ fn run_modules(
             let mod_start = std::time::Instant::now();
             execute_module(id, runner, non_interactive)?;
             let mod_dur = mod_start.elapsed();
+            let mod_dur_str = runner::format_duration(mod_dur);
             timings.push((meta.title.to_string(), mod_dur));
-            println!("  {}", format!("── completed in {} ──", runner::format_duration(mod_dur)).dimmed());
+            println!("  {}", format!("── completed in {mod_dur_str} ──").dimmed());
             println!();
         }
     }
@@ -147,7 +163,7 @@ fn print_summary(
     timings: &[(String, std::time::Duration)],
 ) {
     let total_str = runner::format_duration(total_duration);
-    let title_line = format!("✨ 領域 (Ryoiki) Server Setup Complete in {}!", total_str);
+    let title_line = format!("✨ 領域 (Ryoiki) Server Setup Complete in {total_str}!");
     let border_len = (title_line.chars().count() + 6).max(52);
     let border = "─".repeat(border_len);
 
@@ -164,27 +180,48 @@ fn print_summary(
         println!();
     }
 
-    if module_ids.iter().any(|m| m == "dotfiles" || m == "cli_tools" || m == "trash") {
-        println!("  • {} eza (ls) • bat (cat) • zoxide (cd) • toss (rm)", "Aliases: ".dimmed());
+    if module_ids
+        .iter()
+        .any(|m| m == "dotfiles" || m == "cli_tools" || m == "trash")
+    {
+        println!(
+            "  • {} eza (ls) • bat (cat) • zoxide (cd) • toss (rm)",
+            "Aliases: ".dimmed()
+        );
     }
     if module_ids.iter().any(|m| m == "dev_runtimes") {
-        println!("  • {} Go • Rust (cargo) • Python (uv) • JavaScript (bun)", "Runtimes:".dimmed());
+        println!(
+            "  • {} Go • Rust (cargo) • Python (uv) • JavaScript (bun)",
+            "Runtimes:".dimmed()
+        );
     }
     if module_ids.iter().any(|m| m == "security") {
-        println!("  • {} UFW (22, 80, 443) • Fail2Ban guard active", "Security:".dimmed());
+        println!(
+            "  • {} UFW (22, 80, 443) • Fail2Ban guard active",
+            "Security:".dimmed()
+        );
     }
     if module_ids.iter().any(|m| m == "docker") {
-        println!("  • {} Docker Engine & Docker Compose plugin active", "Docker:  ".dimmed());
+        println!(
+            "  • {} Docker Engine & Docker Compose plugin active",
+            "Docker:  ".dimmed()
+        );
     }
     if module_ids.iter().any(|m| m == "fonts") {
-        println!("  • {} JetBrainsMono Nerd Font (~/.local/share/fonts)", "Fonts:   ".dimmed());
+        println!(
+            "  • {} JetBrainsMono Nerd Font (~/.local/share/fonts)",
+            "Fonts:   ".dimmed()
+        );
     }
 
-    println!("  • {} Log saved to ~/.local/state/ryoiki/install.log", "Debug:   ".dimmed());
+    println!(
+        "  • {} Log saved to ~/.local/state/ryoiki/install.log",
+        "Debug:   ".dimmed()
+    );
     println!("  {}\n", border.dimmed());
 }
 
-fn run_system_check(runner: &Runner) {
+fn run_system_check() {
     let tools = [
         ("git", "Git VCS"),
         ("tmux", "Tmux Terminal Multiplexer"),
@@ -207,13 +244,13 @@ fn run_system_check(runner: &Runner) {
 
     println!("  {} System Tool Audit:\n", "🔍".bold());
     for (cmd, desc) in tools {
-        let exists = runner.command_exists(cmd);
+        let exists = Runner::command_exists(cmd);
         let status = if exists {
             "✔ installed".green().bold()
         } else {
             "✖ missing".red().dimmed()
         };
-        println!("    {:<12} {:<32} {}", cmd.bold(), desc.dimmed(), status);
+        println!("    {cmd:<12} {desc:<32} {status}");
     }
     println!();
 }
