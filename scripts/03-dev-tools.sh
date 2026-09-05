@@ -5,10 +5,10 @@ echo "=========================================="
 echo "  Installing Dev Runtimes & Package Tools "
 echo "=========================================="
 
-# 1. Golang
-echo "==> Installing Golang..."
+# 1. Golang & Prerequisites
+echo "==> Installing Golang, build essentials, and unzip..."
 sudo apt-get update
-sudo apt-get install -y golang-go build-essential
+sudo apt-get install -y golang-go build-essential unzip
 
 # 2. Rust (via official rustup)
 if ! command -v rustc &>/dev/null; then
@@ -34,10 +34,19 @@ else
     echo "==> uv is already installed."
 fi
 
-export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+# 4. Bun (JavaScript & TypeScript runtime and toolkit)
+if ! command -v bun &>/dev/null; then
+    echo "==> Installing Bun..."
+    curl -fsSL https://bun.sh/install | bash
+else
+    echo "==> Bun is already installed."
+fi
+
+export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$HOME/.bun/bin:$PATH"
 
 echo "==> Dev tools installed successfully:"
 go version
 rustc --version
 cargo --version
 uv --version
+bun --version

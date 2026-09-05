@@ -2,7 +2,7 @@
 #  領域 (Ryoiki) - Bash Aliases
 # ==============================================================================
 
-# Environment paths (Cargo for Rust, ~/.local/bin for uv & toss)
+# Environment paths (Cargo for Rust, ~/.local/bin for uv & toss, ~/.bun/bin for Bun)
 case ":$PATH:" in
     *":$HOME/.cargo/bin:"*) ;;
     *) export PATH="$HOME/.cargo/bin:$PATH" ;;
@@ -10,6 +10,10 @@ esac
 case ":$PATH:" in
     *":$HOME/.local/bin:"*) ;;
     *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+case ":$PATH:" in
+    *":$HOME/.bun/bin:"*) ;;
+    *) export PATH="$HOME/.bun/bin:$PATH" ;;
 esac
 
 # Replace ls with eza
