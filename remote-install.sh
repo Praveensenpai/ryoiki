@@ -77,11 +77,15 @@ if [ -z "${TAG:-}" ]; then
     install -m 755 target/release/ryoiki "$INSTALL_DIR/$BINARY"
 fi
 
-# Ensure ~/.local/bin is in PATH for this session
+# Ensure ~/.local/bin is in PATH for this session and persistent in ~/.bashrc
 case ":$PATH:" in
     *":$INSTALL_DIR:"*) ;;
     *) export PATH="$INSTALL_DIR:$PATH" ;;
 esac
+
+if [ -f "$HOME/.bashrc" ] && ! grep -q '\.local/bin' "$HOME/.bashrc"; then
+    printf '\n# User local binaries\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$HOME/.bashrc"
+fi
 
 # 3. Authenticate sudo upfront if needed
 if [ "${EUID:-$(id -u)}" -ne 0 ]; then
@@ -93,6 +97,13 @@ if [ "${EUID:-$(id -u)}" -ne 0 ]; then
             sudo -v
         fi
     fi
+fi
+
+# Symlink to /usr/local/bin so ryoiki is globally available in every shell
+if command -v sudo &>/dev/null && sudo -n true 2>/dev/null; then
+    sudo ln -sf "$INSTALL_DIR/$BINARY" "/usr/local/bin/$BINARY" 2>/dev/null || true
+elif [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    ln -sf "$INSTALL_DIR/$BINARY" "/usr/local/bin/$BINARY" 2>/dev/null || true
 fi
 
 # 4. Launch ryoiki with terminal input attached
