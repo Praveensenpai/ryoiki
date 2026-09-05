@@ -3,6 +3,7 @@ pub mod dev_runtimes;
 pub mod docker;
 pub mod essentials;
 pub mod git_ssh;
+pub mod jellyfin;
 pub mod prompt;
 pub mod security;
 pub mod tailscale;
@@ -32,6 +33,7 @@ pub fn requires_sudo(modules: &[String]) -> bool {
                 | "dev_runtimes"
                 | "security"
                 | "docker"
+                | "jellyfin"
                 | "prompt"
                 | "tailscale"
         )
@@ -89,6 +91,12 @@ fn platform_modules() -> Vec<Module> {
             description: "Docker Engine CE & Docker Compose plugin",
             default_enabled: true,
         },
+        Module {
+            id: "jellyfin",
+            title: "Jellyfin Media Server",
+            description: "Dockerized media streaming with Intel QuickSync / VAAPI GPU",
+            default_enabled: false,
+        },
     ]
 }
 
@@ -130,6 +138,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "dev_runtimes" => dev_runtimes::setup(runner),
         "security" => security::setup(runner),
         "docker" => docker::setup(runner),
+        "jellyfin" => jellyfin::setup(runner),
         "prompt" => prompt::setup(runner),
         "trash" => trash::setup(runner),
         "tailscale" => tailscale::setup(runner, non_interactive),

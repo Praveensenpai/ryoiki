@@ -26,10 +26,11 @@ Select modules to install: (Space to toggle, Enter to run)
   [✓]  4. Dev Runtimes               Go, Rust (rustup), Python (uv), Bun
   [✓]  5. Server Security            UFW Firewall & Fail2Ban brute-force guard
   [✓]  6. Docker Platform            Docker Engine CE & Docker Compose plugin
-  [✓]  7. Shell Prompt               Starship cross-shell prompt & Fastfetch CLI
-  [✓]  8. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
-  [✓]  9. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
-  [✓] 10. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
+  [ ]  7. Jellyfin Media Server      Dockerized media streaming with Intel GPU
+  [✓]  8. Shell Prompt               Starship cross-shell prompt & Fastfetch CLI
+  [✓]  9. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
+  [✓] 10. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
+  [✓] 11. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
 
   [↑/↓/j/k] Navigate   [Space] Toggle   [a] All   [n] None   [Enter] Launch   [q] Quit
 ```
@@ -56,6 +57,7 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 - 🌐 **Tailscale & MagicDNS** — Built-in WireGuard mesh. Connect via `ssh user@hostname` from anywhere without static IPs, port forwarding, or firewall holes.
 - ⏱️ **Granular Adaptive Timers** — Section, subsection, and overall total duration timings with dynamic unit formatting (`<1ms`, `420ms`, `12.4s`, `1m 24s`).
 - 📦 **Zero-Clone Embedded Dotfiles** — All configuration templates (`.tmux.conf`, `.bash_aliases`, `starship.toml`) are compiled directly into the binary with `include_str!`.
+- 🎬 **Jellyfin Media Server** — Turn your server into a personal Netflix with automated Docker Compose deployment and Intel QuickSync (QSV) hardware transcoding.
 - 🛡️ **Hardened Server Security** — Automated UFW firewall configuration (SSH, HTTP, HTTPS) and Fail2Ban intrusion prevention.
 - 🚀 **Dual Architecture Releases** — Native static binaries built for both `x86_64` and `aarch64` (AWS Graviton, Ampere, Raspberry Pi).
 - 🦀 **Strict Rust Standards** — Built under strict quality gates: `<300` LOC per file, `<40` LOC per function, zero unhandled `unwrap()` calls, and zero Clippy warnings.
@@ -72,10 +74,11 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 | `04` | **Dev Runtimes** | `dev_runtimes` | Latest stable Go, Rust toolchain (`rustup`), Python (`uv`), JavaScript (`bun`) |
 | `05` | **Server Security** | `security` | UFW Firewall (ports 22, 80, 443) & Fail2Ban brute-force intrusion prevention |
 | `06` | **Docker Platform** | `docker` | Official Docker CE Engine, `containerd`, and Docker Compose v2 plugin |
-| `07` | **Shell Prompt** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch CLI |
-| `08` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
-| `09` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
-| `10` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
+| `07` | **Jellyfin Media Server** | `jellyfin` | Dockerized media streaming with Intel QuickSync / VAAPI GPU acceleration (Optional) |
+| `08` | **Shell Prompt** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch CLI |
+| `09` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
+| `10` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
+| `11` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
 
 ---
 
@@ -142,6 +145,7 @@ ryoiki/
 │       ├── docker.rs         # Docker Engine CE & Docker Compose
 │       ├── essentials.rs     # Base utilities & official GitHub CLI
 │       ├── git_ssh.rs        # Git identity, Ed25519 SSH key & GitHub verification
+│       ├── jellyfin.rs       # Jellyfin media server & Intel QuickSync GPU
 │       ├── prompt.rs         # Starship prompt & Fastfetch system stats
 │       ├── security.rs       # UFW firewall & Fail2Ban
 │       ├── tailscale.rs      # Tailscale WireGuard mesh VPN & MagicDNS

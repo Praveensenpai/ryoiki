@@ -15,7 +15,7 @@ use std::io::IsTerminal;
 #[derive(Parser)]
 #[command(name = "ryoiki")]
 #[command(author = "Praveensenpai <pvnt20@gmail.com>")]
-#[command(version = "0.1.7")]
+#[command(version = "0.1.8")]
 #[command(about = "Aesthetic, zero-clutter Ubuntu server provisioning orchestrator", long_about = None)]
 struct Cli {
     /// Install all modules without interactive prompt
@@ -231,6 +231,12 @@ fn print_infra_highlights(module_ids: &[String]) {
         println!(
             "  • {} Docker Engine & Docker Compose plugin active",
             "Docker:  ".dimmed()
+        );
+    }
+    if module_ids.iter().any(|m| m == "jellyfin") {
+        println!(
+            "  • {} Jellyfin live on port 8096 (Intel QSV enabled)",
+            "Media:   ".dimmed()
         );
     }
     if module_ids.iter().any(|m| m == "tailscale") {
