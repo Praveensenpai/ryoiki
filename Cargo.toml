@@ -1,6 +1,6 @@
 [package]
 name = "ryoiki"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Praveensenpai <pvnt20@gmail.com>"]
 description = "Aesthetic, zero-clutter Ubuntu server provisioning orchestrator"
@@ -14,6 +14,7 @@ colored = "2.1"
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+libc = "0.2"
 
 [profile.release]
 opt-level = 3

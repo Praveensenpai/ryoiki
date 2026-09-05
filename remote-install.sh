@@ -83,7 +83,19 @@ case ":$PATH:" in
     *) export PATH="$INSTALL_DIR:$PATH" ;;
 esac
 
-# 3. Launch ryoiki with terminal input attached
+# 3. Authenticate sudo upfront if needed
+if [ "${EUID:-$(id -u)}" -ne 0 ]; then
+    if ! sudo -n true 2>/dev/null; then
+        echo "==> Sudo privileges required for server provisioning. Please authenticate:"
+        if [ -c /dev/tty ]; then
+            sudo -v < /dev/tty
+        else
+            sudo -v
+        fi
+    fi
+fi
+
+# 4. Launch ryoiki with terminal input attached
 if [ -c /dev/tty ]; then
     exec "$INSTALL_DIR/$BINARY" "$@" < /dev/tty
 else

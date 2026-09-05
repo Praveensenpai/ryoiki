@@ -13,7 +13,7 @@ use runner::Runner;
 #[derive(Parser)]
 #[command(name = "ryoiki")]
 #[command(author = "Praveensenpai <pvnt20@gmail.com>")]
-#[command(version = "0.1.1")]
+#[command(version = "0.1.2")]
 #[command(about = "Aesthetic, zero-clutter Ubuntu server provisioning orchestrator", long_about = None)]
 struct Cli {
     /// Install all modules without interactive prompt
@@ -68,6 +68,7 @@ fn main() -> Result<()> {
                 return Ok(());
             }
             Commands::Run { modules } => {
+                runner.ensure_sudo()?;
                 run_modules(&modules, &mut runner, cli.yes)?;
                 print_summary(&modules);
                 return Ok(());
@@ -93,6 +94,8 @@ fn main() -> Result<()> {
         println!("\n  {} No modules selected.", "•".dimmed());
         return Ok(());
     }
+
+    runner.ensure_sudo()?;
 
     println!("\n  {} Running {} selected modules...\n", "▶".cyan().bold(), chosen_modules.len());
 

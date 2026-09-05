@@ -48,6 +48,53 @@ impl Runner {
         Path::new(cmd).exists()
     }
 
+    pub fn ensure_sudo(&self) -> Result<()> {
+        if self.dry_run {
+            return Ok(());
+        }
+
+        // Skip if running as root
+        if unsafe { libc::geteuid() } == 0 {
+            return Ok(());
+        }
+
+        let is_cached = Command::new("sudo")
+            .args(["-n", "true"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !is_cached {
+            println!("  {} Sudo credentials required for server setup.", "🔒".bold());
+            let status = Command::new("sudo")
+                .arg("-v")
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .status()
+                .context("Failed to authenticate sudo")?;
+
+            if !status.success() {
+                bail!("Sudo authentication failed or was cancelled.");
+            }
+            println!();
+        }
+
+        // Keep sudo timestamp alive in the background while ryoiki is executing
+        std::thread::spawn(|| {
+            loop {
+                std::thread::sleep(Duration::from_secs(60));
+                let _ = Command::new("sudo")
+                    .args(["-v"])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status();
+            }
+        });
+
+        Ok(())
+    }
+
     pub fn create_spinner(&self, message: &str) -> ProgressBar {
         let pb = ProgressBar::new_spinner();
         pb.enable_steady_tick(Duration::from_millis(80));
