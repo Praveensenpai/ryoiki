@@ -4,9 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGS_DIR="$SCRIPT_DIR/configs"
 
-echo "==> Installing eza and bat..."
+echo "==> Installing eza, bat, zoxide, and fzf..."
 sudo apt-get update
-sudo apt-get install -y eza bat curl tar xz-utils
+sudo apt-get install -y eza bat zoxide fzf curl tar xz-utils
 
 # Fix bat naming on Ubuntu (batcat -> bat)
 if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then
@@ -46,4 +46,5 @@ echo "==> CLI tools and configs setup complete!"
 echo "    - tmux: mouse scrolling & vi-mode configured (~/.tmux.conf)"
 echo "    - eza: aliased as 'ls' and 'll'"
 echo "    - bat: aliased as 'cat'"
+echo "    - zoxide: installed and aliased to 'cd' with autocompletion"
 echo "    - ble.sh: installed and enabled for bash"

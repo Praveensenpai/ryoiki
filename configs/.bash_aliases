@@ -28,3 +28,9 @@ fi
 alias gs='git status'
 alias gp='git push'
 alias gl='git pull'
+
+# Zoxide (smarter cd + auto-completion)
+if command -v zoxide &>/dev/null; then
+    eval "$(zoxide init bash)"
+    alias cd='z'
+fi
