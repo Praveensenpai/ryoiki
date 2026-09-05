@@ -103,8 +103,8 @@ fn environment_modules() -> Vec<Module> {
     vec![
         Module {
             id: "prompt",
-            title: "Prompt & Banner",
-            description: "Starship prompt & Fastfetch system stats banner",
+            title: "Shell Prompt",
+            description: "Starship cross-shell prompt & Fastfetch CLI utility",
             default_enabled: true,
         },
         Module {

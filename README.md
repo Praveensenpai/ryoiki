@@ -27,7 +27,7 @@ Select modules to install: (Space to toggle, Enter to run)
   [✓]  5. Server Security            UFW Firewall & Fail2Ban brute-force guard
   [✓]  6. Docker Platform            Docker Engine CE & Docker Compose plugin
   [✓]  7. Nerd Fonts                 JetBrainsMono Nerd Font complete family
-  [✓]  8. Prompt & Banner            Starship prompt & Fastfetch system stats
+  [✓]  8. Shell Prompt               Starship cross-shell prompt & Fastfetch CLI
   [✓]  9. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
   [✓] 10. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
   [✓] 11. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
@@ -75,7 +75,7 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 | `05` | **Server Security** | `security` | UFW Firewall (ports 22, 80, 443) & Fail2Ban brute-force intrusion prevention |
 | `06` | **Docker Platform** | `docker` | Official Docker CE Engine, `containerd`, and Docker Compose v2 plugin |
 | `07` | **Nerd Fonts** | `fonts` | Complete JetBrainsMono Nerd Font family with ligatures & `fc-cache` index |
-| `08` | **Prompt & Banner** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch system stats |
+| `08` | **Shell Prompt** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch CLI |
 | `09` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
 | `10` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
 | `11` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
