@@ -11,30 +11,28 @@
 [![Platform: Ubuntu](https://img.shields.io/badge/Platform-Ubuntu%20%7C%20Debian-fab387?style=flat-square&logo=ubuntu&logoColor=white)](https://ubuntu.com/)
 [![Arch: x86_64 | aarch64](https://img.shields.io/badge/Arch-x86__64%20%7C%20aarch64-94e2d5?style=flat-square)](https://github.com/Praveensenpai/ryoiki/releases)
 
-<br/>
+</div>
 
 ```text
-  ┌─────────────────────────────────────────────────────────────┐
-  │  領域 (Ryoiki) — Ubuntu Server Provisioning                 │
-  └─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  領域 (Ryoiki) — Ubuntu Server Provisioning                             │
+└─────────────────────────────────────────────────────────────────────────┘
 
-  Select modules to install: (Space to toggle, Enter to run)
+Select modules to install: (Space to toggle, Enter to run)
 
-  [✓] 1. Git & SSH Key Setup       Ed25519 key generation & GitHub link
-  [✓] 2. System Essentials         git, tmux, neovim, and GitHub CLI (gh)
-  [✓] 3. Modern CLI Suite          eza, bat, zoxide, fzf, and ble.sh
-  [✓] 4. Dev Runtimes              Go, Rust (rustup), Python (uv), Bun
-  [✓] 5. Server Security           UFW Firewall & Fail2Ban brute-force guard
-  [✓] 6. Docker Platform           Docker Engine CE & Docker Compose plugin
-  [✓] 7. Nerd Fonts                JetBrainsMono Nerd Font complete family
-  [✓] 8. Prompt & Banner           Starship prompt & Fastfetch system stats
-  [✓] 9. Trash Manager             toss-rs (FreeDesktop trash TUI & rm alias)
-  [✓] 10. Aesthetic Dotfiles       Deploy embedded dotfiles (tmux, aliases)
+  [✓]  1. Git & SSH Key Setup        Ed25519 key generation & GitHub link
+  [✓]  2. System Essentials          git, tmux, neovim, and GitHub CLI (gh)
+  [✓]  3. Modern CLI Suite           eza, bat, zoxide, fzf, and ble.sh
+  [✓]  4. Dev Runtimes               Go, Rust (rustup), Python (uv), Bun
+  [✓]  5. Server Security            UFW Firewall & Fail2Ban brute-force guard
+  [✓]  6. Docker Platform            Docker Engine CE & Docker Compose plugin
+  [✓]  7. Nerd Fonts                 JetBrainsMono Nerd Font complete family
+  [✓]  8. Prompt & Banner            Starship prompt & Fastfetch system stats
+  [✓]  9. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
+  [✓] 10. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
 
-  [↑/↓/j/k] Navigate  [Space] Toggle  [a] All  [n] None  [Enter] Launch  [q] Quit
+  [↑/↓/j/k] Navigate   [Space] Toggle   [a] All   [n] None   [Enter] Launch   [q] Quit
 ```
-
-</div>
 
 ---
 
