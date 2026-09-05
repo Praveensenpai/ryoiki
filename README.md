@@ -18,6 +18,7 @@ bash install.sh
 ryoiki/
 ├── install.sh            # Master setup script
 ├── scripts/
+│   ├── 00-git-ssh.sh     # Interactive Git config & GitHub SSH key setup
 │   ├── 01-essentials.sh  # Installs git, gh, tmux, neovim
 │   ├── 02-cli-tools.sh   # Installs eza, bat, zoxide, ble.sh & links configs
 │   ├── 03-dev-tools.sh   # Installs Golang, Rust (rustup), and uv
