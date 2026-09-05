@@ -1,6 +1,6 @@
 # Rust Codebase Rules
 
-Goal: every file readable in one sitting, every module has one job, nothing hidden behind `#[allow(...)]`.
+Drop this in as `CLAUDE.md` / `.cursor/rules` / `RULES.md`. Goal: every file readable in one sitting, every module has one job, nothing hidden behind `#[allow(...)]`.
 
 ---
 
