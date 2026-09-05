@@ -15,9 +15,10 @@ A minimalist, clutter-free, and aesthetic Ubuntu server provisioning orchestrato
   [✓] 4. Dev Runtimes              Go, Rust (rustup), Python (uv), Bun
   [✓] 5. Server Security           UFW Firewall & Fail2Ban brute-force guard
   [✓] 6. Docker Platform           Docker Engine CE & Docker Compose plugin
-  [✓] 7. Prompt & Banner           Starship prompt & Fastfetch system stats
-  [✓] 8. Trash Manager             toss-rs (FreeDesktop trash TUI & rm alias)
-  [✓] 9. Aesthetic Dotfiles        Deploy embedded dotfiles (tmux, aliases)
+  [✓] 7. Nerd Fonts                JetBrainsMono Nerd Font complete family
+  [✓] 8. Prompt & Banner           Starship prompt & Fastfetch system stats
+  [✓] 9. Trash Manager             toss-rs (FreeDesktop trash TUI & rm alias)
+  [✓] 10. Aesthetic Dotfiles       Deploy embedded dotfiles (tmux, aliases)
 ```
 
 ## ✨ Highlights
@@ -80,6 +81,7 @@ ryoiki/
 │       ├── dev_runtimes.rs # Go, Rustup, uv, Bun
 │       ├── security.rs   # UFW Firewall & Fail2Ban
 │       ├── docker.rs     # Docker CE & Docker Compose
+│       ├── fonts.rs      # JetBrainsMono Nerd Font & fontconfig
 │       ├── prompt.rs     # Starship prompt & Fastfetch banner
 │       └── trash.rs      # toss-rs installation
 ├── configs/              # Source configuration dotfiles
@@ -89,7 +91,7 @@ ryoiki/
 ├── .github/workflows/
 │   └── release.yml       # Dual-architecture release workflow (x86_64 & aarch64)
 ├── remote-install.sh     # One-liner remote binary bootstrapper
-└── install.sh            # Local runner (compiles with Cargo or falls back)
+└── install.sh            # Local runner (compiles and executes ryoiki)
 ```
 
 ## 📜 License

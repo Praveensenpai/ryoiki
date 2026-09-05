@@ -63,18 +63,18 @@ if [ -z "${TAG:-}" ]; then
     fi
 
     cd "$TARGET_DIR"
-    if command -v cargo &>/dev/null; then
-        echo "==> Building ryoiki with Cargo..."
-        cargo build --release
-        install -m 755 target/release/ryoiki "$INSTALL_DIR/$BINARY"
-    else
-        chmod +x install.sh scripts/*.sh
-        if [ -c /dev/tty ]; then
-            exec ./install.sh < /dev/tty
-        else
-            exec ./install.sh
+    if ! command -v cargo &>/dev/null; then
+        echo "==> Installing minimal Rust toolchain..."
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable --no-modify-path
+        if [ -f "$HOME/.cargo/env" ]; then
+            # shellcheck source=/dev/null
+            source "$HOME/.cargo/env"
         fi
     fi
+
+    echo "==> Building ryoiki with Cargo..."
+    cargo build --release
+    install -m 755 target/release/ryoiki "$INSTALL_DIR/$BINARY"
 fi
 
 # Ensure ~/.local/bin is in PATH for this session
