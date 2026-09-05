@@ -36,9 +36,10 @@ ryoiki/
 │   ├── 04-security.sh    # UFW firewall & Fail2Ban brute-force protection
 │   ├── 05-docker.sh      # Official Docker Engine & Compose plugin
 │   ├── 06-starship.sh    # Starship cross-shell prompt
-│   └── 07-fastfetch.sh   # Fastfetch system info login banner
+│   ├── 07-fastfetch.sh   # Fastfetch system info login banner
+│   └── 08-toss.sh        # Installs toss-rs (FreeDesktop trash TUI & rm replacement)
 └── configs/              # Dotfiles & configurations
     ├── .tmux.conf        # Mouse scrolling, 256 colors, vi mode
-    ├── .bash_aliases     # Aliases & PATH for cargo/uv/zoxide
+    ├── .bash_aliases     # Aliases & PATH for cargo/uv/zoxide/toss
     └── starship.toml     # Minimal aesthetic prompt styling
 ```
