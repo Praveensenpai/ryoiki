@@ -6,6 +6,7 @@ pub mod security;
 pub mod docker;
 pub mod prompt;
 pub mod trash;
+pub mod fonts;
 
 use anyhow::Result;
 use colored::*;
@@ -66,6 +67,12 @@ pub fn get_available_modules() -> Vec<Module> {
             default_enabled: true,
         },
         Module {
+            id: "fonts",
+            title: "Nerd Fonts",
+            description: "JetBrainsMono Nerd Font complete family & ligatures",
+            default_enabled: true,
+        },
+        Module {
             id: "prompt",
             title: "Prompt & Banner",
             description: "Starship prompt & Fastfetch system stats banner",
@@ -94,6 +101,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "dev_runtimes" => dev_runtimes::setup(runner),
         "security" => security::setup(runner),
         "docker" => docker::setup(runner),
+        "fonts" => fonts::setup(runner),
         "prompt" => prompt::setup(runner),
         "trash" => trash::setup(runner),
         "dotfiles" => {

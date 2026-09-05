@@ -13,6 +13,7 @@ $git_status\
 $golang\
 $rust\
 $python\
+$nodejs\
 $docker_context\
 $cmd_duration\
 $line_break\
@@ -26,28 +27,33 @@ error_symbol = "[✗](bold red)"
 style = "bold lavender"
 truncation_length = 3
 truncate_to_repo = true
+read_only = " 󰌾"
 
 [git_branch]
-symbol = " "
+symbol = " "
 style = "bold purple"
 
 [git_status]
 style = "bold red"
 
 [golang]
-symbol = " "
+symbol = " "
 style = "bold cyan"
 
 [rust]
-symbol = " "
+symbol = " "
 style = "bold red"
 
 [python]
-symbol = " "
+symbol = " "
 style = "bold yellow"
 
+[nodejs]
+symbol = " "
+style = "bold green"
+
 [docker_context]
-symbol = " "
+symbol = " "
 style = "bold blue"
 
 [cmd_duration]

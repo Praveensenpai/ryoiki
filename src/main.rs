@@ -13,7 +13,7 @@ use runner::Runner;
 #[derive(Parser)]
 #[command(name = "ryoiki")]
 #[command(author = "Praveensenpai <pvnt20@gmail.com>")]
-#[command(version = "0.1.3")]
+#[command(version = "0.1.4")]
 #[command(about = "Aesthetic, zero-clutter Ubuntu server provisioning orchestrator", long_about = None)]
 struct Cli {
     /// Install all modules without interactive prompt
@@ -175,6 +175,9 @@ fn print_summary(
     }
     if module_ids.iter().any(|m| m == "docker") {
         println!("  • {} Docker Engine & Docker Compose plugin active", "Docker:  ".dimmed());
+    }
+    if module_ids.iter().any(|m| m == "fonts") {
+        println!("  • {} JetBrainsMono Nerd Font (~/.local/share/fonts)", "Fonts:   ".dimmed());
     }
 
     println!("  • {} Log saved to ~/.local/state/ryoiki/install.log", "Debug:   ".dimmed());
