@@ -1,0 +1,23 @@
+[package]
+name = "ryoiki"
+version = "0.1.0"
+edition = "2021"
+authors = ["Praveensenpai <pvnt20@gmail.com>"]
+description = "Aesthetic, zero-clutter Ubuntu server provisioning orchestrator"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+ratatui = "0.29"
+crossterm = "0.28"
+indicatif = "0.17"
+colored = "2.1"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

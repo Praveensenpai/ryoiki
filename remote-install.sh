@@ -1,47 +1,91 @@
 #!/usr/bin/env bash
 # ==============================================================================
-#  領域 (Ryoiki) - One-Line Remote Installer
+#  領域 (Ryoiki) - Remote Binary Bootstrapper
 # ==============================================================================
 set -euo pipefail
 
-CYAN='\033[0;36m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BOLD='\033[1m'
-NC='\033[0m'
+REPO="Praveensenpai/ryoiki"
+BINARY="ryoiki"
+INSTALL_DIR="$HOME/.local/bin"
+mkdir -p "$INSTALL_DIR"
 
-echo -e "${CYAN}======================================================${NC}"
-echo -e "${CYAN}  領域 (Ryoiki) - Remote Bootstrapper                 ${NC}"
-echo -e "${CYAN}======================================================${NC}"
+echo "🌸 ========================================= 🌸"
+echo "        領域 (Ryoiki) Server Setup            "
+echo "🌸 ========================================= 🌸"
 
-TARGET_DIR="$HOME/ryoiki"
-REPO_URL="https://github.com/Praveensenpai/ryoiki.git"
+# Detect Architecture (x86_64 or aarch64)
+ARCH="$(uname -m)"
+case "$ARCH" in
+    x86_64|amd64)
+        TARGET="x86_64-unknown-linux-gnu"
+        ;;
+    aarch64|arm64)
+        TARGET="aarch64-unknown-linux-gnu"
+        ;;
+    *)
+        echo "❌ Architecture $ARCH is not supported."
+        exit 1
+        ;;
+esac
 
-# 1. Ensure git and curl are installed
-if ! command -v git &>/dev/null; then
-    echo -e "${YELLOW}==> Git not found. Installing git and curl via apt...${NC}"
-    sudo apt-get update
-    sudo apt-get install -y git curl
+# 1. Fetch latest release tag from GitHub
+TAG=$(curl -4 -sSL -H "Cache-Control: no-cache" -H "Pragma: no-cache" "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || true)
+
+if [ -n "$TAG" ]; then
+    DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/ryoiki-${TARGET}.tar.gz"
+    echo "==> Downloading pre-compiled ryoiki (${TARGET} - $TAG)..."
+    TMP_DIR=$(mktemp -d)
+    trap 'rm -rf "$TMP_DIR"' EXIT
+
+    if curl -4 -fsSL "$DOWNLOAD_URL" | tar -xz -C "$TMP_DIR" 2>/dev/null; then
+        install -m 755 "$TMP_DIR/$BINARY" "$INSTALL_DIR/$BINARY"
+        echo "✔ Installed ryoiki binary to $INSTALL_DIR/$BINARY"
+    else
+        echo "⚠️  Failed to download release binary. Falling back to local clone..."
+        TAG=""
+    fi
 fi
 
-# 2. Clone or update repository
-if [ -d "$TARGET_DIR/.git" ]; then
-    echo -e "${YELLOW}==> Existing ryoiki installation detected at $TARGET_DIR. Updating...${NC}"
-    git -C "$TARGET_DIR" pull --ff-only origin main || true
-else
-    echo -e "${GREEN}==> Cloning ryoiki into $TARGET_DIR...${NC}"
-    rm -rf "$TARGET_DIR"
-    git clone "$REPO_URL" "$TARGET_DIR"
+# 2. Fallback if no release tag found yet
+if [ -z "${TAG:-}" ]; then
+    TARGET_DIR="$HOME/ryoiki"
+    if ! command -v git &>/dev/null; then
+        echo "==> Installing git and curl via apt..."
+        sudo apt-get update -y
+        sudo apt-get install -y git curl
+    fi
+
+    if [ -d "$TARGET_DIR/.git" ]; then
+        git -C "$TARGET_DIR" pull --ff-only origin main || true
+    else
+        rm -rf "$TARGET_DIR"
+        git clone "https://github.com/$REPO.git" "$TARGET_DIR"
+    fi
+
+    cd "$TARGET_DIR"
+    if command -v cargo &>/dev/null; then
+        echo "==> Building ryoiki with Cargo..."
+        cargo build --release
+        install -m 755 target/release/ryoiki "$INSTALL_DIR/$BINARY"
+    else
+        chmod +x install.sh scripts/*.sh
+        if [ -c /dev/tty ]; then
+            exec ./install.sh < /dev/tty
+        else
+            exec ./install.sh
+        fi
+    fi
 fi
 
-# 3. Make all scripts executable and run master installer
-echo -e "\n${GREEN}==> Launching ryoiki installer...${NC}\n"
-cd "$TARGET_DIR"
-chmod +x install.sh scripts/*.sh
+# Ensure ~/.local/bin is in PATH for this session
+case ":$PATH:" in
+    *":$INSTALL_DIR:"*) ;;
+    *) export PATH="$INSTALL_DIR:$PATH" ;;
+esac
 
-# Reconnect stdin to controlling terminal if available (crucial for curl | bash pipelines)
+# 3. Launch ryoiki with terminal input attached
 if [ -c /dev/tty ]; then
-    exec ./install.sh < /dev/tty
+    exec "$INSTALL_DIR/$BINARY" "$@" < /dev/tty
 else
-    exec ./install.sh
+    exec "$INSTALL_DIR/$BINARY" "$@"
 fi
