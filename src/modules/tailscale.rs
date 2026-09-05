@@ -47,8 +47,8 @@ fn install_tailscale(runner: &mut Runner) -> Result<()> {
 fn enable_service(runner: &mut Runner) -> Result<()> {
     runner.exec_silent(
         "Enabling tailscaled service...",
-        "systemctl",
-        &["enable", "--now", "tailscaled"],
+        "sudo",
+        &["systemctl", "enable", "--now", "tailscaled"],
     )?;
     Ok(())
 }
@@ -104,8 +104,8 @@ fn prompt_and_connect() -> Result<()> {
         "\n  {} Opening Tailscale authentication...",
         "▶".cyan().bold()
     );
-    let status = std::process::Command::new("tailscale")
-        .args(["up", "--ssh"])
+    let status = std::process::Command::new("sudo")
+        .args(["tailscale", "up", "--ssh"])
         .status();
 
     handle_connect_status(&status);
