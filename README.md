@@ -18,6 +18,9 @@ bash install.sh
 ryoiki/
 ├── install.sh            # Master setup script
 ├── scripts/
-│   └── 01-essentials.sh  # Installs git, gh, tmux, neovim
+│   ├── 01-essentials.sh  # Installs git, gh, tmux, neovim
+│   └── 02-cli-tools.sh   # Installs eza, bat, ble.sh & links configs
 └── configs/              # Dotfiles & configurations
+    ├── .tmux.conf        # Mouse scrolling, 256 colors, vi mode
+    └── .bash_aliases     # Aliases: ls->eza, cat->bat
 ```

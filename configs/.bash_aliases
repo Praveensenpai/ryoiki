@@ -1,0 +1,30 @@
+# ==============================================================================
+#  領域 (Ryoiki) - Bash Aliases
+# ==============================================================================
+
+# Replace ls with eza
+if command -v eza &>/dev/null; then
+    alias ls='eza --group-directories-first'
+    alias ll='eza -la --icons --git --group-directories-first'
+    alias lt='eza --tree --level=2'
+fi
+
+# Replace cat with bat
+if command -v bat &>/dev/null; then
+    alias cat='bat --paging=never'
+elif command -v batcat &>/dev/null; then
+    alias cat='batcat --paging=never'
+    alias bat='batcat'
+fi
+
+# Editor shortcuts
+if command -v nvim &>/dev/null; then
+    alias v='nvim'
+    alias vi='nvim'
+    alias vim='nvim'
+fi
+
+# Git shortcuts
+alias gs='git status'
+alias gp='git push'
+alias gl='git pull'
