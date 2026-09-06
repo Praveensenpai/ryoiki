@@ -82,7 +82,7 @@ fn platform_modules() -> Vec<Module> {
         Module {
             id: "security",
             title: "Server Security",
-            description: "UFW Firewall (22, 80, 443) & Fail2Ban brute-force guard",
+            description: "UFW Firewall (22, 80, 443)",
             default_enabled: true,
         },
         Module {

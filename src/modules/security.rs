@@ -1,15 +1,11 @@
 use crate::runner::Runner;
 use anyhow::Result;
-use std::path::Path;
 
 pub fn setup(runner: &mut Runner) -> Result<()> {
-    runner.apt_install(
-        "Installing UFW firewall and Fail2Ban...",
-        &["ufw", "fail2ban"],
-    )?;
+    runner.apt_install("Installing UFW firewall...", &["ufw"])?;
 
     configure_ufw(runner)?;
-    configure_fail2ban(runner)?;
+    purge_unneeded_services(runner)?;
 
     Ok(())
 }
@@ -47,20 +43,12 @@ fn configure_ufw(runner: &mut Runner) -> Result<()> {
     )
 }
 
-fn configure_fail2ban(runner: &mut Runner) -> Result<()> {
-    if !Path::new("/etc/fail2ban/jail.local").exists()
-        && Path::new("/etc/fail2ban/jail.conf").exists()
-    {
-        runner.exec_silent(
-            "Creating /etc/fail2ban/jail.local...",
-            "sudo",
-            &["cp", "/etc/fail2ban/jail.conf", "/etc/fail2ban/jail.local"],
-        )?;
-    }
-
-    runner.exec_silent(
-        "Enabling and starting Fail2Ban service...",
-        "sudo",
-        &["systemctl", "enable", "--now", "fail2ban"],
+fn purge_unneeded_services(runner: &mut Runner) -> Result<()> {
+    runner.exec_bash(
+        "Purging unneeded daemons (fail2ban, unattended-upgrades, networkd-dispatcher)...",
+        r"
+        sudo systemctl disable --now fail2ban unattended-upgrades networkd-dispatcher 2>/dev/null || true
+        sudo apt-get purge --autoremove -y fail2ban unattended-upgrades networkd-dispatcher 2>/dev/null || true
+        ",
     )
 }

@@ -24,7 +24,7 @@ Select modules to install: (Space to toggle, Enter to run)
   [✓]  2. System Essentials          git, tmux, neovim, adb, and GitHub CLI (gh)
   [✓]  3. Modern CLI Suite           eza, bat, zoxide, fzf, and ble.sh
   [✓]  4. Dev Runtimes               Go, Rust (rustup), Python (uv), Bun
-  [✓]  5. Server Security            UFW Firewall & Fail2Ban brute-force guard
+  [✓]  5. Server Security            UFW Firewall (ports 22, 80, 443)
   [✓]  6. Docker Platform            Docker Engine CE & Docker Compose plugin
   [ ]  7. Jellyfin Media Server      Dockerized media streaming with Intel GPU
   [✓]  8. Shell Prompt               Starship cross-shell prompt & Fastfetch CLI
@@ -58,7 +58,7 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 - ⏱️ **Granular Adaptive Timers** — Section, subsection, and overall total duration timings with dynamic unit formatting (`<1ms`, `420ms`, `12.4s`, `1m 24s`).
 - 📦 **Zero-Clone Embedded Dotfiles** — All configuration templates (`.tmux.conf`, `.bash_aliases`, `starship.toml`) are compiled directly into the binary with `include_str!`.
 - 🎬 **Jellyfin Media Server** — Turn your server into a personal Netflix with automated Docker Compose deployment and Intel QuickSync (QSV) hardware transcoding.
-- 🛡️ **Hardened Server Security** — Automated UFW firewall configuration (SSH, HTTP, HTTPS) and Fail2Ban intrusion prevention.
+- 🛡️ **Hardened Server Security** — Automated UFW firewall configuration (SSH, HTTP, HTTPS) and unneeded daemon cleanup.
 - 🚀 **Dual Architecture Releases** — Native static binaries built for both `x86_64` and `aarch64` (AWS Graviton, Ampere, Raspberry Pi).
 - 🦀 **Strict Rust Standards** — Built under strict quality gates: `<300` LOC per file, `<40` LOC per function, zero unhandled `unwrap()` calls, and zero Clippy warnings.
 
@@ -72,7 +72,7 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 | `02` | **System Essentials** | `essentials` | `git`, `tmux`, `neovim`, `adb`, `curl`, `build-essential`, official GitHub CLI (`gh`) |
 | `03` | **Modern CLI Suite** | `cli_tools` | `eza` (modern ls), `bat` (cat with wings), `zoxide` (smart cd), `fzf`, `ble.sh` |
 | `04` | **Dev Runtimes** | `dev_runtimes` | Latest stable Go, Rust toolchain (`rustup`), Python (`uv`), JavaScript (`bun`) |
-| `05` | **Server Security** | `security` | UFW Firewall (ports 22, 80, 443) & Fail2Ban brute-force intrusion prevention |
+| `05` | **Server Security** | `security` | UFW Firewall (ports 22, 80, 443) & unneeded daemon cleanup |
 | `06` | **Docker Platform** | `docker` | Official Docker CE Engine, `containerd`, and Docker Compose v2 plugin |
 | `07` | **Jellyfin Media Server** | `jellyfin` | Dockerized media streaming with Intel QuickSync / VAAPI GPU acceleration (Optional) |
 | `08` | **Shell Prompt** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch CLI |
@@ -147,7 +147,7 @@ ryoiki/
 │       ├── git_ssh.rs        # Git identity, Ed25519 SSH key & GitHub verification
 │       ├── jellyfin.rs       # Jellyfin media server & Intel QuickSync GPU
 │       ├── prompt.rs         # Starship prompt & Fastfetch system stats
-│       ├── security.rs       # UFW firewall & Fail2Ban
+│       ├── security.rs       # UFW firewall & daemon cleanup
 │       ├── tailscale.rs      # Tailscale WireGuard mesh VPN & MagicDNS
 │       └── trash.rs          # toss-rs safe trash manager
 ├── Cargo.toml                # Rust 2021 package manifest with strict lints

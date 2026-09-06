@@ -223,7 +223,7 @@ fn print_cli_highlights(module_ids: &[String]) {
 fn print_infra_highlights(module_ids: &[String]) {
     if module_ids.iter().any(|m| m == "security") {
         println!(
-            "  • {} UFW (22, 80, 443) • Fail2Ban guard active",
+            "  • {} UFW (22, 80, 443) active",
             "Security:".dimmed()
         );
     }
