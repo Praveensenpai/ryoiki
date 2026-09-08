@@ -5,6 +5,8 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::Path;
 
+mod telegram;
+
 /// Sets up qBittorrent server directly with Docker without compose files.
 pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
     ensure_docker(runner)?;
@@ -14,14 +16,23 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
     let download_dir = Path::new(&home).join("torrents");
 
     create_directories(runner, &config_dir, &download_dir)?;
-    if !runner.dry_run {
-        apply_default_preferences(&config_dir)?;
-    }
 
     let creds = prompt_credentials(runner, non_interactive)?;
     if let Some((user, pass)) = &creds {
         let hash = hash_password(pass)?;
         apply_credentials(&config_dir, user, &hash)?;
+    }
+
+    let tg_config = telegram::prompt_telegram_config(runner, non_interactive)?;
+    let tg_installed = if let Some(cfg) = &tg_config {
+        telegram::install_notification_script(&config_dir, cfg)?;
+        true
+    } else {
+        config_dir.join("scripts").join("telegram_notify.sh").exists()
+    };
+
+    if !runner.dry_run {
+        apply_default_preferences(&config_dir, tg_installed)?;
     }
 
     let uid = unsafe { libc::getuid() };
@@ -99,7 +110,7 @@ fn hash_password(password: &str) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-fn insert_into_section(lines: &mut Vec<String>, section: &str, entries: &[&str]) {
+pub(crate) fn insert_into_section(lines: &mut Vec<String>, section: &str, entries: &[&str]) {
     if let Some(idx) = lines.iter().position(|l| l.trim() == section) {
         for (offset, entry) in entries.iter().enumerate() {
             lines.insert(idx + 1 + offset, (*entry).to_string());
@@ -112,7 +123,7 @@ fn insert_into_section(lines: &mut Vec<String>, section: &str, entries: &[&str])
     }
 }
 
-fn apply_default_preferences(config_dir: &Path) -> Result<()> {
+fn apply_default_preferences(config_dir: &Path, tg_installed: bool) -> Result<()> {
     let conf_dir = config_dir.join("qBittorrent");
     fs::create_dir_all(&conf_dir)?;
     let conf_path = conf_dir.join("qBittorrent.conf");
@@ -165,6 +176,7 @@ fn apply_default_preferences(config_dir: &Path) -> Result<()> {
 
     insert_into_section(&mut lines, "[BitTorrent]", &bt_defaults);
     insert_into_section(&mut lines, "[Preferences]", &pref_defaults);
+    telegram::configure_autorun(&mut lines, tg_installed);
 
     fs::write(&conf_path, lines.join("\n") + "\n")?;
     Ok(())
