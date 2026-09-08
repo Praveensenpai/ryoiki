@@ -7,6 +7,7 @@ pub mod jellyfin;
 pub mod prompt;
 pub mod security;
 pub mod tailscale;
+pub mod torrent;
 pub mod trash;
 
 use crate::configs;
@@ -34,6 +35,7 @@ pub fn requires_sudo(modules: &[String]) -> bool {
                 | "security"
                 | "docker"
                 | "jellyfin"
+                | "torrent"
                 | "prompt"
                 | "tailscale"
         )
@@ -97,6 +99,12 @@ fn platform_modules() -> Vec<Module> {
             description: "Dockerized media streaming with Intel QuickSync / VAAPI GPU",
             default_enabled: false,
         },
+        Module {
+            id: "torrent",
+            title: "qBittorrent Server",
+            description: "Dockerized BitTorrent client with Web UI (port 6881)",
+            default_enabled: false,
+        },
     ]
 }
 
@@ -139,6 +147,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "security" => security::setup(runner),
         "docker" => docker::setup(runner),
         "jellyfin" => jellyfin::setup(runner),
+        "torrent" => torrent::setup(runner),
         "prompt" => prompt::setup(runner),
         "trash" => trash::setup(runner),
         "tailscale" => tailscale::setup(runner, non_interactive),

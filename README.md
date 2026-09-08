@@ -27,10 +27,11 @@ Select modules to install: (Space to toggle, Enter to run)
   [✓]  5. Server Security            UFW Firewall (ports 22, 80, 443)
   [✓]  6. Docker Platform            Docker Engine CE & Docker Compose plugin
   [ ]  7. Jellyfin Media Server      Dockerized media streaming with Intel GPU
-  [✓]  8. Shell Prompt               Starship cross-shell prompt & Fastfetch CLI
-  [✓]  9. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
-  [✓] 10. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
-  [✓] 11. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
+  [ ]  8. qBittorrent Server         Dockerized BitTorrent client with Web UI
+  [✓]  9. Shell Prompt               Starship cross-shell prompt & Fastfetch CLI
+  [✓] 10. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
+  [✓] 11. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
+  [✓] 12. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
 
   [↑/↓/j/k] Navigate   [Space] Toggle   [a] All   [n] None   [Enter] Launch   [q] Quit
 ```
@@ -58,6 +59,7 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 - ⏱️ **Granular Adaptive Timers** — Section, subsection, and overall total duration timings with dynamic unit formatting (`<1ms`, `420ms`, `12.4s`, `1m 24s`).
 - 📦 **Zero-Clone Embedded Dotfiles** — All configuration templates (`.tmux.conf`, `.bash_aliases`, `starship.toml`) are compiled directly into the binary with `include_str!`.
 - 🎬 **Jellyfin Media Server** — Turn your server into a personal Netflix with automated Docker Compose deployment and Intel QuickSync (QSV) hardware transcoding.
+- 📥 **qBittorrent Web UI** — Remote torrent management out of the box via Docker Compose on port 6881 and UFW firewall configuration.
 - 🛡️ **Hardened Server Security** — Automated UFW firewall configuration (SSH, HTTP, HTTPS) and unneeded daemon cleanup.
 - 🚀 **Dual Architecture Releases** — Native static binaries built for both `x86_64` and `aarch64` (AWS Graviton, Ampere, Raspberry Pi).
 - 🦀 **Strict Rust Standards** — Built under strict quality gates: `<300` LOC per file, `<40` LOC per function, zero unhandled `unwrap()` calls, and zero Clippy warnings.
@@ -75,10 +77,11 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 | `05` | **Server Security** | `security` | UFW Firewall (ports 22, 80, 443) & unneeded daemon cleanup |
 | `06` | **Docker Platform** | `docker` | Official Docker CE Engine, `containerd`, and Docker Compose v2 plugin |
 | `07` | **Jellyfin Media Server** | `jellyfin` | Dockerized media streaming with Intel QuickSync / VAAPI GPU acceleration (Optional) |
-| `08` | **Shell Prompt** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch CLI |
-| `09` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
-| `10` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
-| `11` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
+| `08` | **qBittorrent Server** | `torrent` | Dockerized BitTorrent client with Web UI (port 6881) & peer ports (Optional) |
+| `09` | **Shell Prompt** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch CLI |
+| `10` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
+| `11` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
+| `12` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
 
 ---
 
@@ -149,6 +152,7 @@ ryoiki/
 │       ├── prompt.rs         # Starship prompt & Fastfetch system stats
 │       ├── security.rs       # UFW firewall & daemon cleanup
 │       ├── tailscale.rs      # Tailscale WireGuard mesh VPN & MagicDNS
+│       ├── torrent.rs        # qBittorrent server & Web UI
 │       └── trash.rs          # toss-rs safe trash manager
 ├── Cargo.toml                # Rust 2021 package manifest with strict lints
 ├── remote-install.sh         # Instant remote bootstrap script (curl | bash)

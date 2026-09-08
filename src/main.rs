@@ -236,6 +236,12 @@ fn print_infra_highlights(module_ids: &[String]) {
             "Media:   ".dimmed()
         );
     }
+    if module_ids.iter().any(|m| m == "torrent") {
+        println!(
+            "  • {} qBittorrent live on port 6881 (Web UI enabled)",
+            "Torrent: ".dimmed()
+        );
+    }
     if module_ids.iter().any(|m| m == "tailscale") {
         println!(
             "  • {} Tailscale MagicDNS active (connect via hostname)",
