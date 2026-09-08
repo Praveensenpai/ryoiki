@@ -14,6 +14,9 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
     let download_dir = Path::new(&home).join("torrents");
 
     create_directories(runner, &config_dir, &download_dir)?;
+    if !runner.dry_run {
+        apply_default_preferences(&config_dir)?;
+    }
 
     let creds = prompt_credentials(runner, non_interactive)?;
     if let Some((user, pass)) = &creds {
@@ -94,6 +97,72 @@ fn hash_password(password: &str) -> Result<String> {
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn apply_default_preferences(config_dir: &Path) -> Result<()> {
+    let conf_dir = config_dir.join("qBittorrent");
+    fs::create_dir_all(&conf_dir)?;
+    let conf_path = conf_dir.join("qBittorrent.conf");
+
+    let existing = if conf_path.exists() {
+        fs::read_to_string(&conf_path).unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let bt_defaults = [
+        "Session\\DefaultSavePath=/downloads/",
+        "Session\\TempPath=/downloads/incomplete/",
+        "Session\\TempPathEnabled=true",
+        "Session\\Preallocation=true",
+        "Session\\AddExtensionToIncompleteFiles=true",
+        "Session\\UseUnwantedFolder=true",
+        "Session\\DisableAutoTMMByDefault=false",
+        "Session\\DisableAutoTMMTriggers\\CategoryChanged=false",
+        "Session\\DisableAutoTMMTriggers\\DefaultSavePathChanged=false",
+        "Session\\DisableAutoTMMTriggers\\CategorySavePathChanged=false",
+        "Session\\UseCategoryPathsInManualMode=false",
+        "Session\\TorrentBackupEnabled=false",
+        "Session\\FinishedTorrentBackupDirectoryEnabled=false",
+    ];
+
+    let pref_defaults = [
+        "Downloads\\PreAllocation=true",
+        "Downloads\\SavePath=/downloads/",
+        "Downloads\\TempPath=/downloads/incomplete/",
+        "Downloads\\TempPathEnabled=true",
+    ];
+
+    let mut lines: Vec<String> = existing
+        .lines()
+        .filter(|l| {
+            !bt_defaults.iter().any(|d| {
+                let prefix = d.split('=').next().unwrap_or("");
+                l.starts_with(prefix)
+            }) && !pref_defaults.iter().any(|d| {
+                let prefix = d.split('=').next().unwrap_or("");
+                l.starts_with(prefix)
+            })
+        })
+        .map(ToString::to_string)
+        .collect();
+
+    if !lines.iter().any(|l| l == "[BitTorrent]") {
+        lines.push("[BitTorrent]".to_string());
+    }
+    for d in &bt_defaults {
+        lines.push((*d).to_string());
+    }
+
+    if !lines.iter().any(|l| l == "[Preferences]") {
+        lines.push("[Preferences]".to_string());
+    }
+    for d in &pref_defaults {
+        lines.push((*d).to_string());
+    }
+
+    fs::write(&conf_path, lines.join("\n") + "\n")?;
+    Ok(())
 }
 
 fn apply_credentials(config_dir: &Path, username: &str, password_hash: &str) -> Result<()> {
