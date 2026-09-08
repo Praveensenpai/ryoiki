@@ -49,13 +49,24 @@ enum Commands {
         #[arg(required = true)]
         modules: Vec<String>,
     },
+    /// Run the interactive 2-way Telegram bot daemon
+    Bot,
+    /// Send automated Telegram notification for torrent events
+    Notify {
+        /// Event type ("started" or "completed")
+        event: String,
+        /// Torrent info hash
+        hash: String,
+    },
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let mut runner = Runner::new(cli.dry_run, cli.verbose)?;
 
-    print_banner();
+    if !matches!(cli.command, Some(Commands::Notify { .. })) {
+        print_banner();
+    }
 
     if let Some(cmd) = cli.command {
         return handle_subcommand(cmd, &mut runner, cli.yes);
@@ -102,6 +113,12 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
             }
             let (total_dur, timings) = run_modules(&modules, runner, yes)?;
             print_summary(&modules, total_dur, &timings);
+        }
+        Commands::Bot => {
+            modules::torrent::bot::run_bot()?;
+        }
+        Commands::Notify { event, hash } => {
+            modules::torrent::notify::execute(&event, &hash)?;
         }
     }
     Ok(())

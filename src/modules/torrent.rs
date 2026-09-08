@@ -5,7 +5,10 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::path::Path;
 
-mod telegram;
+pub mod api;
+pub mod bot;
+pub mod notify;
+pub mod telegram;
 
 /// Sets up qBittorrent server directly with Docker without compose files.
 pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
@@ -23,16 +26,13 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
         apply_credentials(&config_dir, user, &hash)?;
     }
 
-    let (ts_ip, hostname) = get_access_urls();
     let tg_config = telegram::prompt_telegram_config(runner, non_interactive)?;
     let tg_installed = if let Some(cfg) = &tg_config {
-        telegram::install_notification_script(&config_dir, cfg, (&hostname, &ts_ip))?;
+        cfg.save(&config_dir)?;
+        let _ = telegram::install_bot_service(&home);
         true
     } else {
-        config_dir
-            .join("scripts")
-            .join("telegram_notify.sh")
-            .exists()
+        config_dir.join("telegram.json").exists()
     };
 
     if !runner.dry_run {
@@ -296,7 +296,7 @@ fn configure_firewall(runner: &mut Runner) {
     }
 }
 
-fn get_access_urls() -> (String, String) {
+pub(crate) fn get_access_urls() -> (String, String) {
     let ts_ip = std::process::Command::new("tailscale")
         .args(["ip", "-4"])
         .output()
