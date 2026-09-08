@@ -1,11 +1,12 @@
 use crate::runner::Runner;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use colored::Colorize;
 use std::fs;
+use std::io::{self, BufRead, Write};
 use std::path::Path;
 
 /// Sets up qBittorrent server directly with Docker without compose files.
-pub fn setup(runner: &mut Runner) -> Result<()> {
+pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
     ensure_docker(runner)?;
 
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
@@ -14,12 +15,18 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
 
     create_directories(runner, &config_dir, &download_dir)?;
 
+    let creds = prompt_credentials(runner, non_interactive)?;
+    if let Some((user, pass)) = &creds {
+        let hash = hash_password(pass)?;
+        apply_credentials(&config_dir, user, &hash)?;
+    }
+
     let uid = unsafe { libc::getuid() };
     let gid = unsafe { libc::getgid() };
 
     start_container(runner, &config_dir, &download_dir, (uid, gid))?;
     configure_firewall(runner);
-    print_access_info(&home);
+    print_access_info(&home, creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str())));
 
     Ok(())
 }
@@ -38,6 +45,81 @@ fn create_directories(runner: &Runner, config_dir: &Path, download_dir: &Path) -
                 .with_context(|| format!("Failed to create directory: {}", dir.display()))?;
         }
     }
+    Ok(())
+}
+
+fn prompt_credentials(runner: &Runner, non_interactive: bool) -> Result<Option<(String, String)>> {
+    if non_interactive || runner.dry_run {
+        return Ok(None);
+    }
+
+    print!("  Configure custom WebUI credentials? [y/N]: ");
+    io::stdout().flush()?;
+    let mut choice = String::new();
+    io::stdin().lock().read_line(&mut choice)?;
+    if !choice.trim().eq_ignore_ascii_case("y") {
+        return Ok(None);
+    }
+
+    print!("  Enter WebUI username [{}]: ", "admin".cyan());
+    io::stdout().flush()?;
+    let mut user = String::new();
+    io::stdin().lock().read_line(&mut user)?;
+    let user = user.trim();
+    let final_user = if user.is_empty() { "admin" } else { user };
+
+    print!("  Enter WebUI password: ");
+    io::stdout().flush()?;
+    let mut pass = String::new();
+    io::stdin().lock().read_line(&mut pass)?;
+    let pass = pass.trim();
+    if pass.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some((final_user.to_string(), pass.to_string())))
+}
+
+fn hash_password(password: &str) -> Result<String> {
+    let script = format!(
+        "import hashlib, os, base64; salt=os.urandom(16); dk=hashlib.pbkdf2_hmac('sha512', {password:?}.encode(), salt, 100000); print(f'@ByteArray({{base64.b64encode(salt).decode()}}:{{base64.b64encode(dk).decode()}})')"
+    );
+    let output = std::process::Command::new("python3")
+        .args(["-c", &script])
+        .output()
+        .context("Failed to run python3 for password hash")?;
+
+    if !output.status.success() {
+        bail!("Password hash generation failed");
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn apply_credentials(config_dir: &Path, username: &str, password_hash: &str) -> Result<()> {
+    let conf_dir = config_dir.join("qBittorrent");
+    fs::create_dir_all(&conf_dir)?;
+    let conf_path = conf_dir.join("qBittorrent.conf");
+
+    let existing = if conf_path.exists() {
+        fs::read_to_string(&conf_path).unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let mut lines: Vec<String> = existing
+        .lines()
+        .filter(|l| !l.starts_with("WebUI\\Username=") && !l.starts_with("WebUI\\Password_PBKDF2="))
+        .map(ToString::to_string)
+        .collect();
+
+    if !lines.iter().any(|l| l == "[Preferences]") {
+        lines.push("[Preferences]".to_string());
+    }
+
+    lines.push(format!("WebUI\\Username={username}"));
+    lines.push(format!("WebUI\\Password_PBKDF2=\"{password_hash}\""));
+    fs::write(&conf_path, lines.join("\n") + "\n")?;
     Ok(())
 }
 
@@ -163,7 +245,7 @@ fn get_initial_password() -> Option<String> {
     None
 }
 
-fn print_access_info(home: &str) {
+fn print_access_info(home: &str, custom_creds: Option<(&str, &str)>) {
     let (ts_ip, host) = get_access_urls();
     let url = if ts_ip.is_empty() {
         if host.is_empty() {
@@ -179,19 +261,25 @@ fn print_access_info(home: &str) {
     if !host.is_empty() && !ts_ip.is_empty() {
         println!("  {} MagicDNS URL: http://{host}:6881", "•".dimmed());
     }
-    println!("  {} Default username: admin", "•".dimmed());
 
-    if let Some(pwd) = get_initial_password() {
-        println!(
-            "  {} Temporary password: {}",
-            "✔".green().bold(),
-            pwd.cyan().bold()
-        );
+    if let Some((user, pass)) = custom_creds {
+        println!("  {} Username: {}", "•".dimmed(), user.cyan().bold());
+        println!("  {} Password: {}", "✔".green().bold(), pass.cyan().bold());
     } else {
-        println!(
-            "  {} Check password: docker logs qbittorrent | grep -i password",
-            "•".dimmed()
-        );
+        println!("  {} Default username: admin", "•".dimmed());
+        if let Some(pwd) = get_initial_password() {
+            println!(
+                "  {} Temporary password: {}",
+                "✔".green().bold(),
+                pwd.cyan().bold()
+            );
+        } else {
+            println!(
+                "  {} Check password: docker logs qbittorrent | grep -i password",
+                "•".dimmed()
+            );
+        }
     }
+
     println!("  {} Downloads directory: {home}/torrents", "•".dimmed());
 }

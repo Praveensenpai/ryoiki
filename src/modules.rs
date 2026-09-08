@@ -146,7 +146,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "security" => security::setup(runner),
         "docker" => docker::setup(runner),
         "jellyfin" => jellyfin::setup(runner),
-        "torrent" => torrent::setup(runner),
+        "torrent" => torrent::setup(runner, non_interactive),
         "prompt" => prompt::setup(runner),
         "trash" => trash::setup(runner),
         "tailscale" => tailscale::setup(runner, non_interactive),
