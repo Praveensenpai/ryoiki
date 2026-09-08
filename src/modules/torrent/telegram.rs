@@ -68,6 +68,64 @@ pub fn prompt_telegram_config(
     Ok(Some(TelegramConfig { bot_token, chat_id }))
 }
 
+fn render_notification_script(token: &str, chat: &str, host: &str, ts_ip: &str) -> String {
+    format!(
+        r#"#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+FIRST="${{1:-started}}"
+[[ "$FIRST" =~ ^completed ]] && EVENT="completed" || EVENT="started"
+HASH=$(echo "$*" | grep -oE '\b[0-9a-fA-F]{{40}}\b' | head -n 1 || true)
+python3 -c '
+import sys, html, time, json, urllib.request, urllib.parse
+event, h, tok, cid, srv, tip = sys.argv[1:7]
+def fsize(b):
+    try:
+        v = float(b)
+        for u in ["B","KB","MB","GB","TB"]:
+            if v < 1024.0: return f"{{v:.2f}} {{u}}"
+            v /= 1024.0
+        return f"{{v:.2f}} PB"
+    except: return "Unknown"
+name, sz, cat = "Unknown Torrent", "Unknown", "Default"
+if h:
+    for _ in range(30):
+        try:
+            req = urllib.request.Request(f"http://localhost:6881/api/v2/torrents/info?hashes={{h}}")
+            with urllib.request.urlopen(req, timeout=5) as r:
+                arr = json.loads(r.read().decode())
+                if arr:
+                    t = arr[0]
+                    name = t.get("name", name)
+                    raw_sz = t.get("total_size", 0)
+                    cat = t.get("category") or cat
+                    if event != "started" or (t.get("has_metadata") and raw_sz > 0):
+                        sz = fsize(raw_sz)
+                        break
+        except: pass
+        if event != "started": break
+        time.sleep(2)
+badge = "📥 <b>DOWNLOAD INITIATED</b>" if event == "started" else "✨ <b>DOWNLOAD COMPLETED</b>"
+url = f"http://{{tip}}:6881" if tip else "http://localhost:6881"
+text = f"""🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>
+━━━━━━━━━━━━━━━━━━━━━━━
+{{badge}}
+
+📦 <b>File:</b> <code>{{html.escape(name)}}</code>
+📊 <b>Size:</b> <code>{{sz}}</code>
+🏷 <b>Category:</b> <code>{{html.escape(cat)}}</code>
+🖥 <b>Host:</b> <code>{{srv}}</code> ({{tip}})
+
+🌐 <a href=\"{{url}}\">Open WebUI</a> • <i>Tailscale</i>
+━━━━━━━━━━━━━━━━━━━━━━━"""
+data = urllib.parse.urlencode({{"chat_id": cid, "parse_mode": "HTML", "text": text, "disable_web_page_preview": "true"}}).encode()
+try: urllib.request.urlopen(urllib.request.Request(f"https://api.telegram.org/bot{{tok}}/sendMessage", data=data), timeout=10)
+except: pass
+' "$EVENT" "$HASH" "{token}" "{chat}" "{host}" "{ts_ip}" || true
+"#
+    )
+}
+
 pub fn install_notification_script(
     config_dir: &Path,
     config: &TelegramConfig,
@@ -82,89 +140,8 @@ pub fn install_notification_script(
     })?;
 
     let script_path = scripts_dir.join("telegram_notify.sh");
-    let script_content = format!(
-        r#"#!/usr/bin/env bash
-set -euo pipefail
-IFS=$'\n\t'
-
-EVENT="${{1:-unknown}}"
-TORRENT_NAME="${{2:-Unknown Torrent}}"
-TORRENT_SIZE_BYTES="${{3:-0}}"
-CATEGORY="${{4:-None}}"
-INFO_HASH="${{5:-}}"
-
-BOT_TOKEN="{bot_token}"
-CHAT_ID="{chat_id}"
-SERVER_NAME="{hostname}"
-TAILSCALE_IP="{tailscale_ip}"
-
-python3 -c '
-import sys, html, urllib.request, urllib.parse
-
-event = sys.argv[1]
-name = sys.argv[2]
-raw_size = sys.argv[3]
-category = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else "Default"
-token = sys.argv[5]
-chat_id = sys.argv[6]
-host = sys.argv[7]
-ts_ip = sys.argv[8]
-
-def format_size(b_str):
-    try:
-        b = float(b_str)
-        for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if b < 1024.0:
-                return f"{{b:.2f}} {{unit}}"
-            b /= 1024.0
-        return f"{{b:.2f}} PB"
-    except Exception:
-        return "Unknown"
-
-size_str = format_size(raw_size)
-esc_name = html.escape(name)
-esc_cat = html.escape(category)
-
-if event == "started":
-    badge = "📥 <b>DOWNLOAD INITIATED</b>"
-elif event == "completed":
-    badge = "✨ <b>DOWNLOAD COMPLETED</b>"
-else:
-    badge = f"ℹ️ <b>EVENT: {{html.escape(event).upper()}}</b>"
-
-webui_url = f"http://{{ts_ip}}:6881" if ts_ip else "http://localhost:6881"
-
-text = f"""🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>
-━━━━━━━━━━━━━━━━━━━━━━━
-{{badge}}
-
-📦 <b>File:</b> <code>{{esc_name}}</code>
-📊 <b>Size:</b> <code>{{size_str}}</code>
-🏷 <b>Category:</b> <code>{{esc_cat}}</code>
-🖥 <b>Host:</b> <code>{{host}}</code> ({{ts_ip}})
-
-🌐 <a href=\"{{webui_url}}\">Open WebUI</a> • <i>Tailscale</i>
-━━━━━━━━━━━━━━━━━━━━━━━"""
-
-data = urllib.parse.urlencode({{
-    "chat_id": chat_id,
-    "parse_mode": "HTML",
-    "text": text,
-    "disable_web_page_preview": "true",
-}}).encode("utf-8")
-
-req = urllib.request.Request(f"https://api.telegram.org/bot{{token}}/sendMessage", data=data)
-try:
-    urllib.request.urlopen(req, timeout=10)
-except Exception:
-    pass
-' "$EVENT" "$TORRENT_NAME" "$TORRENT_SIZE_BYTES" "$CATEGORY" "$BOT_TOKEN" "$CHAT_ID" "$SERVER_NAME" "$TAILSCALE_IP" || true
-"#,
-        bot_token = config.bot_token,
-        chat_id = config.chat_id,
-        hostname = hostname,
-        tailscale_ip = tailscale_ip,
-    );
+    let script_content =
+        render_notification_script(&config.bot_token, &config.chat_id, hostname, tailscale_ip);
 
     fs::write(&script_path, script_content).with_context(|| {
         format!(
