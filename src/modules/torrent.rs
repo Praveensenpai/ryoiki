@@ -4,17 +4,21 @@ use colored::Colorize;
 use std::fs;
 use std::path::Path;
 
-/// Sets up qBittorrent server with Docker Compose and Web UI.
+/// Sets up qBittorrent server directly with Docker without compose files.
 pub fn setup(runner: &mut Runner) -> Result<()> {
     ensure_docker(runner)?;
 
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let torrent_dir = Path::new(&home).join("torrents");
+    let config_dir = Path::new(&home).join(".config/qbittorrent");
+    let download_dir = Path::new(&home).join("torrents");
 
-    create_directories(runner, &torrent_dir)?;
-    deploy_compose_file(runner, &torrent_dir)?;
-    start_container(runner, &torrent_dir)?;
-    configure_firewall(runner)?;
+    create_directories(runner, &config_dir, &download_dir)?;
+
+    let uid = unsafe { libc::getuid() };
+    let gid = unsafe { libc::getgid() };
+
+    start_container(runner, &config_dir, &download_dir, (uid, gid))?;
+    configure_firewall(runner);
     print_access_info(&home);
 
     Ok(())
@@ -27,10 +31,8 @@ fn ensure_docker(runner: &mut Runner) -> Result<()> {
     Ok(())
 }
 
-fn create_directories(runner: &Runner, base: &Path) -> Result<()> {
-    let dirs = [base.join("config"), base.join("downloads")];
-
-    for dir in &dirs {
+fn create_directories(runner: &Runner, config_dir: &Path, download_dir: &Path) -> Result<()> {
+    for dir in [config_dir, download_dir] {
         if !runner.dry_run && !dir.exists() {
             fs::create_dir_all(dir)
                 .with_context(|| format!("Failed to create directory: {}", dir.display()))?;
@@ -39,72 +41,89 @@ fn create_directories(runner: &Runner, base: &Path) -> Result<()> {
     Ok(())
 }
 
-fn deploy_compose_file(runner: &Runner, base: &Path) -> Result<()> {
-    let compose_file = base.join("docker-compose.yml");
-    if compose_file.exists() {
+fn start_container(
+    runner: &mut Runner,
+    config: &Path,
+    download: &Path,
+    (uid, gid): (u32, u32),
+) -> Result<()> {
+    if runner.dry_run {
+        println!("  • [dry-run] docker rm -f qbittorrent");
+        println!("  • [dry-run] docker run -d --name qbittorrent --restart unless-stopped ...");
         return Ok(());
     }
 
-    let uid = unsafe { libc::getuid() };
-    let gid = unsafe { libc::getgid() };
+    let _ = std::process::Command::new("docker")
+        .args(["rm", "-f", "qbittorrent"])
+        .output();
 
-    let compose_content = generate_compose_yaml(uid, gid);
+    let cfg_vol = format!("{}:/config", config.display());
+    let dl_vol = format!("{}:/downloads", download.display());
+    let user_id_env = format!("PUID={uid}");
+    let group_id_env = format!("PGID={gid}");
 
-    if runner.dry_run {
-        println!("  • [dry-run] Create {}", compose_file.display());
-    } else {
-        fs::write(&compose_file, compose_content)
-            .with_context(|| format!("Failed to write: {}", compose_file.display()))?;
-    }
+    runner.exec_silent(
+        "Starting qBittorrent container...",
+        "docker",
+        &[
+            "run",
+            "-d",
+            "--name",
+            "qbittorrent",
+            "--restart",
+            "unless-stopped",
+            "-e",
+            &user_id_env,
+            "-e",
+            &group_id_env,
+            "-e",
+            "TZ=Etc/UTC",
+            "-e",
+            "WEBUI_PORT=6881",
+            "-e",
+            "TORRENTING_PORT=6882",
+            "-p",
+            "6881:6881",
+            "-p",
+            "6882:6882",
+            "-p",
+            "6882:6882/udp",
+            "-v",
+            &cfg_vol,
+            "-v",
+            &dl_vol,
+            "lscr.io/linuxserver/qbittorrent:latest",
+        ],
+    )?;
+
+    std::thread::sleep(std::time::Duration::from_millis(1500));
     Ok(())
 }
 
-fn generate_compose_yaml(uid: u32, gid: u32) -> String {
-    format!(
-        r#"services:
-  qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: qbittorrent
-    environment:
-      - PUID={uid}
-      - PGID={gid}
-      - TZ=Etc/UTC
-      - WEBUI_PORT=6881
-      - TORRENTING_PORT=6882
-    volumes:
-      - ./config:/config
-      - ./downloads:/downloads
-    ports:
-      - "6881:6881"
-      - "6882:6882"
-      - "6882:6882/udp"
-    restart: unless-stopped
-"#
-    )
-}
+fn configure_firewall(runner: &mut Runner) {
+    if !Runner::command_exists("ufw") {
+        return;
+    }
 
-fn start_container(runner: &mut Runner, base: &Path) -> Result<()> {
-    let dir_str = base.to_string_lossy();
-    runner.exec_bash(
-        "Starting qBittorrent server...",
-        &format!("cd '{dir_str}' && docker compose up -d"),
-    )
-}
+    let can_sudo = std::process::Command::new("sudo")
+        .args(["-n", "true"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success());
 
-fn configure_firewall(runner: &mut Runner) -> Result<()> {
-    if Runner::command_exists("ufw") {
-        runner.exec_silent(
+    if can_sudo {
+        let _ = runner.exec_silent(
             "Allowing qBittorrent Web UI port (6881/tcp) in UFW...",
             "sudo",
             &["ufw", "allow", "6881/tcp"],
-        )?;
-        runner.exec_silent(
+        );
+        let _ = runner.exec_silent(
             "Allowing BitTorrent peer ports (6882) in UFW...",
             "sudo",
             &["ufw", "allow", "6882"],
-        )?;
+        );
     }
-    Ok(())
 }
 
 fn get_access_urls() -> (String, String) {
@@ -174,8 +193,5 @@ fn print_access_info(home: &str) {
             "•".dimmed()
         );
     }
-    println!(
-        "  {} Downloads directory: {home}/torrents/downloads",
-        "•".dimmed()
-    );
+    println!("  {} Downloads directory: {home}/torrents", "•".dimmed());
 }

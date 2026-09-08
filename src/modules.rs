@@ -35,7 +35,6 @@ pub fn requires_sudo(modules: &[String]) -> bool {
                 | "security"
                 | "docker"
                 | "jellyfin"
-                | "torrent"
                 | "prompt"
                 | "tailscale"
         )
