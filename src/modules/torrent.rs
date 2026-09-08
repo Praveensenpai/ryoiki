@@ -107,17 +107,75 @@ fn configure_firewall(runner: &mut Runner) -> Result<()> {
     Ok(())
 }
 
-fn print_access_info(home: &str) {
-    println!(
-        "  {} qBittorrent web UI: http://<server-ip>:6881 (or over Tailscale)",
-        "✔".green().bold()
+fn get_access_urls() -> (String, String) {
+    let ts_ip = std::process::Command::new("tailscale")
+        .args(["ip", "-4"])
+        .output()
+        .map_or_else(
+            |_| String::new(),
+            |o| String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        );
+
+    let hostname = std::process::Command::new("hostname").output().map_or_else(
+        |_| String::new(),
+        |o| String::from_utf8_lossy(&o.stdout).trim().to_string(),
     );
+
+    (ts_ip, hostname)
+}
+
+fn get_initial_password() -> Option<String> {
+    let output = std::process::Command::new("docker")
+        .args(["logs", "qbittorrent"])
+        .output()
+        .ok()?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    for line in stdout.lines().chain(stderr.lines()) {
+        if line.contains("temporary password is provided for this session:") {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() >= 2 {
+                return Some(parts[parts.len() - 1].trim().to_string());
+            }
+        }
+    }
+    None
+}
+
+fn print_access_info(home: &str) {
+    let (ts_ip, host) = get_access_urls();
+    let url = if ts_ip.is_empty() {
+        if host.is_empty() {
+            "http://<server-ip>:6881".to_string()
+        } else {
+            format!("http://{host}:6881")
+        }
+    } else {
+        format!("http://{ts_ip}:6881")
+    };
+
+    println!("  {} qBittorrent web UI: {url}", "✔".green().bold());
+    if !host.is_empty() && !ts_ip.is_empty() {
+        println!("  {} MagicDNS URL: http://{host}:6881", "•".dimmed());
+    }
+    println!("  {} Default username: admin", "•".dimmed());
+
+    if let Some(pwd) = get_initial_password() {
+        println!(
+            "  {} Temporary password: {}",
+            "✔".green().bold(),
+            pwd.cyan().bold()
+        );
+    } else {
+        println!(
+            "  {} Check password: docker logs qbittorrent | grep -i password",
+            "•".dimmed()
+        );
+    }
     println!(
         "  {} Downloads directory: {home}/torrents/downloads",
-        "•".dimmed()
-    );
-    println!(
-        "  {} Initial admin password: run `docker logs qbittorrent | grep -i password`",
         "•".dimmed()
     );
 }
