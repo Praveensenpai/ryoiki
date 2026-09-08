@@ -23,12 +23,16 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
         apply_credentials(&config_dir, user, &hash)?;
     }
 
+    let (ts_ip, hostname) = get_access_urls();
     let tg_config = telegram::prompt_telegram_config(runner, non_interactive)?;
     let tg_installed = if let Some(cfg) = &tg_config {
-        telegram::install_notification_script(&config_dir, cfg)?;
+        telegram::install_notification_script(&config_dir, cfg, (&hostname, &ts_ip))?;
         true
     } else {
-        config_dir.join("scripts").join("telegram_notify.sh").exists()
+        config_dir
+            .join("scripts")
+            .join("telegram_notify.sh")
+            .exists()
     };
 
     if !runner.dry_run {
