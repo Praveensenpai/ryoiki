@@ -99,6 +99,19 @@ fn hash_password(password: &str) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+fn insert_into_section(lines: &mut Vec<String>, section: &str, entries: &[&str]) {
+    if let Some(idx) = lines.iter().position(|l| l.trim() == section) {
+        for (offset, entry) in entries.iter().enumerate() {
+            lines.insert(idx + 1 + offset, (*entry).to_string());
+        }
+    } else {
+        lines.push(section.to_string());
+        for entry in entries {
+            lines.push((*entry).to_string());
+        }
+    }
+}
+
 fn apply_default_preferences(config_dir: &Path) -> Result<()> {
     let conf_dir = config_dir.join("qBittorrent");
     fs::create_dir_all(&conf_dir)?;
@@ -131,6 +144,9 @@ fn apply_default_preferences(config_dir: &Path) -> Result<()> {
         "Downloads\\SavePath=/downloads/",
         "Downloads\\TempPath=/downloads/incomplete/",
         "Downloads\\TempPathEnabled=true",
+        "Downloads\\UseIncompleteExtension=true",
+        "WebUI\\AuthSubnetWhitelist=127.0.0.1/32, ::1/128, 172.17.0.1/32",
+        "WebUI\\AuthSubnetWhitelistEnabled=true",
     ];
 
     let mut lines: Vec<String> = existing
@@ -147,19 +163,8 @@ fn apply_default_preferences(config_dir: &Path) -> Result<()> {
         .map(ToString::to_string)
         .collect();
 
-    if !lines.iter().any(|l| l == "[BitTorrent]") {
-        lines.push("[BitTorrent]".to_string());
-    }
-    for d in &bt_defaults {
-        lines.push((*d).to_string());
-    }
-
-    if !lines.iter().any(|l| l == "[Preferences]") {
-        lines.push("[Preferences]".to_string());
-    }
-    for d in &pref_defaults {
-        lines.push((*d).to_string());
-    }
+    insert_into_section(&mut lines, "[BitTorrent]", &bt_defaults);
+    insert_into_section(&mut lines, "[Preferences]", &pref_defaults);
 
     fs::write(&conf_path, lines.join("\n") + "\n")?;
     Ok(())
@@ -182,12 +187,10 @@ fn apply_credentials(config_dir: &Path, username: &str, password_hash: &str) -> 
         .map(ToString::to_string)
         .collect();
 
-    if !lines.iter().any(|l| l == "[Preferences]") {
-        lines.push("[Preferences]".to_string());
-    }
+    let u_entry = format!("WebUI\\Username={username}");
+    let p_entry = format!("WebUI\\Password_PBKDF2=\"{password_hash}\"");
+    insert_into_section(&mut lines, "[Preferences]", &[&u_entry, &p_entry]);
 
-    lines.push(format!("WebUI\\Username={username}"));
-    lines.push(format!("WebUI\\Password_PBKDF2=\"{password_hash}\""));
     fs::write(&conf_path, lines.join("\n") + "\n")?;
     Ok(())
 }
