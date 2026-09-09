@@ -12,8 +12,6 @@ pub mod telegram;
 
 /// Sets up qBittorrent server directly with Docker without compose files.
 pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
-    ensure_docker(runner)?;
-
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     let config_dir = Path::new(&home).join(".config/qbittorrent");
     let download_dir = Path::new(&home).join("torrents");
@@ -46,13 +44,6 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
     configure_firewall(runner);
     print_access_info(&home, creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str())));
 
-    Ok(())
-}
-
-fn ensure_docker(runner: &mut Runner) -> Result<()> {
-    if !Runner::command_exists("docker") {
-        super::docker::setup(runner)?;
-    }
     Ok(())
 }
 

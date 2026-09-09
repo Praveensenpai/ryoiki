@@ -1,7 +1,9 @@
 mod configs;
 mod modules;
 mod runner;
+mod state;
 mod tui;
+mod updater;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -49,6 +51,8 @@ enum Commands {
         #[arg(required = true)]
         modules: Vec<String>,
     },
+    /// Update ryoiki to the latest release from GitHub
+    Update,
     /// Run the interactive 2-way Telegram bot daemon
     Bot,
     /// Send automated Telegram notification for torrent events
@@ -72,25 +76,54 @@ fn main() -> Result<()> {
         return handle_subcommand(cmd, &mut runner, cli.yes);
     }
 
-    let Some(chosen_modules) = resolve_selected_modules(&cli)? else {
+    let Some(chosen) = resolve_selected_modules(&cli)? else {
         return Ok(());
     };
 
-    if modules::requires_sudo(&chosen_modules) {
+    let resolved = modules::resolve_dependencies(&chosen);
+    print_dependency_notes(&chosen, &resolved);
+
+    if modules::requires_sudo(&resolved) {
         runner.ensure_sudo()?;
     }
 
     let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();
+    let (to_run, run_state) = state::resolve_resume(resolved.clone(), non_interactive)?;
+
+    if to_run.is_empty() {
+        println!(
+            "  {} All selected modules are completed.",
+            "✔".green().bold()
+        );
+        state::RunState::clear();
+        return Ok(());
+    }
+
     println!(
         "\n  {} Running {} selected modules...\n",
         "▶".cyan().bold(),
-        chosen_modules.len()
+        to_run.len()
     );
-
-    let (total_dur, timings) = run_modules(&chosen_modules, &mut runner, non_interactive)?;
-    print_summary(&chosen_modules, total_dur, &timings);
-
+    let mut state_opt = Some(run_state);
+    let (total_dur, timings) = run_modules(&to_run, &mut runner, non_interactive, &mut state_opt)?;
+    state::RunState::clear();
+    print_summary(&resolved, total_dur, &timings);
     Ok(())
+}
+
+fn print_dependency_notes(chosen: &[String], resolved: &[String]) {
+    if resolved.len() > chosen.len() {
+        let added: Vec<&str> = resolved
+            .iter()
+            .filter(|id| !chosen.contains(id))
+            .map(String::as_str)
+            .collect();
+        println!(
+            "  {} Auto-included dependencies: {}\n",
+            "ℹ".cyan().bold(),
+            added.join(", ").bold()
+        );
+    }
 }
 
 fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()> {
@@ -108,11 +141,15 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
         }
         Commands::Check => run_system_check(),
         Commands::Run { modules } => {
-            if modules::requires_sudo(&modules) {
+            let resolved = modules::resolve_dependencies(&modules);
+            if modules::requires_sudo(&resolved) {
                 runner.ensure_sudo()?;
             }
-            let (total_dur, timings) = run_modules(&modules, runner, yes)?;
-            print_summary(&modules, total_dur, &timings);
+            let (total_dur, timings) = run_modules(&resolved, runner, yes, &mut None)?;
+            print_summary(&resolved, total_dur, &timings);
+        }
+        Commands::Update => {
+            updater::run_self_update(env!("CARGO_PKG_VERSION"))?;
         }
         Commands::Bot => {
             modules::torrent::bot::run_bot()?;
@@ -160,6 +197,7 @@ fn run_modules(
     module_ids: &[String],
     runner: &mut Runner,
     non_interactive: bool,
+    run_state: &mut Option<state::RunState>,
 ) -> Result<(std::time::Duration, Vec<(String, std::time::Duration)>)> {
     let all_mods = get_available_modules();
     let total = module_ids.len();
@@ -174,6 +212,9 @@ fn run_modules(
             let mod_dur = mod_start.elapsed();
             let mod_dur_str = runner::format_duration(mod_dur);
             timings.push((meta.title.to_string(), mod_dur));
+            if let Some(state) = run_state {
+                let _ = state.mark_done(id);
+            }
             println!("  {}", format!("── completed in {mod_dur_str} ──").dimmed());
             println!();
         }
@@ -259,6 +300,12 @@ fn print_infra_highlights(module_ids: &[String]) {
             "Torrent: ".dimmed()
         );
     }
+    if module_ids.iter().any(|m| m == "caddy") {
+        println!(
+            "  • {} Caddy reverse proxy active (Tailscale HTTPS)",
+            "Proxy:   ".dimmed()
+        );
+    }
     if module_ids.iter().any(|m| m == "tailscale") {
         println!(
             "  • {} Tailscale MagicDNS active (connect via hostname)",
@@ -283,6 +330,7 @@ fn run_system_check() {
         ("uv", "uv Python tool"),
         ("bun", "Bun JS/TS runtime"),
         ("docker", "Docker Engine"),
+        ("caddy", "Caddy Web Server"),
         ("starship", "Starship shell prompt"),
         ("fastfetch", "Fastfetch system stats"),
         ("toss", "toss-rs trash manager"),

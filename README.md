@@ -28,10 +28,11 @@ Select modules to install: (Space to toggle, Enter to run)
   [✓]  6. Docker Platform            Docker Engine CE & Docker Compose plugin
   [ ]  7. Jellyfin Media Server      Dockerized media streaming with Intel GPU
   [ ]  8. qBittorrent Server         Dockerized BitTorrent client with Web UI
-  [✓]  9. Shell Prompt               Starship cross-shell prompt & Fastfetch CLI
-  [✓] 10. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
-  [✓] 11. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
-  [✓] 12. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
+  [ ]  9. Caddy Reverse Proxy        Tailscale HTTPS reverse proxy (Jellyfin & qBit)
+  [✓] 10. Shell Prompt               Starship cross-shell prompt & Fastfetch CLI
+  [✓] 11. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
+  [✓] 12. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
+  [✓] 13. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
 
   [↑/↓/j/k] Navigate   [Space] Toggle   [a] All   [n] None   [Enter] Launch   [q] Quit
 ```
@@ -78,10 +79,11 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 | `06` | **Docker Platform** | `docker` | Official Docker CE Engine, `containerd`, and Docker Compose v2 plugin |
 | `07` | **Jellyfin Media Server** | `jellyfin` | Dockerized media streaming with Intel QuickSync / VAAPI GPU acceleration (Optional) |
 | `08` | **qBittorrent Server** | `torrent` | Dockerized BitTorrent client with Web UI (port 6881) & peer ports (Optional) |
-| `09` | **Shell Prompt** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch CLI |
-| `10` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
-| `11` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
-| `12` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
+| `09` | **Caddy Reverse Proxy** | `caddy` | Caddy web server, Tailscale MagicDNS HTTPS reverse proxy for Jellyfin & qBittorrent (Optional) |
+| `10` | **Shell Prompt** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch CLI |
+| `11` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
+| `12` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
+| `13` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
 
 ---
 
@@ -119,6 +121,9 @@ ryoiki --dry-run
 
 # Run specific modules by identifier
 ryoiki run dev_runtimes docker security
+
+# In-place self-update to latest release from GitHub
+ryoiki update
 ```
 
 ---
@@ -127,6 +132,9 @@ ryoiki run dev_runtimes docker security
 
 ```text
 ryoiki/
+├── .agent/
+│   ├── CODEBASE.md           # Authoritative codebase architecture map
+│   └── rules/rust.md         # Rust code quality rules (enforced in CI)
 ├── .github/
 │   ├── release.yml           # Categorized GitHub release changelog config
 │   └── workflows/
@@ -138,11 +146,14 @@ ryoiki/
 │   └── starship.toml         # Minimalist Catppuccin-styled prompt with Nerd Font glyphs
 ├── src/
 │   ├── main.rs               # CLI coordinator, argument parser & execution banner
-│   ├── modules.rs            # Module registry, sudo requirements & dispatcher
+│   ├── modules.rs            # Module registry, dependency resolver & dispatcher
 │   ├── runner.rs             # Subprocess runner, elapsed timers & quiet output logging
-│   ├── tui.rs                # Ratatui interactive checklist interface
+│   ├── state.rs              # Run state persistence & resume-on-interruption
+│   ├── tui.rs                # Ratatui interactive checklist interface ([Space], [a], [n])
+│   ├── updater.rs            # In-place binary self-update from GitHub releases
 │   ├── configs.rs            # Embedded dotfile deployment routines
 │   └── modules/              # Single-responsibility provisioning modules
+│       ├── caddy.rs          # Caddy reverse proxy with Tailscale HTTPS
 │       ├── cli_tools.rs      # eza, bat, zoxide, fzf, ble.sh
 │       ├── dev_runtimes.rs   # Go, Rustup, uv, Bun
 │       ├── docker.rs         # Docker Engine CE & Docker Compose
@@ -153,6 +164,7 @@ ryoiki/
 │       ├── security.rs       # UFW firewall & daemon cleanup
 │       ├── tailscale.rs      # Tailscale WireGuard mesh VPN & MagicDNS
 │       ├── torrent.rs        # qBittorrent server & Web UI
+│       ├── torrent/          # Torrent API, Telegram bot & notification hooks
 │       └── trash.rs          # toss-rs safe trash manager
 ├── Cargo.toml                # Rust 2021 package manifest with strict lints
 ├── remote-install.sh         # Instant remote bootstrap script (curl | bash)

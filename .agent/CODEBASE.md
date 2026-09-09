@@ -8,7 +8,7 @@
 
 ## What Is Ryoiki?
 
-A single static Rust binary that provisions Ubuntu/Debian servers. It presents an interactive **Ratatui TUI checklist** of 12 provisioning modules. All subprocess noise (`apt`, `dpkg`, compiler output) is hidden behind single-line spinners. Full logs go to `~/.local/state/ryoiki/install.log`.
+A single static Rust binary that provisions Ubuntu/Debian servers. It presents an interactive **Ratatui TUI checklist** of 13 provisioning modules. All subprocess noise (`apt`, `dpkg`, compiler output) is hidden behind single-line spinners. Full logs go to `~/.local/state/ryoiki/install.log`.
 
 ---
 
@@ -26,9 +26,11 @@ ryoiki/
 │   └── starship.toml
 ├── src/
 │   ├── main.rs              ← CLI entry, arg parsing, orchestration, summary
-│   ├── modules.rs           ← Module registry + dispatcher
+│   ├── modules.rs           ← Module registry + dependency resolution + dispatcher
 │   ├── runner.rs            ← Runner struct: subprocess exec, spinners, logging
-│   ├── tui.rs               ← Ratatui interactive checklist TUI
+│   ├── state.rs             ← RunState persistence & resume-on-interruption logic
+│   ├── tui.rs               ← Ratatui interactive checklist TUI ([Space], [a], [n])
+│   ├── updater.rs           ← Self-update binary directly from GitHub releases
 │   ├── configs.rs           ← Dotfile deployment (include_str! embeds)
 │   └── modules/
 │       ├── git_ssh.rs       ← Ed25519 SSH keygen, git identity, GitHub verify
@@ -37,11 +39,12 @@ ryoiki/
 │       ├── dev_runtimes.rs  ← Go, rustup, uv (Python), Bun (JS)
 │       ├── security.rs      ← UFW firewall (ports 22/80/443), daemon cleanup
 │       ├── docker.rs        ← Docker Engine CE + Compose plugin
-│       ├── jellyfin.rs      ← Dockerized Jellyfin + Intel QuickSync GPU
+│       ├── jellyfin.rs      ← Dockerized Jellyfin + Intel QuickSync GPU (dep: docker)
+│       ├── torrent.rs       ← qBittorrent Docker setup (main entry, dep: docker)
+│       ├── caddy.rs         ← Caddy reverse proxy with Tailscale MagicDNS HTTPS
 │       ├── prompt.rs        ← Starship cross-shell prompt + fastfetch
 │       ├── trash.rs         ← toss-rs trash manager binary install
 │       ├── tailscale.rs     ← WireGuard mesh VPN + MagicDNS SSH
-│       ├── torrent.rs       ← qBittorrent Docker setup (main entry)
 │       └── torrent/         ← Torrent subsystem submodules
 │           ├── api.rs       ← qBittorrent Web API v2 (blocking reqwest)
 │           ├── bot.rs       ← 2-way long-polling Telegram bot daemon
@@ -58,8 +61,8 @@ ryoiki/
 
 ### `main.rs` — CLI & Orchestration
 - **Clap** parser with global flags: `--all`, `--yes`, `--dry-run`, `--verbose`
-- **Subcommands:** `dotfiles`, `check`, `run <ids...>`, `bot`, `notify <event> <hash>`
-- **Flow:** parse → banner → TUI or auto-select → sudo check → loop modules → print timed summary
+- **Subcommands:** `dotfiles`, `check`, `run <ids...>`, `update`, `bot`, `notify <event> <hash>`
+- **Flow:** parse → banner → TUI or auto-select → resolve dependencies → sudo check → resume prompt → loop modules → state persistence → print timed summary
 - `print_summary` / `print_module_highlights` / `run_system_check` live here
 
 ### `runner.rs` — `Runner` struct
@@ -74,14 +77,26 @@ ryoiki/
 | `command_exists(cmd)` | PATH + absolute path check |
 | `format_duration(d)` | `<1ms` / `420ms` / `12.4s` / `1m 24s` |
 
+### `state.rs` — Run State & Interruption Recovery
+- `RunState { completed: Vec<String>, pending: Vec<String> }`
+- Saved at `~/.local/state/ryoiki/resume.json`
+- `resolve_resume()` prompts user if an interrupted run is detected; skips already finished modules
+- Automatically cleans up `resume.json` upon successful execution completion
+
+### `updater.rs` — In-place Self Update
+- `run_self_update()` queries GitHub Releases API for `Praveensenpai/ryoiki`
+- Detects architecture (`x86_64` vs `aarch64`), streams binary asset
+- Atomically replaces `std::env::current_exe()` with `chmod +x`
+
 ### `tui.rs` — Ratatui TUI
 - 3-panel layout: **header** / **module checklist** / **footer keybindings**
 - State: `Vec<bool>` (selected) + `cursor: usize`
 - Returns `Option<Vec<String>>` (selected module IDs, or `None` on quit)
-- Keys: `↑↓jk` navigate, `Space` toggle, `a` all/none toggle, `Enter` confirm, `q/Esc` quit
+- Keys: `↑↓jk` navigate, `Space` toggle, `a` select all, `n` deselect all, `Enter` confirm, `q/Esc` quit
 
-### `modules.rs` — Registry & Dispatch
-- `Module { id, title, description, default_enabled }` — static metadata
+### `modules.rs` — Registry, Dependency Resolution & Dispatch
+- `Module { id, title, description, default_enabled, deps }` — static metadata with prerequisites
+- `resolve_dependencies(selected_ids)` — transitively resolves prerequisites (e.g. `docker` before `torrent` and `jellyfin`) preserving canonical execution order
 - `get_available_modules()` → ordered `Vec<Module>` (core → platform → environment)
 - `requires_sudo(modules)` → `bool`
 - `execute_module(id, runner, non_interactive)` → dispatches to each module's `setup()`
@@ -93,40 +108,40 @@ ryoiki/
 
 ---
 
-## The 12 Provisioning Modules
+## The 13 Provisioning Modules
 
-| ID | Title | Key Behavior |
-|---|---|---|
-| `git_ssh` | Git & SSH Key Setup | Interactive git identity prompt, Ed25519 keygen, optional GitHub SSH verify |
-| `essentials` | System Essentials | apt packages + official GitHub CLI repo |
-| `cli_tools` | Modern CLI Suite | eza, bat, zoxide, fzf, ble.sh |
-| `dev_runtimes` | Dev Runtimes | Go binary, rustup, uv, Bun |
-| `security` | Server Security | UFW allow 22/80/443, disable unused daemons |
-| `docker` | Docker Platform | Docker CE + containerd + Compose plugin |
-| `jellyfin` | Jellyfin Media Server | `docker run` with Intel `/dev/dri` passthrough |
-| `torrent` | qBittorrent Server | Docker run, PBKDF2 creds, Telegram bot, UFW ports |
-| `prompt` | Shell Prompt | Starship + fastfetch |
-| `trash` | Trash Manager | toss-rs binary install |
-| `tailscale` | Tailscale Mesh VPN | curl install, systemd enable, `tailscale up --ssh` |
-| `dotfiles` | Aesthetic Dotfiles | Deploy embedded `.tmux.conf`, `.bash_aliases`, `starship.toml` |
+| ID | Title | Key Behavior | Prerequisites |
+|---|---|---|---|
+| `git_ssh` | Git & SSH Key Setup | Interactive git identity prompt, Ed25519 keygen, optional GitHub SSH verify | None |
+| `essentials` | System Essentials | apt packages + official GitHub CLI repo | None |
+| `cli_tools` | Modern CLI Suite | eza, bat, zoxide, fzf, ble.sh | None |
+| `dev_runtimes` | Dev Runtimes | Go binary, rustup, uv, Bun | None |
+| `security` | Server Security | UFW allow 22/80/443, disable unused daemons | None |
+| `docker` | Docker Platform | Docker CE + containerd + Compose plugin | None |
+| `jellyfin` | Jellyfin Media Server | `docker run` with Intel `/dev/dri` passthrough | `docker` |
+| `torrent` | qBittorrent Server | Docker run, PBKDF2 creds, Telegram bot, UFW ports | `docker` |
+| `caddy` | Caddy Reverse Proxy | Caddy APT install, Tailscale MagicDNS HTTPS reverse proxy | None |
+| `prompt` | Shell Prompt | Starship + fastfetch | None |
+| `trash` | Trash Manager | toss-rs binary install | None |
+| `tailscale` | Tailscale Mesh VPN | curl install, systemd enable, `tailscale up --ssh` | None |
+| `dotfiles` | Aesthetic Dotfiles | Deploy embedded `.tmux.conf`, `.bash_aliases`, `starship.toml` | None |
 
-Modules requiring sudo: `essentials`, `cli_tools`, `dev_runtimes`, `security`, `docker`, `jellyfin`, `prompt`, `tailscale`
+Modules requiring sudo: `essentials`, `cli_tools`, `dev_runtimes`, `security`, `docker`, `jellyfin`, `torrent`, `caddy`, `prompt`, `tailscale`
 
 ---
 
 ## Torrent Subsystem — Detailed
 
-The most complex module. Lives in `src/modules/torrent.rs` + `src/modules/torrent/`.
+Lives in `src/modules/torrent.rs` + `src/modules/torrent/`.
 
 ### `torrent.rs` (setup entry)
-1. Ensures Docker is installed (calls `docker::setup` if missing)
-2. Creates `~/.config/qbittorrent/` and `~/torrents/` directories
-3. Optionally prompts for custom WebUI credentials → hashes with python3 PBKDF2
-4. Optionally configures Telegram bot (`telegram::prompt_telegram_config`)
-5. Writes `qBittorrent.conf` with sane defaults (save paths, pre-allocation, subnet whitelist)
-6. Starts `lscr.io/linuxserver/qbittorrent:latest` Docker container (ports 6881/6882)
-7. Configures UFW if available
-8. Prints access URLs (Tailscale IP preferred)
+1. Creates `~/.config/qbittorrent/` and `~/torrents/` directories
+2. Optionally prompts for custom WebUI credentials → hashes with python3 PBKDF2
+3. Optionally configures Telegram bot (`telegram::prompt_telegram_config`)
+4. Writes `qBittorrent.conf` with sane defaults (save paths, pre-allocation, subnet whitelist)
+5. Starts `lscr.io/linuxserver/qbittorrent:latest` Docker container (ports 6881/6882)
+6. Configures UFW if available
+7. Prints access URLs (Tailscale IP preferred)
 
 ### `torrent/api.rs` — qBittorrent Web API v2
 - `get_torrents(client, base_url, hash?)` → `Vec<TorrentInfo>`
@@ -163,7 +178,8 @@ ryoiki --dry-run                 # Simulate, no system changes
 ryoiki --verbose / -v            # Stream subprocess output
 ryoiki check                     # Audit installed tools
 ryoiki dotfiles                  # Deploy dotfiles only
-ryoiki run <id> [id...]          # Run specific modules
+ryoiki run <id> [id...]          # Run specific modules (auto-resolves dependencies)
+ryoiki update                    # In-place self-update to latest GitHub release
 ryoiki bot                       # Start Telegram bot daemon (blocking)
 ryoiki notify <event> <hash>     # Send torrent Telegram alert (called by qBittorrent)
 ```
@@ -195,6 +211,6 @@ See `.agent/rules/rust.md` for full rules. Summary:
 | `indicatif` | Progress spinners |
 | `colored` | Terminal color output |
 | `anyhow` | Error handling |
-| `serde` / `serde_json` | TelegramConfig JSON serialization |
-| `reqwest` (blocking) | HTTP client for Telegram & qBittorrent APIs |
+| `serde` / `serde_json` | TelegramConfig and RunState JSON serialization |
+| `reqwest` (blocking) | HTTP client for GitHub updater, Telegram & qBittorrent APIs |
 | `libc` | `geteuid()`, `statvfs()` syscalls |

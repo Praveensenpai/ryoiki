@@ -139,6 +139,13 @@ fn render_footer(f: &mut Frame, area: Rect) {
         ),
         Span::raw("All  "),
         Span::styled(
+            "[n] ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::raw("None  "),
+        Span::styled(
             "[Enter] ",
             Style::default()
                 .fg(Color::Green)
@@ -241,10 +248,11 @@ fn handle_key(
             None
         }
         KeyCode::Char('a') => {
-            let all_selected = selected.iter().all(|&s| s);
-            for item in selected.iter_mut() {
-                *item = !all_selected;
-            }
+            selected.fill(true);
+            None
+        }
+        KeyCode::Char('n') => {
+            selected.fill(false);
             None
         }
         KeyCode::Enter => Some(true),

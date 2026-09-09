@@ -6,8 +6,6 @@ use std::path::Path;
 
 /// Sets up Jellyfin media server with Docker Compose and Intel GPU hardware acceleration.
 pub fn setup(runner: &mut Runner) -> Result<()> {
-    ensure_docker(runner)?;
-
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     let jellyfin_dir = Path::new(&home).join("jellyfin");
 
@@ -17,13 +15,6 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
     configure_firewall(runner)?;
     print_access_info(&home);
 
-    Ok(())
-}
-
-fn ensure_docker(runner: &mut Runner) -> Result<()> {
-    if !Runner::command_exists("docker") {
-        super::docker::setup(runner)?;
-    }
     Ok(())
 }
 
