@@ -8,7 +8,7 @@
 
 ## What Is Ryoiki?
 
-A single static Rust binary that provisions Ubuntu/Debian servers. It presents an interactive **Ratatui TUI checklist** of 13 provisioning modules. All subprocess noise (`apt`, `dpkg`, compiler output) is hidden behind single-line spinners. Full logs go to `~/.local/state/ryoiki/install.log`.
+A single static Rust binary that provisions Ubuntu/Debian servers. It presents an interactive **Ratatui TUI checklist** of 12 provisioning modules. All subprocess noise (`apt`, `dpkg`, compiler output) is hidden behind single-line spinners. Full logs go to `~/.local/state/ryoiki/install.log`.
 
 ---
 
@@ -41,7 +41,6 @@ ryoiki/
 │       ├── docker.rs        ← Docker Engine CE + Compose plugin
 │       ├── jellyfin.rs      ← Dockerized Jellyfin + Intel QuickSync GPU (dep: docker)
 │       ├── torrent.rs       ← qBittorrent Docker setup (main entry, dep: docker)
-│       ├── caddy.rs         ← Caddy reverse proxy with Tailscale MagicDNS HTTPS
 │       ├── prompt.rs        ← Starship cross-shell prompt + fastfetch
 │       ├── trash.rs         ← toss-rs trash manager binary install
 │       ├── tailscale.rs     ← WireGuard mesh VPN + MagicDNS SSH
@@ -108,7 +107,7 @@ ryoiki/
 
 ---
 
-## The 13 Provisioning Modules
+## The 12 Provisioning Modules
 
 | ID | Title | Key Behavior | Prerequisites |
 |---|---|---|---|
@@ -120,13 +119,12 @@ ryoiki/
 | `docker` | Docker Platform | Docker CE + containerd + Compose plugin | None |
 | `jellyfin` | Jellyfin Media Server | `docker run` with Intel `/dev/dri` passthrough | `docker` |
 | `torrent` | qBittorrent Server | Docker run, PBKDF2 creds, Telegram bot, UFW ports | `docker` |
-| `caddy` | Caddy Reverse Proxy | Caddy APT install, Tailscale MagicDNS HTTPS reverse proxy | None |
 | `prompt` | Shell Prompt | Starship + fastfetch | None |
 | `trash` | Trash Manager | toss-rs binary install | None |
 | `tailscale` | Tailscale Mesh VPN | curl install, systemd enable, `tailscale up --ssh` | None |
 | `dotfiles` | Aesthetic Dotfiles | Deploy embedded `.tmux.conf`, `.bash_aliases`, `starship.toml` | None |
 
-Modules requiring sudo: `essentials`, `cli_tools`, `dev_runtimes`, `security`, `docker`, `jellyfin`, `torrent`, `caddy`, `prompt`, `tailscale`
+Modules requiring sudo: `essentials`, `cli_tools`, `dev_runtimes`, `security`, `docker`, `jellyfin`, `torrent`, `prompt`, `tailscale`
 
 ---
 

@@ -300,12 +300,6 @@ fn print_infra_highlights(module_ids: &[String]) {
             "Torrent: ".dimmed()
         );
     }
-    if module_ids.iter().any(|m| m == "caddy") {
-        println!(
-            "  • {} Caddy reverse proxy active (Tailscale HTTPS)",
-            "Proxy:   ".dimmed()
-        );
-    }
     if module_ids.iter().any(|m| m == "tailscale") {
         println!(
             "  • {} Tailscale MagicDNS active (connect via hostname)",
@@ -330,7 +324,6 @@ fn run_system_check() {
         ("uv", "uv Python tool"),
         ("bun", "Bun JS/TS runtime"),
         ("docker", "Docker Engine"),
-        ("caddy", "Caddy Web Server"),
         ("starship", "Starship shell prompt"),
         ("fastfetch", "Fastfetch system stats"),
         ("toss", "toss-rs trash manager"),

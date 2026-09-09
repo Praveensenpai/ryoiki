@@ -1,4 +1,3 @@
-pub mod caddy;
 pub mod cli_tools;
 pub mod dev_runtimes;
 pub mod docker;
@@ -39,7 +38,6 @@ pub fn requires_sudo(modules: &[String]) -> bool {
                 | "docker"
                 | "jellyfin"
                 | "torrent"
-                | "caddy"
                 | "prompt"
                 | "tailscale"
         )
@@ -116,13 +114,6 @@ fn platform_modules() -> Vec<Module> {
             description: "Dockerized BitTorrent client with Web UI (port 6881)",
             default_enabled: false,
             deps: &["docker"],
-        },
-        Module {
-            id: "caddy",
-            title: "Caddy Reverse Proxy",
-            description: "Tailscale HTTPS reverse proxy (Jellyfin & qBittorrent)",
-            default_enabled: false,
-            deps: &[],
         },
     ]
 }
@@ -202,7 +193,6 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "docker" => docker::setup(runner),
         "jellyfin" => jellyfin::setup(runner),
         "torrent" => torrent::setup(runner, non_interactive),
-        "caddy" => caddy::setup(runner),
         "prompt" => prompt::setup(runner),
         "trash" => trash::setup(runner),
         "tailscale" => tailscale::setup(runner, non_interactive),
