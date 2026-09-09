@@ -9,7 +9,7 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
     configure_tailscale_permission(runner)?;
 
     let (hostname, ts_ip) = detect_tailscale_info();
-    let caddyfile = build_caddyfile(&hostname, &ts_ip);
+    let caddyfile = build_caddyfile(&hostname);
 
     write_caddyfile(runner, &caddyfile)?;
     enable_caddy(runner)?;
@@ -81,35 +81,25 @@ fn detect_tailscale_info() -> (String, String) {
     (dns_name, ts_ip)
 }
 
-fn build_caddyfile(hostname: &str, ts_ip: &str) -> String {
-    let mut http_targets = vec!["http://localhost".to_string()];
-    if !ts_ip.is_empty() {
-        http_targets.push(format!("http://{ts_ip}"));
-    }
-    if !hostname.is_empty() {
-        http_targets.push(format!("http://{hostname}"));
-    }
-    let http_hosts = http_targets.join(", ");
-
+fn build_caddyfile(hostname: &str) -> String {
     if hostname.is_empty() {
-        return format!(
-            r"{{
+        return r"{
     auto_https disable_redirects
-}}
+}
 
-{http_hosts} {{
-    handle /jellyfin* {{
+:80 {
+    handle /jellyfin* {
         reverse_proxy localhost:8096
-    }}
-    handle {{
-        reverse_proxy localhost:6881 {{
+    }
+    handle {
+        reverse_proxy localhost:6881 {
             header_up Host localhost:6881
             header_up -X-Forwarded-Host
-        }}
-    }}
-}}
+        }
+    }
+}
 "
-        );
+        .to_string();
     }
 
     format!(
@@ -132,7 +122,7 @@ fn build_caddyfile(hostname: &str, ts_ip: &str) -> String {
     }}
 }}
 
-{http_hosts} {{
+:80 {{
     handle /jellyfin* {{
         reverse_proxy localhost:8096
     }}
@@ -210,10 +200,10 @@ mod tests {
 
     #[test]
     fn test_build_caddyfile_with_tailscale() {
-        let conf = build_caddyfile("mochi.ts.net", "100.65.1.1");
+        let conf = build_caddyfile("mochi.ts.net");
         assert!(conf.contains("get_certificate tailscale"));
         assert!(conf.contains("mochi.ts.net"));
-        assert!(conf.contains("http://100.65.1.1"));
+        assert!(conf.contains(":80 {"));
         assert!(conf.contains("header_up Host localhost:6881"));
         assert!(conf.contains("header_up -X-Forwarded-Host"));
         assert!(conf.contains("auto_https disable_redirects"));
@@ -221,9 +211,9 @@ mod tests {
 
     #[test]
     fn test_build_caddyfile_empty_hostname() {
-        let conf = build_caddyfile("", "");
+        let conf = build_caddyfile("");
         assert!(!conf.contains("get_certificate tailscale"));
-        assert!(conf.contains("http://localhost"));
+        assert!(conf.contains(":80 {"));
         assert!(conf.contains("header_up Host localhost:6881"));
     }
 }
