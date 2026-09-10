@@ -1,5 +1,6 @@
 mod configs;
 mod modules;
+mod notify;
 mod runner;
 mod state;
 mod tui;
@@ -55,20 +56,16 @@ enum Commands {
     Update,
     /// Run the interactive 2-way Telegram bot daemon
     Bot,
-    /// Send automated Telegram notification for torrent events
-    Notify {
-        /// Event type ("started" or "completed")
-        event: String,
-        /// Torrent info hash
-        hash: String,
-    },
+    /// Send automated or custom Telegram notifications
+    #[command(subcommand)]
+    Notify(notify::NotifySubcommand),
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let mut runner = Runner::new(cli.dry_run, cli.verbose)?;
 
-    if !matches!(cli.command, Some(Commands::Notify { .. })) {
+    if !matches!(cli.command, Some(Commands::Notify(..))) {
         print_banner();
     }
 
@@ -154,8 +151,8 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
         Commands::Bot => {
             modules::torrent::bot::run_bot()?;
         }
-        Commands::Notify { event, hash } => {
-            modules::torrent::notify::execute(&event, &hash)?;
+        Commands::Notify(sub) => {
+            notify::handle_cli(sub)?;
         }
     }
     Ok(())

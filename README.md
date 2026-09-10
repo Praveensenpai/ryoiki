@@ -122,6 +122,24 @@ ryoiki run dev_runtimes docker security
 
 # In-place self-update to latest release from GitHub
 ryoiki update
+
+# Start 2-way Telegram bot & embedded webhook gateway (:9119)
+ryoiki bot
+
+# Send custom Telegram alert from any script or cron job
+ryoiki notify send "Database backup completed successfully" --title "Backup" --level success
+
+# Dispatch system boot metrics notification
+ryoiki notify boot
+
+# Dispatch SSH login security alert (called via PAM or shell profile)
+ryoiki notify login --user neko --ip 198.51.100.42
+
+# Fire alert via local HTTP webhook (works from Docker containers, Python, curl)
+curl -d "text=Service restart completed" http://127.0.0.1:9119/notify
+
+# Install systemd boot service & PAM login notification hooks
+ryoiki notify install-hooks
 ```
 
 ---
@@ -150,6 +168,12 @@ ryoiki/
 │   ├── tui.rs                # Ratatui interactive checklist interface ([Space], [a], [n])
 │   ├── updater.rs            # In-place binary self-update from GitHub releases
 │   ├── configs.rs            # Embedded dotfile deployment routines
+│   ├── notify.rs             # Central notification dispatcher & CLI handler
+│   ├── notify/               # Notification subsystem
+│   │   ├── config.rs         # Telegram config loader with legacy fallback
+│   │   ├── client.rs         # Telegram HTTP API client & HTML card generator
+│   │   ├── system.rs         # Boot metrics, PAM login hook & custom alerts
+│   │   └── server.rs         # Embedded loopback HTTP webhook server (:9119)
 │   └── modules/              # Single-responsibility provisioning modules
 │       ├── cli_tools.rs      # eza, bat, zoxide, fzf, ble.sh
 │       ├── dev_runtimes.rs   # Go, Rustup, uv, Bun

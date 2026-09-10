@@ -52,6 +52,7 @@ pub fn run_bot() -> Result<()> {
         .context("Failed to initialize HTTP client for bot")?;
 
     println!("  ⚡ Ryoiki Pure-Rust Telegram Bot active (Listening for commands)...");
+    crate::notify::server::spawn_background_server(config.clone(), config.api_port);
     start_torrent_monitor(config.clone());
     let mut offset: i64 = 0;
 

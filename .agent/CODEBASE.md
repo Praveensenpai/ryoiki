@@ -32,6 +32,12 @@ ryoiki/
 │   ├── tui.rs               ← Ratatui interactive checklist TUI ([Space], [a], [n])
 │   ├── updater.rs           ← Self-update binary directly from GitHub releases
 │   ├── configs.rs           ← Dotfile deployment (include_str! embeds)
+│   ├── notify.rs            ← Central notification dispatcher & NotifySubcommand
+│   ├── notify/
+│   │   ├── config.rs        ← TelegramConfig with dual-path backward compatibility
+│   │   ├── client.rs        ← Telegram HTTP API client & HTML card formatter
+│   │   ├── system.rs        ← Boot metrics, PAM login hook & custom alert logic
+│   │   └── server.rs        ← Embedded std::net loopback HTTP webhook server (:9119)
 │   └── modules/
 │       ├── git_ssh.rs       ← Ed25519 SSH keygen, git identity, GitHub verify
 │       ├── essentials.rs    ← apt: git, tmux, neovim, adb, gh CLI
@@ -46,9 +52,9 @@ ryoiki/
 │       ├── tailscale.rs     ← WireGuard mesh VPN + MagicDNS SSH
 │       └── torrent/         ← Torrent subsystem submodules
 │           ├── api.rs       ← qBittorrent Web API v2 (blocking reqwest)
-│           ├── bot.rs       ← 2-way long-polling Telegram bot daemon
+│           ├── bot.rs       ← 2-way long-polling Telegram bot + embedded webhook server
 │           ├── notify.rs    ← Torrent event Telegram alerts (AutoRun hook)
-│           └── telegram.rs  ← TelegramConfig JSON + systemd service install
+│           └── telegram.rs  ← Service install & AutoRun qBittorrent configuration
 ├── Cargo.toml               ← Rust 2021, strict lints (deny unwrap, dead_code, warnings)
 ├── install.sh               ← Local install script
 └── remote-install.sh        ← One-liner remote bootstrap (curl | bash)
@@ -60,7 +66,7 @@ ryoiki/
 
 ### `main.rs` — CLI & Orchestration
 - **Clap** parser with global flags: `--all`, `--yes`, `--dry-run`, `--verbose`
-- **Subcommands:** `dotfiles`, `check`, `run <ids...>`, `update`, `bot`, `notify <event> <hash>`
+- **Subcommands:** `dotfiles`, `check`, `run <ids...>`, `update`, `bot`, `notify [send|boot|login|torrent|serve|install-hooks]`
 - **Flow:** parse → banner → TUI or auto-select → resolve dependencies → sudo check → resume prompt → loop modules → state persistence → print timed summary
 - `print_summary` / `print_module_highlights` / `run_system_check` live here
 
@@ -159,11 +165,37 @@ Lives in `src/modules/torrent.rs` + `src/modules/torrent/`.
 - Retries up to 30× (2s sleep) for "started" event to wait for metadata
 - Renders HTML Telegram message with name, size, category, host, Tailscale URL
 
-### `torrent/telegram.rs` — Config & Service
-- `TelegramConfig { bot_token, chat_id, qbittorrent_url }` — serde JSON
-- Stored at `~/.config/qbittorrent/telegram.json`
+### `torrent/telegram.rs` — AutoRun Config & User Service
+- Re-exports `TelegramConfig` from centralized `crate::notify`
 - `install_bot_service(home)` — writes `~/.config/systemd/user/ryoiki-bot.service`, enables it
 - `configure_autorun(lines, enabled)` — patches `[AutoRun]` section in `qBittorrent.conf`
+
+---
+
+## Notification Subsystem — Detailed
+
+Lives in `src/notify.rs` + `src/notify/`.
+
+### `notify/config.rs` — Configuration
+- `TelegramConfig { bot_token, chat_id, qbittorrent_url, server_name, api_port }`
+- Primary path: `~/.config/ryoiki/telegram.json`
+- Fallback path: `~/.config/qbittorrent/telegram.json` for 100% backward compatibility
+
+### `notify/client.rs` — Telegram API Client
+- `send_telegram_alert(client, token, chat_id, text)`
+- `format_card(category, badge, fields)`: aesthetic Ryoiki Telegram cards
+- `escape_html(input)`: sanitizes HTML entities
+
+### `notify/system.rs` — System Events & Metrics
+- `send_boot_notification(config)`: gathers uptime, public IP, Tailscale IP, RAM/Disk, and kernel release
+- `send_login_notification(config, user, ip, service, tty)`: tracks SSH/PAM sessions (`PAM_USER`, `PAM_RHOST`)
+- `send_custom_notification(config, msg, title, level)`: arbitrary user/service alerts
+- `install_hooks(bin_path)`: sets up `ryoiki-boot-notify.service`, PAM hook in `/etc/pam.d/sshd`, and `/etc/profile.d/ryoiki-login-notify.sh`
+
+### `notify/server.rs` — Local HTTP Webhook Gateway
+- Ultra-lightweight loopback HTTP server (`std::net::TcpListener`) listening on `127.0.0.1:9119`
+- Endpoints: `POST /notify` or `POST /send` (JSON or plain text) and `GET /health`
+- Embedded into `ryoiki bot` daemon automatically; also runnable standalone via `ryoiki notify serve`
 
 ---
 
@@ -178,8 +210,13 @@ ryoiki check                     # Audit installed tools
 ryoiki dotfiles                  # Deploy dotfiles only
 ryoiki run <id> [id...]          # Run specific modules (auto-resolves dependencies)
 ryoiki update                    # In-place self-update to latest GitHub release
-ryoiki bot                       # Start Telegram bot daemon (blocking)
-ryoiki notify <event> <hash>     # Send torrent Telegram alert (called by qBittorrent)
+ryoiki bot                       # Start Telegram bot + embedded webhook server (:9119)
+ryoiki notify send <msg>         # Dispatch custom Telegram alert (--title, --level)
+ryoiki notify boot               # Dispatch system boot metrics notification
+ryoiki notify login              # Dispatch SSH / PAM login security alert
+ryoiki notify torrent <ev> <h>   # Send torrent Telegram alert (AutoRun hook)
+ryoiki notify serve [--port 9119]# Run standalone local HTTP webhook listener
+ryoiki notify install-hooks      # Install boot systemd unit and PAM login hooks
 ```
 
 ---

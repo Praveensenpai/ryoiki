@@ -68,14 +68,7 @@ pub fn format_size(bytes: u64) -> String {
         format!("{b}.{rem:02} {unit}")
     }
 }
-
-fn escape_html(input: &str) -> String {
-    input
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-}
+use crate::notify::client::escape_html;
 
 pub(crate) fn render_message(
     event: &str,
@@ -133,17 +126,5 @@ pub(crate) fn send_telegram_alert(
     chat_id: &str,
     text: &str,
 ) -> Result<()> {
-    let url = format!("https://api.telegram.org/bot{token}/sendMessage");
-    let params = [
-        ("chat_id", chat_id),
-        ("parse_mode", "HTML"),
-        ("text", text),
-        ("disable_web_page_preview", "true"),
-    ];
-
-    let resp = client.post(&url).form(&params).send()?;
-    if !resp.status().is_success() {
-        anyhow::bail!("Telegram sendMessage failed with HTTP {}", resp.status());
-    }
-    Ok(())
+    crate::notify::client::send_telegram_alert(client, token, chat_id, text)
 }

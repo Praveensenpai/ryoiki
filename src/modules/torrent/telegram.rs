@@ -1,40 +1,11 @@
-use anyhow::{Context, Result};
-use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
+use anyhow::Result;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
 
+pub use crate::notify::TelegramConfig;
 use crate::runner::Runner;
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TelegramConfig {
-    pub bot_token: String,
-    pub chat_id: String,
-    pub qbittorrent_url: String,
-}
-
-impl TelegramConfig {
-    pub fn config_path() -> std::path::PathBuf {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-        Path::new(&home).join(".config/qbittorrent/telegram.json")
-    }
-
-    pub fn load() -> Result<Self> {
-        let path = Self::config_path();
-        let data = fs::read_to_string(&path)
-            .with_context(|| format!("Config file not found at {}", path.display()))?;
-        serde_json::from_str(&data).context("Failed to parse telegram.json")
-    }
-
-    pub fn save(&self, config_dir: &Path) -> Result<()> {
-        let path = config_dir.join("telegram.json");
-        let data = serde_json::to_string_pretty(self)?;
-        fs::write(&path, data)?;
-        Ok(())
-    }
-}
 
 pub fn prompt_telegram_config(
     _runner: &mut Runner,
@@ -74,21 +45,12 @@ pub fn prompt_telegram_config(
         bot_token,
         chat_id,
         qbittorrent_url: "http://localhost:6881".to_string(),
+        server_name: None,
+        api_port: 9119,
     };
 
     let test_msg = "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n⚡ <b>Pure-Rust 2-Way Bot Active</b>\n\nType /help to see commands or paste a magnet link!";
-    let client = Client::new();
-    let _ = client
-        .post(format!(
-            "https://api.telegram.org/bot{}/sendMessage",
-            config.bot_token
-        ))
-        .form(&[
-            ("chat_id", config.chat_id.as_str()),
-            ("parse_mode", "HTML"),
-            ("text", test_msg),
-        ])
-        .send();
+    let _ = crate::notify::client::send_alert(&config.bot_token, &config.chat_id, test_msg);
 
     println!("  ✔ Sent Telegram test notification");
     Ok(Some(config))

@@ -26,7 +26,8 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
 
     let tg_config = telegram::prompt_telegram_config(runner, non_interactive)?;
     let tg_installed = if let Some(cfg) = &tg_config {
-        cfg.save(&config_dir)?;
+        cfg.save()?;
+        cfg.save_to(&config_dir)?;
         let _ = telegram::install_bot_service(&home);
         true
     } else {
