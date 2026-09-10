@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -36,27 +36,38 @@ impl TelegramConfig {
         Path::new(&home).join(".config/qbittorrent/telegram.json")
     }
 
-    pub fn load() -> Result<Self> {
-        let primary = Self::primary_config_path();
-        if primary.exists() {
-            let data = fs::read_to_string(&primary)
-                .with_context(|| format!("Failed to read {}", primary.display()))?;
-            return serde_json::from_str(&data)
-                .with_context(|| format!("Failed to parse {}", primary.display()));
-        }
+    #[must_use]
+    pub fn candidate_paths() -> Vec<PathBuf> {
+        let mut paths = vec![
+            Self::primary_config_path(),
+            Self::legacy_config_path(),
+            PathBuf::from("/etc/ryoiki/telegram.json"),
+        ];
 
-        let legacy = Self::legacy_config_path();
-        if legacy.exists() {
-            let data = fs::read_to_string(&legacy)
-                .with_context(|| format!("Failed to read {}", legacy.display()))?;
-            return serde_json::from_str(&data)
-                .with_context(|| format!("Failed to parse {}", legacy.display()));
+        if let Ok(entries) = fs::read_dir("/home") {
+            for entry in entries.flatten() {
+                let user_dir = entry.path();
+                paths.push(user_dir.join(".config/ryoiki/telegram.json"));
+                paths.push(user_dir.join(".config/qbittorrent/telegram.json"));
+            }
+        }
+        paths
+    }
+
+    pub fn load() -> Result<Self> {
+        for path in Self::candidate_paths() {
+            if path.exists() {
+                if let Ok(data) = fs::read_to_string(&path) {
+                    if let Ok(cfg) = serde_json::from_str::<Self>(&data) {
+                        return Ok(cfg);
+                    }
+                }
+            }
         }
 
         anyhow::bail!(
-            "Telegram config not found. Expected at {} or {}",
-            primary.display(),
-            legacy.display()
+            "Telegram config not found in candidate paths: {:?}",
+            Self::candidate_paths()
         )
     }
 
