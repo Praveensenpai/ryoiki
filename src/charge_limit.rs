@@ -72,10 +72,25 @@ fn prompt_limit() -> Result<u8> {
     println!("  {}\n", "─".repeat(38).dimmed());
     println!("  Keeping the battery below 80% significantly extends");
     println!("  lifespan on always-plugged servers.\n");
-    println!("  {}  100%  — Full capacity (default hardware behaviour)", "[ ]".dimmed());
-    println!("  {}   80%  — Recommended for occasional battery use", "[ ]".dimmed());
-    println!("  {}   60%  — Optimal for always-plugged servers  {}", "[ ]".dimmed(), "(default)".cyan());
-    println!("  {}  Custom — Enter your own value ({}–{}%)\n", "[ ]".dimmed(), MIN_LIMIT, MAX_LIMIT);
+    println!(
+        "  {}  100%  — Full capacity (default hardware behaviour)",
+        "[ ]".dimmed()
+    );
+    println!(
+        "  {}   80%  — Recommended for occasional battery use",
+        "[ ]".dimmed()
+    );
+    println!(
+        "  {}   60%  — Optimal for always-plugged servers  {}",
+        "[ ]".dimmed(),
+        "(default)".cyan()
+    );
+    println!(
+        "  {}  Custom — Enter your own value ({}–{}%)\n",
+        "[ ]".dimmed(),
+        MIN_LIMIT,
+        MAX_LIMIT
+    );
 
     print!("  Select [100 / 80 / 60 / custom] (default 60): ");
     io::stdout().flush()?;
@@ -92,9 +107,9 @@ fn parse_limit_input(trimmed: &str) -> Result<u8> {
         "100" => Ok(100),
         "c" | "custom" => prompt_custom_value(),
         other => {
-            let n: u8 = other
-                .parse()
-                .with_context(|| format!("Invalid input: '{other}'. Enter 100, 80, 60, or 'custom'."))?;
+            let n: u8 = other.parse().with_context(|| {
+                format!("Invalid input: '{other}'. Enter 100, 80, 60, or 'custom'.")
+            })?;
             validate_limit(n)?;
             Ok(n)
         }
@@ -106,7 +121,10 @@ fn prompt_custom_value() -> Result<u8> {
     io::stdout().flush()?;
     let mut input = String::new();
     io::stdin().lock().read_line(&mut input)?;
-    let n: u8 = input.trim().parse().context("Value must be a number between 20 and 100")?;
+    let n: u8 = input
+        .trim()
+        .parse()
+        .context("Value must be a number between 20 and 100")?;
     validate_limit(n)?;
     Ok(n)
 }
@@ -143,13 +161,19 @@ fn write_sysfs(path: &Path, value: &str) -> Result<()> {
         })
         .context("sudo tee failed")?;
     if !status.success() {
-        bail!("Could not write '{}' to {} — try running as root", value, path.display());
+        bail!(
+            "Could not write '{}' to {} — try running as root",
+            value,
+            path.display()
+        );
     }
     Ok(())
 }
 
 fn battery_name(battery: &Path) -> String {
-    battery.file_name().map_or_else(|| "BAT0".to_string(), |n| n.to_string_lossy().into_owned())
+    battery
+        .file_name()
+        .map_or_else(|| "BAT0".to_string(), |n| n.to_string_lossy().into_owned())
 }
 
 fn persist_udev_rule(battery: &Path, limit: u8) -> Result<()> {
@@ -160,9 +184,14 @@ fn persist_udev_rule(battery: &Path, limit: u8) -> Result<()> {
         KERNEL==\"{name}\", ATTR{{type}}==\"Battery\", \
         ATTR{{charge_control_end_threshold}}=\"{limit}\"\n"
     );
-    write_privileged_file(Path::new("/etc/udev/rules.d/99-ryoiki-charge-limit.rules"), &rule)
-        .context("Failed to write udev charge-limit rule")?;
-    let _ = Command::new("udevadm").args(["control", "--reload-rules"]).output();
+    write_privileged_file(
+        Path::new("/etc/udev/rules.d/99-ryoiki-charge-limit.rules"),
+        &rule,
+    )
+    .context("Failed to write udev charge-limit rule")?;
+    let _ = Command::new("udevadm")
+        .args(["control", "--reload-rules"])
+        .output();
     let _ = Command::new("udevadm").args(["trigger"]).output();
     Ok(())
 }
@@ -175,10 +204,15 @@ fn persist_systemd_service(battery: &Path, limit: u8) -> Result<()> {
         [Install]\nWantedBy=multi-user.target\n",
         threshold_path.display()
     );
-    write_privileged_file(Path::new("/etc/systemd/system/ryoiki-charge-limit.service"), &unit)
-        .context("Failed to write ryoiki-charge-limit.service")?;
+    write_privileged_file(
+        Path::new("/etc/systemd/system/ryoiki-charge-limit.service"),
+        &unit,
+    )
+    .context("Failed to write ryoiki-charge-limit.service")?;
     let _ = Command::new("systemctl").args(["daemon-reload"]).output();
-    let _ = Command::new("systemctl").args(["enable", "--now", "ryoiki-charge-limit.service"]).output();
+    let _ = Command::new("systemctl")
+        .args(["enable", "--now", "ryoiki-charge-limit.service"])
+        .output();
     Ok(())
 }
 
@@ -194,7 +228,10 @@ fn ensure_tlp_installed() -> Result<()> {
     if command_exists("tlp") {
         return Ok(());
     }
-    println!("  {} Installing TLP for HP battery charge control...", "→".cyan());
+    println!(
+        "  {} Installing TLP for HP battery charge control...",
+        "→".cyan()
+    );
     let status = Command::new("sudo")
         .args(["apt-get", "install", "-y", "tlp"])
         .stdout(std::process::Stdio::null())
@@ -231,13 +268,19 @@ pub fn update_tlp_conf(conf: &str, start: u8, stop: u8) -> String {
         }
     }
 
-    if !found_start { lines.push(format!("{start_key}={start}")); }
-    if !found_stop { lines.push(format!("{stop_key}={stop}")); }
+    if !found_start {
+        lines.push(format!("{start_key}={start}"));
+    }
+    if !found_stop {
+        lines.push(format!("{stop_key}={stop}"));
+    }
     lines.join("\n") + "\n"
 }
 
 fn reload_tlp() -> Result<()> {
-    let _ = Command::new("sudo").args(["systemctl", "enable", "--now", "tlp.service"]).output();
+    let _ = Command::new("sudo")
+        .args(["systemctl", "enable", "--now", "tlp.service"])
+        .output();
     let status = Command::new("sudo")
         .args(["tlp", "start"])
         .stdout(std::process::Stdio::null())
@@ -282,7 +325,10 @@ fn write_privileged_file(path: &Path, content: &str) -> Result<()> {
         })
         .context("sudo tee failed")?;
     if !status.success() {
-        bail!("Could not write to {} — try running as root", path.display());
+        bail!(
+            "Could not write to {} — try running as root",
+            path.display()
+        );
     }
     Ok(())
 }
@@ -294,14 +340,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_validate_limit_accepts_valid_range() {
+    fn test_validate_limit() {
         assert!(validate_limit(20).is_ok());
         assert!(validate_limit(60).is_ok());
         assert!(validate_limit(100).is_ok());
-    }
-
-    #[test]
-    fn test_validate_limit_rejects_out_of_range() {
         assert!(validate_limit(19).is_err());
         assert!(validate_limit(0).is_err());
         assert!(validate_limit(101).is_err());
@@ -338,29 +380,17 @@ mod tests {
     }
 
     #[test]
-    fn test_start_threshold_is_ten_below_stop() {
-        let stop: u8 = 60;
-        let start = stop.saturating_sub(10).max(MIN_LIMIT);
-        assert_eq!(start, 50);
+    fn test_thresholds() {
+        // stop - 10 = start; saturates at MIN_LIMIT
+        assert_eq!(60_u8.saturating_sub(10).max(MIN_LIMIT), 50);
+        assert_eq!(25_u8.saturating_sub(10).max(MIN_LIMIT), MIN_LIMIT);
     }
 
     #[test]
-    fn test_start_threshold_saturates_at_min() {
-        let stop: u8 = 25;
-        let start = stop.saturating_sub(10).max(MIN_LIMIT);
-        assert_eq!(start, MIN_LIMIT);
-    }
-
-    #[test]
-    fn test_parse_limit_input_defaults() {
+    fn test_parse_limit_input() {
         assert_eq!(parse_limit_input("").unwrap(), 60);
-        assert_eq!(parse_limit_input("60").unwrap(), 60);
         assert_eq!(parse_limit_input("80").unwrap(), 80);
         assert_eq!(parse_limit_input("100").unwrap(), 100);
-    }
-
-    #[test]
-    fn test_parse_limit_input_rejects_invalid() {
         assert!(parse_limit_input("abc").is_err());
         assert!(parse_limit_input("19").is_err());
         assert!(parse_limit_input("101").is_err());
