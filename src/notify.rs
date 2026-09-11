@@ -121,7 +121,10 @@ pub fn handle_cli(cmd: NotifySubcommand) -> Result<()> {
         }
         NotifySubcommand::Power { status } => {
             power::send_power_event(&config, &status)?;
-            println!("  {} Power event ({status}) sent to Telegram", "✔".green().bold());
+            println!(
+                "  {} Power event ({status}) sent to Telegram",
+                "✔".green().bold()
+            );
         }
         NotifySubcommand::BatteryWatch => {
             println!("  {} Starting battery watcher…", "▶".cyan().bold());

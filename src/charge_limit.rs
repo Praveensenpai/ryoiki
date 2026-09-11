@@ -32,10 +32,25 @@ fn prompt_limit() -> Result<u8> {
     println!("  {}\n", "─".repeat(38).dimmed());
     println!("  Keeping the battery below 80% significantly extends");
     println!("  lifespan on always-plugged servers.\n");
-    println!("  {}  100%  — Full capacity (default hardware behaviour)", "[ ]".dimmed());
-    println!("  {}   80%  — Recommended for occasional battery use", "[ ]".dimmed());
-    println!("  {}   60%  — Optimal for always-plugged servers  {}", "[ ]".dimmed(), "(default)".cyan());
-    println!("  {}  Custom — Enter your own value ({}–{}%)\n", "[ ]".dimmed(), MIN_LIMIT, MAX_LIMIT);
+    println!(
+        "  {}  100%  — Full capacity (default hardware behaviour)",
+        "[ ]".dimmed()
+    );
+    println!(
+        "  {}   80%  — Recommended for occasional battery use",
+        "[ ]".dimmed()
+    );
+    println!(
+        "  {}   60%  — Optimal for always-plugged servers  {}",
+        "[ ]".dimmed(),
+        "(default)".cyan()
+    );
+    println!(
+        "  {}  Custom — Enter your own value ({}–{}%)\n",
+        "[ ]".dimmed(),
+        MIN_LIMIT,
+        MAX_LIMIT
+    );
 
     print!("  Select [100 / 80 / 60 / custom] (default 60): ");
     io::stdout().flush()?;
@@ -126,7 +141,11 @@ fn write_sysfs(path: &Path, value: &str) -> Result<()> {
         })
         .context("sudo tee failed")?;
     if !status.success() {
-        bail!("Could not write '{}' to {} — try running as root", value, path.display());
+        bail!(
+            "Could not write '{}' to {} — try running as root",
+            value,
+            path.display()
+        );
     }
     Ok(())
 }
@@ -149,7 +168,9 @@ fn persist_udev_rule(battery: &Path, limit: u8) -> Result<()> {
     );
     let rule_path = Path::new("/etc/udev/rules.d/99-ryoiki-charge-limit.rules");
     write_privileged_file(rule_path, &rule).context("Failed to write udev charge-limit rule")?;
-    let _ = Command::new("udevadm").args(["control", "--reload-rules"]).output();
+    let _ = Command::new("udevadm")
+        .args(["control", "--reload-rules"])
+        .output();
     let _ = Command::new("udevadm").args(["trigger"]).output();
     Ok(())
 }
@@ -199,7 +220,10 @@ fn write_privileged_file(path: &Path, content: &str) -> Result<()> {
         })
         .context("sudo tee failed")?;
     if !status.success() {
-        bail!("Could not write to {} — try running as root", path.display());
+        bail!(
+            "Could not write to {} — try running as root",
+            path.display()
+        );
     }
     Ok(())
 }

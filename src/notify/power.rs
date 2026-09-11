@@ -50,8 +50,7 @@ fn build_power_card(config: &TelegramConfig, status: &str) -> String {
     };
 
     let host = get_hostname(config);
-    let batt = read_battery_percent()
-        .map_or_else(|| "N/A".to_string(), |p| format!("{p}%"));
+    let batt = read_battery_percent().map_or_else(|| "N/A".to_string(), |p| format!("{p}%"));
     let batt_status = read_battery_status().unwrap_or_else(|| "unknown".to_string());
     let cpu_temp = read_cpu_temp().map_or_else(|| "N/A".to_string(), |t| format!("{t:.1} °C"));
     let cpu_usage = read_cpu_usage().map_or_else(|| "N/A".to_string(), |u| format!("{u:.1}%"));

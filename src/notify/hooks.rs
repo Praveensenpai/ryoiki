@@ -185,7 +185,9 @@ fn install_udev_power_rule(bin_path: &Path) {
     let bin = bin_path.display().to_string();
     let rule = render_udev_power_rule(&bin);
     if fs::write(rule_path, rule).is_ok() {
-        let _ = Command::new("udevadm").args(["control", "--reload-rules"]).output();
+        let _ = Command::new("udevadm")
+            .args(["control", "--reload-rules"])
+            .output();
         let _ = Command::new("udevadm").args(["trigger"]).output();
         println!("  ✔ Installed udev power rule at /etc/udev/rules.d/99-ryoiki-power.rules");
     } else {
