@@ -7,6 +7,7 @@ pub fn install_hooks(bin_path: &Path) {
     install_boot_service(bin_path);
     install_pam_hook(bin_path);
     install_profile_hook(bin_path);
+    install_power_hooks(bin_path);
 }
 
 fn render_system_unit(bin: &str) -> String {
@@ -145,6 +146,86 @@ fn install_user_bashrc_hook(bin_path: &Path) {
     }
 }
 
+/// Install udev rule (power plug/unplug) + battery-watch systemd service.
+fn install_power_hooks(bin_path: &Path) {
+    install_udev_power_rule(bin_path);
+    install_battery_watch_service(bin_path);
+}
+
+fn render_udev_power_rule(bin: &str) -> String {
+    format!(
+        "# Ryoiki power event notifications\n\
+        SUBSYSTEM==\"power_supply\", ATTR{{type}}==\"Mains\", \
+        ATTR{{online}}==\"1\", \
+        RUN+=\"/bin/sh -c '{bin} notify power plugged &'\"\n\
+        SUBSYSTEM==\"power_supply\", ATTR{{type}}==\"Mains\", \
+        ATTR{{online}}==\"0\", \
+        RUN+=\"/bin/sh -c '{bin} notify power unplugged &'\"\n"
+    )
+}
+
+fn render_battery_watch_service(bin: &str) -> String {
+    format!(
+        "[Unit]\n\
+        Description=Ryoiki Battery Watch Telegram Notification\n\
+        After=network-online.target\n\
+        Wants=network-online.target\n\n\
+        [Service]\n\
+        Type=simple\n\
+        ExecStart={bin} notify battery-watch\n\
+        Restart=on-failure\n\
+        RestartSec=30\n\n\
+        [Install]\n\
+        WantedBy=default.target\n"
+    )
+}
+
+fn install_udev_power_rule(bin_path: &Path) {
+    let rule_path = Path::new("/etc/udev/rules.d/99-ryoiki-power.rules");
+    let bin = bin_path.display().to_string();
+    let rule = render_udev_power_rule(&bin);
+    if fs::write(rule_path, rule).is_ok() {
+        let _ = Command::new("udevadm").args(["control", "--reload-rules"]).output();
+        let _ = Command::new("udevadm").args(["trigger"]).output();
+        println!("  ✔ Installed udev power rule at /etc/udev/rules.d/99-ryoiki-power.rules");
+    } else {
+        println!("  ✖ Could not write udev rule (run as root); skipping power plug hook");
+    }
+}
+
+fn install_battery_watch_service(bin_path: &Path) {
+    let bin = bin_path.display().to_string();
+    let unit = render_battery_watch_service(&bin);
+
+    // Try system-wide first, fall back to user unit
+    let sys_path = Path::new("/etc/systemd/system/ryoiki-battery-watch.service");
+    if fs::write(sys_path, &unit).is_ok() {
+        let _ = Command::new("systemctl").args(["daemon-reload"]).output();
+        let _ = Command::new("systemctl")
+            .args(["enable", "--now", "ryoiki-battery-watch.service"])
+            .output();
+        println!("  ✔ Installed and started system ryoiki-battery-watch.service");
+        return;
+    }
+
+    install_user_battery_watch_service(&unit);
+}
+
+fn install_user_battery_watch_service(unit: &str) {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let user_dir = Path::new(&home).join(".config/systemd/user");
+    let user_path = user_dir.join("ryoiki-battery-watch.service");
+    if fs::create_dir_all(&user_dir).is_ok() && fs::write(&user_path, unit).is_ok() {
+        let _ = Command::new("systemctl")
+            .args(["--user", "daemon-reload"])
+            .output();
+        let _ = Command::new("systemctl")
+            .args(["--user", "enable", "--now", "ryoiki-battery-watch.service"])
+            .output();
+        println!("  ✔ Installed and started user ryoiki-battery-watch.service");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,5 +249,20 @@ mod tests {
         let hook = render_bashrc_hook("/usr/local/bin/ryoiki");
         assert!(hook.contains("RYOIKI_LOGIN_NOTIFIED"));
         assert!(hook.contains("/usr/local/bin/ryoiki notify login"));
+    }
+
+    #[test]
+    fn test_render_udev_power_rule() {
+        let rule = render_udev_power_rule("/usr/local/bin/ryoiki");
+        assert!(rule.contains("notify power plugged"));
+        assert!(rule.contains("notify power unplugged"));
+        assert!(rule.contains("power_supply"));
+    }
+
+    #[test]
+    fn test_render_battery_watch_service() {
+        let unit = render_battery_watch_service("/usr/local/bin/ryoiki");
+        assert!(unit.contains("ExecStart=/usr/local/bin/ryoiki notify battery-watch"));
+        assert!(unit.contains("WantedBy=default.target"));
     }
 }

@@ -1,6 +1,7 @@
 pub mod client;
 pub mod config;
 pub mod hooks;
+pub mod power;
 pub mod server;
 pub mod system;
 
@@ -53,6 +54,13 @@ pub enum NotifySubcommand {
         #[arg(short, long, default_value_t = 9119)]
         port: u16,
     },
+    /// Send AC power plug/unplug notification (called by udev rule)
+    Power {
+        /// Event status: "plugged" or "unplugged"
+        status: String,
+    },
+    /// Start battery watch daemon — fires Telegram alert at each low-battery threshold
+    BatteryWatch,
     /// Install systemd boot service and PAM/profile login hooks
     InstallHooks,
     /// Legacy alias for torrent started event
@@ -110,6 +118,14 @@ pub fn handle_cli(cmd: NotifySubcommand) -> Result<()> {
         NotifySubcommand::InstallHooks => {
             let exe = std::env::current_exe()?;
             hooks::install_hooks(&exe);
+        }
+        NotifySubcommand::Power { status } => {
+            power::send_power_event(&config, &status)?;
+            println!("  {} Power event ({status}) sent to Telegram", "✔".green().bold());
+        }
+        NotifySubcommand::BatteryWatch => {
+            println!("  {} Starting battery watcher…", "▶".cyan().bold());
+            power::run_battery_watch(&config)?;
         }
     }
     Ok(())

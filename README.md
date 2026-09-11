@@ -140,6 +140,13 @@ curl -d "text=Service restart completed" http://127.0.0.1:9119/notify
 
 # Install systemd boot service & PAM login notification hooks
 ryoiki notify install-hooks
+
+# Send AC power plug/unplug notification (normally called by udev rule automatically)
+ryoiki notify power plugged
+ryoiki notify power unplugged
+
+# Start battery watch daemon — fires Telegram alert at 50%, 40%, 30%, 25%, 15%, 5%, 1%
+ryoiki notify battery-watch
 ```
 
 ---
@@ -173,6 +180,7 @@ ryoiki/
 │   │   ├── config.rs         # Telegram config loader with legacy fallback
 │   │   ├── client.rs         # Telegram HTTP API client & HTML card generator
 │   │   ├── system.rs         # Boot metrics, PAM login hook & custom alerts
+│   │   ├── power.rs          # AC plug/unplug events & battery watch daemon
 │   │   └── server.rs         # Embedded loopback HTTP webhook server (:9119)
 │   └── modules/              # Single-responsibility provisioning modules
 │       ├── cli_tools.rs      # eza, bat, zoxide, fzf, ble.sh
