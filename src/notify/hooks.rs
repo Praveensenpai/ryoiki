@@ -157,10 +157,10 @@ fn render_udev_power_rule(bin: &str) -> String {
         "# Ryoiki power event notifications\n\
         SUBSYSTEM==\"power_supply\", ATTR{{type}}==\"Mains\", \
         ATTR{{online}}==\"1\", \
-        RUN+=\"/bin/sh -c '{bin} notify power plugged &'\"\n\
+        RUN+=\"/bin/systemd-run --no-block {bin} notify power plugged\"\n\
         SUBSYSTEM==\"power_supply\", ATTR{{type}}==\"Mains\", \
         ATTR{{online}}==\"0\", \
-        RUN+=\"/bin/sh -c '{bin} notify power unplugged &'\"\n"
+        RUN+=\"/bin/systemd-run --no-block {bin} notify power unplugged\"\n"
     )
 }
 
@@ -257,6 +257,7 @@ mod tests {
         assert!(rule.contains("notify power plugged"));
         assert!(rule.contains("notify power unplugged"));
         assert!(rule.contains("power_supply"));
+        assert!(rule.contains("systemd-run"));
     }
 
     #[test]
