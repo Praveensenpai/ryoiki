@@ -299,8 +299,7 @@ fn command_exists(cmd: &str) -> bool {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+        .is_ok_and(|s| s.success())
 }
 
 // ── Privileged file write ─────────────────────────────────────────────────────
@@ -388,9 +387,9 @@ mod tests {
 
     #[test]
     fn test_parse_limit_input() {
-        assert_eq!(parse_limit_input("").unwrap(), 60);
-        assert_eq!(parse_limit_input("80").unwrap(), 80);
-        assert_eq!(parse_limit_input("100").unwrap(), 100);
+        assert_eq!(parse_limit_input("").ok(), Some(60));
+        assert_eq!(parse_limit_input("80").ok(), Some(80));
+        assert_eq!(parse_limit_input("100").ok(), Some(100));
         assert!(parse_limit_input("abc").is_err());
         assert!(parse_limit_input("19").is_err());
         assert!(parse_limit_input("101").is_err());
