@@ -40,14 +40,20 @@ Select modules to install: (Space to toggle, Enter to run)
 
 ## ⚡ Quickstart
 
-Bootstrap any fresh Ubuntu / Debian server with a single command:
+> [!IMPORTANT]
+> **One command. No git clone. No Rust toolchain. No build step.**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-install.sh | bash
 ```
 
-> [!TIP]
-> **Zero build dependencies required:** The script automatically detects your CPU architecture (`x86_64` or `aarch64`), streams the pre-compiled standalone binary from the latest GitHub Release to `~/.local/bin/ryoiki`, and immediately boots into the interactive TUI.
+That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
+
+1. **Detects your CPU arch** — `x86_64` or `aarch64` (AWS Graviton, Raspberry Pi, etc.)
+2. **Downloads the pre-compiled binary** — straight from the latest GitHub Release, no compilation
+3. **Installs to `~/.local/bin/ryoiki`** — no root required for the binary itself
+4. **Installs system hooks** — udev power rule, battery-watch service, boot & login notifications
+5. **Launches the interactive TUI** — pick exactly what you want provisioned
 
 ---
 
