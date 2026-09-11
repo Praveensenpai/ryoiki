@@ -1,3 +1,4 @@
+mod charge_limit;
 mod configs;
 mod modules;
 mod notify;
@@ -56,6 +57,8 @@ enum Commands {
     Update,
     /// Run the interactive 2-way Telegram bot daemon
     Bot,
+    /// Set battery max charge limit (60% default — extends lifespan on always-plugged servers)
+    ChargeLimit,
     /// Send automated or custom Telegram notifications
     #[command(subcommand)]
     Notify(notify::NotifySubcommand),
@@ -150,6 +153,9 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
         }
         Commands::Bot => {
             modules::torrent::bot::run_bot()?;
+        }
+        Commands::ChargeLimit => {
+            charge_limit::run(yes)?;
         }
         Commands::Notify(sub) => {
             notify::handle_cli(sub)?;
