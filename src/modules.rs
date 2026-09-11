@@ -40,6 +40,7 @@ pub fn requires_sudo(modules: &[String]) -> bool {
                 | "torrent"
                 | "prompt"
                 | "tailscale"
+                | "charge_limit"
         )
     })
 }
@@ -148,6 +149,13 @@ fn environment_modules() -> Vec<Module> {
             default_enabled: true,
             deps: &[],
         },
+        Module {
+            id: "charge_limit",
+            title: "Battery Charge Limit",
+            description: "Cap charge at 60/80/100% — extends lifespan on always-plugged laptops",
+            default_enabled: false,
+            deps: &[],
+        },
     ]
 }
 
@@ -197,6 +205,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "trash" => trash::setup(runner),
         "tailscale" => tailscale::setup(runner, non_interactive),
         "dotfiles" => deploy_dotfiles_module(runner),
+        "charge_limit" => crate::charge_limit::run(non_interactive),
         _ => anyhow::bail!("Unknown module: {module_id}"),
     }
 }

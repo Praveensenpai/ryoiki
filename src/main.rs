@@ -309,6 +309,12 @@ fn print_infra_highlights(module_ids: &[String]) {
             "Mesh VPN:".dimmed()
         );
     }
+    if module_ids.iter().any(|m| m == "charge_limit") {
+        println!(
+            "  • {} Battery charge limit active (persists across reboots)",
+            "Battery: ".dimmed()
+        );
+    }
 }
 
 fn run_system_check() {
