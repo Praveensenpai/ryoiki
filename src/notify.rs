@@ -1,5 +1,6 @@
 pub mod client;
 pub mod config;
+pub mod hooks;
 pub mod server;
 pub mod system;
 
@@ -108,7 +109,7 @@ pub fn handle_cli(cmd: NotifySubcommand) -> Result<()> {
         }
         NotifySubcommand::InstallHooks => {
             let exe = std::env::current_exe()?;
-            system::install_hooks(&exe);
+            hooks::install_hooks(&exe);
         }
     }
     Ok(())

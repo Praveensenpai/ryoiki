@@ -1,8 +1,6 @@
 use anyhow::Result;
-use std::fmt::Write as _;
 use std::fs;
 use std::mem::MaybeUninit;
-use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
@@ -10,6 +8,23 @@ use super::client::{escape_html, format_card, send_alert};
 use super::config::TelegramConfig;
 
 pub fn send_boot_notification(config: &TelegramConfig) -> Result<()> {
+    let mut last_err = None;
+    for attempt in 1..=5 {
+        let card = build_boot_card(config);
+        match send_alert(&config.bot_token, &config.chat_id, &card) {
+            Ok(()) => return Ok(()),
+            Err(err) => {
+                last_err = Some(err);
+                if attempt < 5 {
+                    std::thread::sleep(Duration::from_secs(4));
+                }
+            }
+        }
+    }
+    last_err.map_or(Ok(()), Err)
+}
+
+fn build_boot_card(config: &TelegramConfig) -> String {
     let host = get_hostname(config);
     let uptime = get_uptime();
     let pub_ip = get_public_ip();
@@ -36,8 +51,7 @@ pub fn send_boot_notification(config: &TelegramConfig) -> Result<()> {
         ("🐧 Kernel:", kernel.as_str()),
     ];
 
-    let card = format_card("System Boot", "✨ <b>SYSTEM ONLINE</b>", &fields);
-    send_alert(&config.bot_token, &config.chat_id, &card)
+    format_card("System Boot", "✨ <b>SYSTEM ONLINE</b>", &fields)
 }
 
 pub fn send_login_notification(
@@ -239,75 +253,6 @@ fn format_usage(used: u64, total: u64) -> String {
     let pct = (used * 100) / total;
     let pct_dec = ((used * 1000) / total) % 10;
     format!("{u_gb}.{u_dec} / {t_gb}.{t_dec} GB ({pct}.{pct_dec}%)")
-}
-
-pub fn install_hooks(bin_path: &Path) {
-    install_boot_service(bin_path);
-    install_pam_hook(bin_path);
-    install_profile_hook(bin_path);
-}
-
-fn install_boot_service(bin_path: &Path) {
-    let path = Path::new("/etc/systemd/system/ryoiki-boot-notify.service");
-    let bin = bin_path.display();
-    let unit = format!(
-        "[Unit]\n\
-        Description=Ryoiki System Boot Telegram Notification\n\
-        After=network-online.target\n\
-        Wants=network-online.target\n\n\
-        [Service]\n\
-        Type=oneshot\n\
-        ExecStart={bin} notify boot\n\
-        RemainAfterExit=yes\n\n\
-        [Install]\n\
-        WantedBy=multi-user.target\n"
-    );
-
-    if fs::write(path, unit).is_ok() {
-        let _ = Command::new("systemctl").args(["daemon-reload"]).output();
-        let _ = Command::new("systemctl")
-            .args(["enable", "ryoiki-boot-notify.service"])
-            .output();
-        println!("  ✔ Installed and enabled ryoiki-boot-notify.service");
-    }
-}
-
-fn install_pam_hook(bin_path: &Path) {
-    let pam_sshd = Path::new("/etc/pam.d/sshd");
-    if pam_sshd.exists() {
-        let content = fs::read_to_string(pam_sshd).unwrap_or_default();
-        let entry = format!(
-            "session optional pam_exec.so quiet {} notify login",
-            bin_path.display()
-        );
-        if !content.contains("ryoiki notify login") {
-            let mut new_content = content;
-            let _ = writeln!(new_content, "\n# Ryoiki SSH login alert\n{entry}");
-            if fs::write(pam_sshd, new_content).is_ok() {
-                println!("  ✔ Configured PAM login hook in /etc/pam.d/sshd");
-            }
-        }
-    }
-}
-
-fn install_profile_hook(bin_path: &Path) {
-    let profile_d = Path::new("/etc/profile.d/ryoiki-login-notify.sh");
-    let bin = bin_path.display();
-    let script = format!(
-        "#!/bin/sh\n\
-        if [ -n \"$SSH_CLIENT\" ] && [ -z \"$RYOIKI_LOGIN_NOTIFIED\" ]; then\n\
-            export RYOIKI_LOGIN_NOTIFIED=1\n\
-            {bin} notify login 2>/dev/null || true\n\
-        fi\n"
-    );
-    if fs::write(profile_d, script).is_ok() {
-        let _ = Command::new("chmod")
-            .args(["+x", "/etc/profile.d/ryoiki-login-notify.sh"])
-            .output();
-        println!(
-            "  ✔ Configured interactive profile hook in /etc/profile.d/ryoiki-login-notify.sh"
-        );
-    }
 }
 
 #[cfg(test)]

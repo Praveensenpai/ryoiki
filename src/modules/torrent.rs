@@ -34,6 +34,11 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
         config_dir.join("telegram.json").exists()
     };
 
+    if tg_installed {
+        let bin_path = Path::new(&home).join(".local/bin/ryoiki");
+        crate::notify::hooks::install_hooks(&bin_path);
+    }
+
     if !runner.dry_run {
         apply_default_preferences(&config_dir, tg_installed)?;
     }
