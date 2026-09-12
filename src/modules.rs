@@ -4,6 +4,7 @@ pub mod docker;
 pub mod essentials;
 pub mod git_ssh;
 pub mod jellyfin;
+pub mod media;
 pub mod prompt;
 pub mod security;
 pub mod tailscale;
@@ -156,6 +157,13 @@ fn environment_modules() -> Vec<Module> {
             default_enabled: false,
             deps: &[],
         },
+        Module {
+            id: "media",
+            title: "AI Media Organizer",
+            description: "Auto-classify & move downloads to Jellyfin (Gemini/Regex)",
+            default_enabled: true,
+            deps: &["jellyfin", "torrent"],
+        },
     ]
 }
 
@@ -206,6 +214,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "tailscale" => tailscale::setup(runner, non_interactive),
         "dotfiles" => deploy_dotfiles_module(runner),
         "charge_limit" => crate::charge_limit::run(non_interactive),
+        "media" => media::organizer::setup(runner, non_interactive),
         _ => anyhow::bail!("Unknown module: {module_id}"),
     }
 }

@@ -172,12 +172,17 @@ fn handle_command(client: &Client, config: &TelegramConfig, cmd: &str) -> Result
             api::resume_all(client, &config.qbittorrent_url)?;
             reply(client, config, "▶️ <b>All torrents resumed</b>")?;
         }
+        "/organize" | "/organise" => {
+            let text = handle_bot_organize(config)?;
+            reply(client, config, &text)?;
+        }
         "/help" | "/start" => {
             let help_text = "🌊 <b>領域 RYOIKI • Command Center</b>\n━━━━━━━━━━━━━━━━━━━━━━━\n\
                 🧲 <i>Paste any magnet link to start download</i>\n\
                 📎 <i>Upload a .torrent file to start download</i>\n\n\
                 📊 /status — Live progress, speeds, & ETAs\n\
                 💾 /disk — Free NVMe/SSD storage space\n\
+                🎬 /organize — Classify & move completed media\n\
                 ⏸ /pause — Pause all active downloads\n\
                 ▶️ /resume — Resume all paused downloads\n\
                 ❓ /help — Show this command list\n━━━━━━━━━━━━━━━━━━━━━━━";
@@ -188,16 +193,69 @@ fn handle_command(client: &Client, config: &TelegramConfig, cmd: &str) -> Result
     Ok(())
 }
 
+fn handle_bot_organize(config: &TelegramConfig) -> Result<String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let target = std::path::Path::new(&home).join("torrents");
+    let http_client = Client::builder().timeout(Duration::from_secs(30)).build()?;
+    let api_key = config.gemini_api_key.as_deref();
+
+    let results =
+        crate::modules::media::organizer::organize_path(&target, &http_client, api_key, false)?;
+
+    let cleared = crate::modules::media::organizer::cleanup_matching_torrents(
+        &http_client,
+        &config.qbittorrent_url,
+        &results,
+    );
+
+    if results.is_empty() {
+        if cleared > 0 {
+            return Ok(format!(
+                "🌊 <b>領域 RYOIKI • Media Organizer</b>\n\
+                ━━━━━━━━━━━━━━━━━━━━━━━\n\
+                🗑 <b>Cleaned {cleared} torrent(s) from qBittorrent history.</b>"
+            ));
+        }
+        return Ok("🌊 <b>領域 RYOIKI • Media Organizer</b>\n━━━━━━━━━━━━━━━━━━━━━━━\nNo new video files found to organize in ~/torrents.".to_string());
+    }
+
+    let mut lines = vec![
+        "🌊 <b>領域 RYOIKI • Media Organizer</b>".to_string(),
+        "━━━━━━━━━━━━━━━━━━━━━━━".to_string(),
+        format!(
+            "✨ <b>Organized {} item(s) into Jellyfin</b>\n",
+            results.len()
+        ),
+    ];
+
+    for res in results.iter().take(5) {
+        let clean = crate::notify::client::escape_html(&res.media_info.clean_name);
+        lines.push(format!(
+            "🎬 <code>{clean}</code> ({})",
+            res.media_info.engine
+        ));
+    }
+
+    if results.len() > 5 {
+        lines.push(format!("<i>...and {} more items</i>", results.len() - 5));
+    }
+
+    if cleared > 0 {
+        lines.push(format!(
+            "\n🗑 <i>Removed {cleared} torrent(s) from qBittorrent</i>"
+        ));
+    }
+
+    lines.push("━━━━━━━━━━━━━━━━━━━━━━━".to_string());
+    Ok(lines.join("\n"))
+}
+
 fn format_status_report(torrents: &[TorrentInfo]) -> String {
     if torrents.is_empty() {
         return "🌊 <b>領域 RYOIKI • Torrents</b>\n━━━━━━━━━━━━━━━━━━━━━━━\nNo active or completed torrents found.".to_string();
     }
 
-    let mut lines = vec![
-        "🌊 <b>領域 RYOIKI • Torrents</b>".to_string(),
-        "━━━━━━━━━━━━━━━━━━━━━━━".to_string(),
-    ];
-
+    let mut lines = vec!["🌊 <b>領域 RYOIKI • Torrents</b>\n━━━━━━━━━━━━━━━━━━━━━━━".to_string()];
     for t in torrents.iter().take(5) {
         let pct = (t.progress * 100.0).clamp(0.0, 100.0);
         let blocks = format!("{:.0}", pct / 10.0)
@@ -214,13 +272,12 @@ fn format_status_report(torrents: &[TorrentInfo]) -> String {
             format_size(t.dlspeed),
             format_size(t.upspeed)
         );
-        let eta_str = format_eta(t.eta);
-
-        lines.push(format!("📦 <b>{}</b>", t.name));
-        lines.push(format!("<code>{bar}</code> • <b>{}</b>", t.state));
         lines.push(format!(
-            "Size: {} | {speed} | ETA: {eta_str}\n",
-            format_size(t.total_size)
+            "📦 <b>{}</b>\n<code>{bar}</code> • <b>{}</b>\nSize: {} | {speed} | ETA: {}\n",
+            t.name,
+            t.state,
+            format_size(t.total_size),
+            format_eta(t.eta)
         ));
     }
 
@@ -251,12 +308,7 @@ fn format_disk_report() -> String {
     let pct = (used * 100).checked_div(total).unwrap_or(0);
 
     format!(
-        "💾 <b>Disk Usage • mochi</b>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        <b>Total:</b> {}\n\
-        <b>Used:</b>  {} ({pct}%)\n\
-        <b>Free:</b>  {}\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━",
+        "💾 <b>Disk Usage • mochi</b>\n━━━━━━━━━━━━━━━━━━━━━━━\n<b>Total:</b> {}\n<b>Used:</b>  {} ({pct}%)\n<b>Free:</b>  {}\n━━━━━━━━━━━━━━━━━━━━━━━",
         format_size(total),
         format_size(used),
         format_size(free)
@@ -279,19 +331,7 @@ fn get_disk_info(path: &str) -> Option<(u64, u64, u64)> {
 }
 
 fn reply(client: &Client, config: &TelegramConfig, text: &str) -> Result<()> {
-    let url = format!(
-        "https://api.telegram.org/bot{}/sendMessage",
-        config.bot_token
-    );
-    let params = [
-        ("chat_id", config.chat_id.as_str()),
-        ("parse_mode", "HTML"),
-        ("text", text),
-        ("disable_web_page_preview", "true"),
-    ];
-
-    client.post(&url).form(&params).send()?;
-    Ok(())
+    crate::notify::client::send_telegram_alert(client, &config.bot_token, &config.chat_id, text)
 }
 
 fn start_torrent_monitor(config: TelegramConfig) {

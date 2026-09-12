@@ -32,6 +32,7 @@ Select modules to install: (Space to toggle, Enter to run)
   [✓] 10. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
   [✓] 11. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
   [✓] 12. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
+  [✓] 13. AI Media Organizer         Auto-classify & move downloads to Jellyfin (Gemini/Regex)
 
   [↑/↓/j/k] Navigate   [Space] Toggle   [a] All   [n] None   [Enter] Launch   [q] Quit
 ```
@@ -88,6 +89,7 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 | `10` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
 | `11` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
 | `12` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
+| `13` | **AI Media Organizer** | `media` | Automated Jellyfin library classifier & mover (Gemini AI with 6-stage backoff & regex fallback) |
 
 ---
 

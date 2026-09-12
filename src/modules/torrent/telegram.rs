@@ -41,12 +41,26 @@ pub fn prompt_telegram_config(
         return Ok(None);
     }
 
+    print!("  Enter Gemini API Key for AI media classification [skip]: ");
+    io::stdout().flush()?;
+    let mut key_input = String::new();
+    io::stdin().read_line(&mut key_input)?;
+    let gemini_api_key = {
+        let k = key_input.trim();
+        if k.is_empty() {
+            None
+        } else {
+            Some(k.to_string())
+        }
+    };
+
     let config = TelegramConfig {
         bot_token,
         chat_id,
         qbittorrent_url: "http://localhost:6881".to_string(),
         server_name: None,
         api_port: 9119,
+        gemini_api_key,
     };
 
     let test_msg = "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n⚡ <b>Pure-Rust 2-Way Bot Active</b>\n\nType /help to see commands or paste a magnet link!";

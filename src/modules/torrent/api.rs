@@ -14,6 +14,10 @@ pub struct TorrentInfo {
     pub category: String,
     pub has_metadata: bool,
     pub hash: String,
+    #[serde(default)]
+    pub content_path: Option<String>,
+    #[serde(default)]
+    pub save_path: Option<String>,
 }
 
 pub fn get_torrents(
@@ -94,6 +98,26 @@ pub fn resume_all(client: &Client, base_url: &str) -> Result<()> {
     let resp = client.post(&url).form(&[("hashes", "all")]).send()?;
     if !resp.status().is_success() {
         bail!("Failed to resume torrents: HTTP {}", resp.status());
+    }
+    Ok(())
+}
+
+pub fn delete_torrent(
+    client: &Client,
+    base_url: &str,
+    hash: &str,
+    delete_files: bool,
+) -> Result<()> {
+    let url = format!("{base_url}/api/v2/torrents/delete");
+    let delete_str = if delete_files { "true" } else { "false" };
+    let resp = client
+        .post(&url)
+        .form(&[("hashes", hash), ("deleteFiles", delete_str)])
+        .send()
+        .with_context(|| format!("Failed to delete torrent from {url}"))?;
+
+    if !resp.status().is_success() {
+        bail!("Failed to delete torrent: HTTP {}", resp.status());
     }
     Ok(())
 }

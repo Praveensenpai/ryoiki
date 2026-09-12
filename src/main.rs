@@ -62,6 +62,16 @@ enum Commands {
     /// Send automated or custom Telegram notifications
     #[command(subcommand)]
     Notify(notify::NotifySubcommand),
+    /// Classify and organize media files into Jellyfin
+    Organize {
+        /// Path to media file or folder to organize (default: ~/torrents)
+        #[arg(default_value = "")]
+        path: String,
+
+        /// Only preview changes without moving files
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -159,6 +169,15 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
         }
         Commands::Notify(sub) => {
             notify::handle_cli(sub)?;
+        }
+        Commands::Organize { path, dry_run } => {
+            let target = if path.is_empty() {
+                let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+                std::path::PathBuf::from(home).join("torrents")
+            } else {
+                std::path::PathBuf::from(path)
+            };
+            modules::media::organizer::run_organize_cli(&target, dry_run)?;
         }
     }
     Ok(())

@@ -21,6 +21,8 @@ pub struct TelegramConfig {
     pub server_name: Option<String>,
     #[serde(default = "default_api_port")]
     pub api_port: u16,
+    #[serde(default)]
+    pub gemini_api_key: Option<String>,
 }
 
 impl TelegramConfig {

@@ -50,10 +50,16 @@ ryoiki/
 │       ├── prompt.rs        ← Starship cross-shell prompt + fastfetch
 │       ├── trash.rs         ← toss-rs trash manager binary install
 │       ├── tailscale.rs     ← WireGuard mesh VPN + MagicDNS SSH
+│       ├── media.rs         ← Media organization domain models & module declarations
+│       ├── media/           ← Media subsystem
+│       │   ├── ai.rs        ← Gemini API client with 6-stage exponential retry backoff
+│       │   ├── config.rs    ← Gemini API key resolution & interactive prompt
+│       │   ├── heuristic.rs ← Local regex/heuristic fallback parser
+│       │   └── organizer.rs ← Jellyfin destination resolver, moving & CLI handler
 │       └── torrent/         ← Torrent subsystem submodules
 │           ├── api.rs       ← qBittorrent Web API v2 (blocking reqwest)
 │           ├── bot.rs       ← 2-way long-polling Telegram bot + embedded webhook server
-│           ├── notify.rs    ← Torrent event Telegram alerts (AutoRun hook)
+│           ├── notify.rs    ← Torrent event Telegram alerts & post-download media trigger
 │           └── telegram.rs  ← Service install & AutoRun qBittorrent configuration
 ├── Cargo.toml               ← Rust 2021, strict lints (deny unwrap, dead_code, warnings)
 ├── install.sh               ← Local install script
@@ -66,7 +72,7 @@ ryoiki/
 
 ### `main.rs` — CLI & Orchestration
 - **Clap** parser with global flags: `--all`, `--yes`, `--dry-run`, `--verbose`
-- **Subcommands:** `dotfiles`, `check`, `run <ids...>`, `update`, `bot`, `notify [send|boot|login|torrent|serve|install-hooks]`
+- **Subcommands:** `dotfiles`, `check`, `run <ids...>`, `update`, `bot`, `notify [send|boot|login|torrent|serve|install-hooks]`, `organize [path] [--dry-run]`
 - **Flow:** parse → banner → TUI or auto-select → resolve dependencies → sudo check → resume prompt → loop modules → state persistence → print timed summary
 - `print_summary` / `print_module_highlights` / `run_system_check` live here
 

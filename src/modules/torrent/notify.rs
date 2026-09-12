@@ -5,22 +5,61 @@ use std::time::Duration;
 
 use super::api::{self, TorrentInfo};
 use super::telegram::TelegramConfig;
+use crate::modules::media::OrganizeResult;
 
 pub fn execute(event: &str, hash: &str) -> Result<()> {
     let config = TelegramConfig::load()?;
     let client = Client::builder()
-        .timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(15))
         .build()
         .context("Failed to build HTTP client")?;
 
     let base_url = &config.qbittorrent_url;
     let torrent = resolve_torrent_data(&client, base_url, event, hash);
 
+    let (organized, qb_cleared) = if event == "completed" {
+        process_completed_media(
+            &client,
+            base_url,
+            torrent.as_ref(),
+            config.gemini_api_key.as_deref(),
+        )
+    } else {
+        (None, false)
+    };
+
     let (ts_ip, host) = super::get_access_urls();
-    let text = render_message(event, torrent.as_ref(), &host, &ts_ip);
+    let text = match organized.as_ref() {
+        Some(org) => render_organized_message(org, &host, &ts_ip, qb_cleared),
+        None => render_message(event, torrent.as_ref(), &host, &ts_ip),
+    };
 
     send_telegram_alert(&client, &config.bot_token, &config.chat_id, &text)?;
     Ok(())
+}
+
+fn process_completed_media(
+    client: &Client,
+    base_url: &str,
+    torrent: Option<&TorrentInfo>,
+    gemini_key: Option<&str>,
+) -> (Option<OrganizeResult>, bool) {
+    let Some(t) = torrent else {
+        return (None, false);
+    };
+
+    let organized =
+        crate::modules::media::organizer::organize_completed_torrent(client, t, gemini_key)
+            .ok()
+            .flatten();
+
+    let cleared = if organized.is_some() || t.progress >= 1.0 {
+        api::delete_torrent(client, base_url, &t.hash, false).is_ok()
+    } else {
+        false
+    };
+
+    (organized, cleared)
 }
 
 fn resolve_torrent_data(
@@ -117,6 +156,35 @@ pub(crate) fn render_message(
         🖥 <b>Host:</b> <code>{host}</code> ({ts_ip})\n\n\
         🌐 <a href=\"{webui_url}\">Open WebUI</a> • <i>Tailscale</i>\n\
         ━━━━━━━━━━━━━━━━━━━━━━━"
+    )
+}
+
+pub(crate) fn render_organized_message(
+    org: &OrganizeResult,
+    host: &str,
+    ts_ip: &str,
+    qb_cleared: bool,
+) -> String {
+    let clean_name = escape_html(&org.media_info.clean_name);
+    let dest = escape_html(&org.dest_path.display().to_string());
+    let qb_status = if qb_cleared {
+        "History cleared"
+    } else {
+        "Kept in client"
+    };
+
+    format!(
+        "🌊 <b>領域 RYOIKI</b> • <i>Media Organizer</i>\n\
+        ━━━━━━━━━━━━━━━━━━━━━━━\n\
+        ✨ <b>MEDIA ORGANIZED & MOVED</b>\n\n\
+        🎬 <b>Title:</b> <code>{clean_name}</code>\n\
+        📂 <b>Type:</b> {}\n\
+        ⚙️ <b>Engine:</b> {}\n\
+        📍 <b>Destination:</b> <code>{dest}</code>\n\
+        🗑 <b>qBittorrent:</b> {qb_status}\n\
+        🖥 <b>Host:</b> <code>{host}</code> ({ts_ip})\n\
+        ━━━━━━━━━━━━━━━━━━━━━━━",
+        org.media_info.media_type, org.media_info.engine,
     )
 }
 
