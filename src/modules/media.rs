@@ -1,7 +1,9 @@
 pub mod ai;
 pub mod config;
+pub mod disk;
 pub mod heuristic;
 pub mod organizer;
+pub mod pruner;
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

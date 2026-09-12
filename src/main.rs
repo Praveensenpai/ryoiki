@@ -72,6 +72,28 @@ enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Manage zero-hassle Rclone Google Drive cloud mount
+    #[command(subcommand)]
+    Rclone(modules::rclone::RcloneSubcommand),
+    /// Manage automated Jellyfin cloud backups to Google Drive
+    #[command(subcommand)]
+    Backup(modules::jellyfin::backup::BackupSubcommand),
+    /// Prune watched/large media to Google Drive when SSD is full
+    Prune {
+        /// High-watermark percentage trigger (default: 80)
+        #[arg(long, default_value_t = 80)]
+        threshold: u8,
+
+        /// Target percentage to recover down to (default: 70)
+        #[arg(long, default_value_t = 70)]
+        target: u8,
+
+        /// Preview files that would be archived without deleting
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Inspect local SSD and Google Drive storage overview
+    Storage,
 }
 
 fn main() -> Result<()> {
@@ -149,7 +171,7 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
                 home.cyan()
             );
         }
-        Commands::Check => run_system_check(),
+        Commands::Check => modules::run_system_check(),
         Commands::Run { modules } => {
             let resolved = modules::resolve_dependencies(&modules);
             if modules::requires_sudo(&resolved) {
@@ -178,6 +200,27 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
                 std::path::PathBuf::from(path)
             };
             modules::media::organizer::run_organize_cli(&target, dry_run)?;
+        }
+        Commands::Rclone(sub) => {
+            modules::rclone::handle_cli(sub)?;
+        }
+        Commands::Backup(sub) => {
+            modules::jellyfin::backup::handle_cli(sub)?;
+        }
+        Commands::Prune {
+            threshold,
+            target,
+            dry_run,
+        } => {
+            let opts = modules::media::pruner::PruneOptions {
+                threshold_pct: threshold,
+                target_pct: target,
+                dry_run,
+            };
+            modules::media::pruner::run_prune(opts)?;
+        }
+        Commands::Storage => {
+            modules::media::pruner::show_storage_status();
         }
     }
     Ok(())
@@ -334,39 +377,10 @@ fn print_infra_highlights(module_ids: &[String]) {
             "Battery: ".dimmed()
         );
     }
-}
-
-fn run_system_check() {
-    let tools = [
-        ("git", "Git VCS"),
-        ("tmux", "Tmux Terminal Multiplexer"),
-        ("nvim", "Neovim Text Editor"),
-        ("gh", "GitHub CLI"),
-        ("eza", "Eza modern ls"),
-        ("bat", "Bat syntax-highlighting cat"),
-        ("zoxide", "Zoxide smarter cd"),
-        ("fzf", "FZF fuzzy finder"),
-        ("go", "Go programming language"),
-        ("rustc", "Rust compiler"),
-        ("cargo", "Cargo package manager"),
-        ("uv", "uv Python tool"),
-        ("bun", "Bun JS/TS runtime"),
-        ("docker", "Docker Engine"),
-        ("starship", "Starship shell prompt"),
-        ("fastfetch", "Fastfetch system stats"),
-        ("toss", "toss-rs trash manager"),
-        ("tailscale", "Tailscale Mesh VPN"),
-    ];
-
-    println!("  {} System Tool Audit:\n", "🔍".bold());
-    for (cmd, desc) in tools {
-        let exists = Runner::command_exists(cmd);
-        let status = if exists {
-            "✔ installed".green().bold()
-        } else {
-            "✖ missing".red().dimmed()
-        };
-        println!("    {cmd:<12} {desc:<32} {status}");
+    if module_ids.iter().any(|m| m == "rclone") {
+        println!(
+            "  • {} Google Drive mounted at ~/gdrive (systemd auto-start)",
+            "Storage: ".dimmed()
+        );
     }
-    println!();
 }

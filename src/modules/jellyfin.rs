@@ -1,3 +1,6 @@
+pub mod backup;
+pub mod timer;
+
 use crate::runner::Runner;
 use anyhow::{Context, Result};
 use colored::Colorize;

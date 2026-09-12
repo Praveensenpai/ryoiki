@@ -6,6 +6,7 @@ pub mod git_ssh;
 pub mod jellyfin;
 pub mod media;
 pub mod prompt;
+pub mod rclone;
 pub mod security;
 pub mod tailscale;
 pub mod torrent;
@@ -42,6 +43,7 @@ pub fn requires_sudo(modules: &[String]) -> bool {
                 | "prompt"
                 | "tailscale"
                 | "charge_limit"
+                | "rclone"
         )
     })
 }
@@ -116,6 +118,13 @@ fn platform_modules() -> Vec<Module> {
             description: "Dockerized BitTorrent client with Web UI (port 6881)",
             default_enabled: false,
             deps: &["docker"],
+        },
+        Module {
+            id: "rclone",
+            title: "Rclone Google Drive",
+            description: "Zero-hassle Google Drive cloud mount with systemd auto-start",
+            default_enabled: false,
+            deps: &[],
         },
     ]
 }
@@ -215,6 +224,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "dotfiles" => deploy_dotfiles_module(runner),
         "charge_limit" => crate::charge_limit::run(non_interactive),
         "media" => media::organizer::setup(runner, non_interactive),
+        "rclone" => rclone::setup(runner, non_interactive),
         _ => anyhow::bail!("Unknown module: {module_id}"),
     }
 }
@@ -234,6 +244,43 @@ fn deploy_dotfiles_module(runner: &Runner) -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// Audits core server and development CLI tools on the system.
+pub fn run_system_check() {
+    let tools = [
+        ("git", "Git VCS"),
+        ("tmux", "Tmux Terminal Multiplexer"),
+        ("nvim", "Neovim Text Editor"),
+        ("gh", "GitHub CLI"),
+        ("eza", "Eza modern ls"),
+        ("bat", "Bat syntax-highlighting cat"),
+        ("zoxide", "Zoxide smarter cd"),
+        ("fzf", "FZF fuzzy finder"),
+        ("go", "Go programming language"),
+        ("rustc", "Rust compiler"),
+        ("cargo", "Cargo package manager"),
+        ("uv", "uv Python tool"),
+        ("bun", "Bun JS/TS runtime"),
+        ("docker", "Docker Engine"),
+        ("starship", "Starship shell prompt"),
+        ("fastfetch", "Fastfetch system stats"),
+        ("toss", "toss-rs trash manager"),
+        ("tailscale", "Tailscale Mesh VPN"),
+        ("rclone", "Rclone Cloud Sync & Mount"),
+    ];
+
+    println!("  {} System Tool Audit:\n", "🔍".bold());
+    for (cmd, desc) in tools {
+        let exists = Runner::command_exists(cmd);
+        let status = if exists {
+            "✔ installed".green().bold()
+        } else {
+            "✖ missing".red().dimmed()
+        };
+        println!("    {cmd:<12} {desc:<32} {status}");
+    }
+    println!();
 }
 
 #[cfg(test)]
@@ -265,5 +312,12 @@ mod tests {
         let chosen = vec!["git_ssh".to_string(), "essentials".to_string()];
         let resolved = resolve_dependencies(&chosen);
         assert_eq!(resolved, chosen);
+    }
+
+    #[test]
+    fn test_resolve_dependencies_rclone_standalone() {
+        let chosen = vec!["rclone".to_string()];
+        let resolved = resolve_dependencies(&chosen);
+        assert_eq!(resolved, vec!["rclone".to_string()]);
     }
 }

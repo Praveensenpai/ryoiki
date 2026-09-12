@@ -160,8 +160,12 @@ fn handle_command(client: &Client, config: &TelegramConfig, cmd: &str) -> Result
             let text = format_status_report(&torrents);
             reply(client, config, &text)?;
         }
-        "/disk" => {
+        "/storage" | "/disk" => {
             let text = format_disk_report();
+            reply(client, config, &text)?;
+        }
+        "/prune" => {
+            let text = crate::modules::media::pruner::handle_bot_prune()?;
             reply(client, config, &text)?;
         }
         "/pause" => {
@@ -178,13 +182,12 @@ fn handle_command(client: &Client, config: &TelegramConfig, cmd: &str) -> Result
         }
         "/help" | "/start" => {
             let help_text = "🌊 <b>領域 RYOIKI • Command Center</b>\n━━━━━━━━━━━━━━━━━━━━━━━\n\
-                🧲 <i>Paste any magnet link to start download</i>\n\
-                📎 <i>Upload a .torrent file to start download</i>\n\n\
+                🧲 <i>Paste magnet or .torrent to download</i>\n\
                 📊 /status — Live progress, speeds, & ETAs\n\
-                💾 /disk — Free NVMe/SSD storage space\n\
-                🎬 /organize — Classify & move completed media\n\
-                ⏸ /pause — Pause all active downloads\n\
-                ▶️ /resume — Resume all paused downloads\n\
+                💾 /storage — Free NVMe/SSD storage space\n\
+                🧹 /prune — Evict watched media to Google Drive\n\
+                🎬 /organize — Classify & move media\n\
+                ⏸ /pause • ▶️ /resume — Torrent controls\n\
                 ❓ /help — Show this command list\n━━━━━━━━━━━━━━━━━━━━━━━";
             reply(client, config, help_text)?;
         }
