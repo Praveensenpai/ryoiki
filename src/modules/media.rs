@@ -4,7 +4,10 @@ pub mod disk;
 pub mod heuristic;
 pub mod interactive;
 pub mod organizer;
+pub mod prune_timer;
 pub mod pruner;
+pub mod status;
+pub mod sync;
 pub mod transfer;
 
 use colored::Colorize;

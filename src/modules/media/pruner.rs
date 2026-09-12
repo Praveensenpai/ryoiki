@@ -81,49 +81,6 @@ pub fn handle_bot_prune() -> Result<String> {
     Ok("🧹 <b>Media Pruner executed</b>\nChecked 80% threshold against local SSD.".to_string())
 }
 
-/// Prints current storage status across local SSD and Google Drive.
-pub fn show_storage_status() {
-    println!(
-        "\n  {} {}",
-        "📊".cyan(),
-        "Storage Utilization Overview".bold()
-    );
-    println!("  {}\n", "─".repeat(40).dimmed());
-
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let media_dir = Path::new(&home).join("jellyfin/media");
-
-    if let Ok(usage) = disk::get_disk_usage(&media_dir) {
-        let total = disk::format_bytes(usage.total_bytes);
-        let used = disk::format_bytes(usage.used_bytes);
-        let free = disk::format_bytes(usage.free_bytes);
-        println!("  • Local NVMe/SSD ({})", media_dir.display());
-        println!(
-            "    Used: {:<12} Free: {:<12} Total: {}",
-            used.cyan(),
-            free.green(),
-            total.bold()
-        );
-        let badge = if usage.used_pct >= 80 {
-            "⚠ High Watermark Exceeded".red().bold()
-        } else {
-            "✔ Healthy".green()
-        };
-        println!("    Usage: {}% [{badge}]\n", usage.used_pct);
-    }
-
-    println!("  • Google Drive Cloud Storage (gdrive:)");
-    let output = Command::new("rclone").args(["about", "gdrive:"]).output();
-    if let Ok(out) = output {
-        if out.status.success() {
-            for line in String::from_utf8_lossy(&out.stdout).lines() {
-                println!("    {}", line.trim().dimmed());
-            }
-        }
-    }
-    println!();
-}
-
 fn print_disk_header(usage: DiskUsage, opts: PruneOptions) {
     let used_str = disk::format_bytes(usage.used_bytes);
     let total_str = disk::format_bytes(usage.total_bytes);
@@ -206,17 +163,15 @@ fn tag_watched_status(candidates: &mut [PruneCandidate]) {
     let url = "http://localhost:8096/Items?Filters=IsPlayed&Recursive=true&Fields=Path";
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(4))
-        .build();
-
-    let Ok(client) = client else { return };
-    let Ok(resp) = client.get(url).send() else {
-        return;
-    };
-    let Ok(json) = resp.json::<serde_json::Value>() else {
-        return;
-    };
-
-    let Some(items) = json.get("Items").and_then(|i| i.as_array()) else {
+        .build()
+        .ok();
+    let resp = client.and_then(|c| c.get(url).send().ok());
+    let json = resp.and_then(|r| r.json::<serde_json::Value>().ok());
+    let Some(items) = json
+        .as_ref()
+        .and_then(|j| j.get("Items"))
+        .and_then(|i| i.as_array())
+    else {
         return;
     };
     for item in items {

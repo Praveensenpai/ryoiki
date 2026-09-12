@@ -92,14 +92,22 @@ enum Commands {
         /// Preview files that would be archived without deleting
         #[arg(long)]
         dry_run: bool,
+
+        /// Enable and activate the 6-hour automated prune timer
+        #[arg(long)]
+        schedule: bool,
     },
     /// Inspect local SSD and Google Drive storage overview
     Storage,
     /// Interactive media manager (push to / pull from Google Drive with checklist)
     Media {
-        /// Mode to preselect: "push" (Local -> Cloud) or "pull" (Cloud -> Local)
+        /// Mode to preselect: "push", "pull", "sync", or "schedule"
         #[arg(value_name = "ACTION")]
         action: Option<String>,
+
+        /// Enable and activate the daily post-boot media copy timer
+        #[arg(long)]
+        schedule: bool,
     },
 }
 
@@ -218,19 +226,32 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
             threshold,
             target,
             dry_run,
+            schedule,
         } => {
-            let opts = modules::media::pruner::PruneOptions {
-                threshold_pct: threshold,
-                target_pct: target,
-                dry_run,
-            };
-            modules::media::pruner::run_prune(opts)?;
+            if schedule {
+                let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+                modules::media::prune_timer::deploy_prune_timer(&home, threshold, target)?;
+            } else {
+                let opts = modules::media::pruner::PruneOptions {
+                    threshold_pct: threshold,
+                    target_pct: target,
+                    dry_run,
+                };
+                modules::media::pruner::run_prune(opts)?;
+            }
         }
         Commands::Storage => {
-            modules::media::pruner::show_storage_status();
+            modules::media::status::show_storage_status();
         }
-        Commands::Media { action } => {
-            modules::media::handle_media_cli(action.as_deref())?;
+        Commands::Media { action, schedule } => {
+            if schedule || action.as_deref() == Some("schedule") {
+                let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+                modules::media::sync::deploy_sync_timer(&home)?;
+            } else if action.as_deref() == Some("sync") {
+                modules::media::sync::run_media_sync()?;
+            } else {
+                modules::media::handle_media_cli(action.as_deref())?;
+            }
         }
     }
     Ok(())
