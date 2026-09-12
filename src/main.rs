@@ -4,6 +4,7 @@ mod modules;
 mod notify;
 mod runner;
 mod state;
+mod summary;
 mod tui;
 mod updater;
 
@@ -94,6 +95,12 @@ enum Commands {
     },
     /// Inspect local SSD and Google Drive storage overview
     Storage,
+    /// Interactive media manager (push to / pull from Google Drive with checklist)
+    Media {
+        /// Mode to preselect: "push" (Local -> Cloud) or "pull" (Cloud -> Local)
+        #[arg(value_name = "ACTION")]
+        action: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -139,7 +146,7 @@ fn main() -> Result<()> {
     let mut state_opt = Some(run_state);
     let (total_dur, timings) = run_modules(&to_run, &mut runner, non_interactive, &mut state_opt)?;
     state::RunState::clear();
-    print_summary(&resolved, total_dur, &timings);
+    summary::print_summary(&resolved, total_dur, &timings);
     Ok(())
 }
 
@@ -178,7 +185,7 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
                 runner.ensure_sudo()?;
             }
             let (total_dur, timings) = run_modules(&resolved, runner, yes, &mut None)?;
-            print_summary(&resolved, total_dur, &timings);
+            summary::print_summary(&resolved, total_dur, &timings);
         }
         Commands::Update => {
             updater::run_self_update(env!("CARGO_PKG_VERSION"))?;
@@ -221,6 +228,9 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
         }
         Commands::Storage => {
             modules::media::pruner::show_storage_status();
+        }
+        Commands::Media { action } => {
+            modules::media::handle_media_cli(action.as_deref())?;
         }
     }
     Ok(())
@@ -286,101 +296,4 @@ fn run_modules(
     }
 
     Ok((total_start.elapsed(), timings))
-}
-
-fn print_summary(
-    module_ids: &[String],
-    total_duration: std::time::Duration,
-    timings: &[(String, std::time::Duration)],
-) {
-    let total_str = runner::format_duration(total_duration);
-    let title_line = format!("✨ 領域 (Ryoiki) Server Setup Complete in {total_str}!");
-    let border_len = (title_line.chars().count() + 6).max(52);
-    let border = "─".repeat(border_len);
-
-    println!("  {}", border.dimmed());
-    println!("  {}", title_line.green().bold());
-    println!("  {}", border.dimmed());
-
-    if !timings.is_empty() {
-        println!("  • {}", "Timings:".dimmed());
-        for (name, dur) in timings {
-            let dur_str = runner::format_duration(*dur);
-            println!("    {} {:<26} {}", "•".dimmed(), name, dur_str.cyan());
-        }
-        println!();
-    }
-
-    print_module_highlights(module_ids);
-
-    println!(
-        "  • {} Log saved to ~/.local/state/ryoiki/install.log",
-        "Debug:   ".dimmed()
-    );
-    println!("  {}\n", border.dimmed());
-}
-
-fn print_module_highlights(module_ids: &[String]) {
-    print_cli_highlights(module_ids);
-    print_infra_highlights(module_ids);
-}
-
-fn print_cli_highlights(module_ids: &[String]) {
-    if module_ids
-        .iter()
-        .any(|m| m == "dotfiles" || m == "cli_tools" || m == "trash")
-    {
-        println!(
-            "  • {} eza (ls) • bat (cat) • zoxide (cd) • toss (rm)",
-            "Aliases: ".dimmed()
-        );
-    }
-    if module_ids.iter().any(|m| m == "dev_runtimes") {
-        println!(
-            "  • {} Go • Rust (cargo) • Python (uv) • JavaScript (bun)",
-            "Runtimes:".dimmed()
-        );
-    }
-}
-
-fn print_infra_highlights(module_ids: &[String]) {
-    if module_ids.iter().any(|m| m == "security") {
-        println!("  • {} UFW (22, 80, 443) active", "Security:".dimmed());
-    }
-    if module_ids.iter().any(|m| m == "docker") {
-        println!(
-            "  • {} Docker Engine & Docker Compose plugin active",
-            "Docker:  ".dimmed()
-        );
-    }
-    if module_ids.iter().any(|m| m == "jellyfin") {
-        println!(
-            "  • {} Jellyfin live on port 8096 (Intel QSV enabled)",
-            "Media:   ".dimmed()
-        );
-    }
-    if module_ids.iter().any(|m| m == "torrent") {
-        println!(
-            "  • {} qBittorrent live on port 6881 (Web UI enabled)",
-            "Torrent: ".dimmed()
-        );
-    }
-    if module_ids.iter().any(|m| m == "tailscale") {
-        println!(
-            "  • {} Tailscale MagicDNS active (connect via hostname)",
-            "Mesh VPN:".dimmed()
-        );
-    }
-    if module_ids.iter().any(|m| m == "charge_limit") {
-        println!(
-            "  • {} Battery charge limit active (persists across reboots)",
-            "Battery: ".dimmed()
-        );
-    }
-    if module_ids.iter().any(|m| m == "rclone") {
-        println!(
-            "  • {} Google Drive mounted at ~/gdrive (systemd auto-start)",
-            "Storage: ".dimmed()
-        );
-    }
 }
