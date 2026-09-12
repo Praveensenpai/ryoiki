@@ -1,5 +1,6 @@
 use anyhow::Result;
 use std::fs;
+use std::path::Path;
 use std::thread;
 use std::time::Duration;
 
@@ -21,18 +22,48 @@ pub fn send_power_event(config: &TelegramConfig, status: &str) -> Result<()> {
     send_alert(&config.bot_token, &config.chat_id, &card)
 }
 
-/// Long-running daemon: polls battery every minute and fires a Telegram alert
-/// the first time each low-battery threshold is crossed.
+/// Long-running daemon: polls battery every minute.
+/// - When on HP ACPI hardware, actively regulates charging to keep battery at target limit.
+/// - When charging on AC without ACPI hooks, fires an alert when target limit is reached.
+/// - When on battery, fires a Telegram alert at each low-battery threshold.
 pub fn run_battery_watch(config: &TelegramConfig) -> Result<()> {
-    let mut fired: Vec<u8> = Vec::new();
+    let mut fired_low: Vec<u8> = Vec::new();
+    let mut fired_high = false;
+    let mut last_hp_mode: Option<crate::charge_limit::hp_acpi::HpChargeMode> = None;
 
     loop {
-        if let Some(pct) = read_battery_percent() {
-            for &threshold in LOW_BATTERY_THRESHOLDS {
-                if pct <= threshold && !fired.contains(&threshold) {
-                    fired.push(threshold);
-                    let card = build_battery_alert_card(config, pct, threshold);
-                    let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+        let pct_opt = read_battery_percent();
+        let ac_online = is_ac_online();
+
+        if let Some(pct) = pct_opt {
+            let target_limit = crate::charge_limit::load_configured_limit().unwrap_or(60);
+
+            if crate::charge_limit::hp_acpi::is_hp_acpi_supported() {
+                if let Ok(new_mode) =
+                    crate::charge_limit::hp_acpi::regulate_hp_battery(target_limit, pct, ac_online)
+                {
+                    if last_hp_mode != Some(new_mode) {
+                        last_hp_mode = Some(new_mode);
+                        let card = build_hp_acpi_card(config, pct, target_limit, new_mode);
+                        let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+                    }
+                }
+            } else if ac_online && pct >= target_limit && !fired_high {
+                fired_high = true;
+                let card = build_high_charge_card(config, pct, target_limit);
+                let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+            }
+
+            if ac_online {
+                fired_low.retain(|&t| pct <= t);
+            } else {
+                fired_high = false;
+                for &threshold in LOW_BATTERY_THRESHOLDS {
+                    if pct <= threshold && !fired_low.contains(&threshold) {
+                        fired_low.push(threshold);
+                        let card = build_battery_alert_card(config, pct, threshold);
+                        let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+                    }
                 }
             }
         }
@@ -97,7 +128,75 @@ fn build_battery_alert_card(config: &TelegramConfig, pct: u8, threshold: u8) -> 
     format_card("Battery Warning", badge, &fields)
 }
 
+fn build_high_charge_card(config: &TelegramConfig, pct: u8, limit: u8) -> String {
+    let badge = "🔋 <b>CHARGE LIMIT REACHED</b>";
+    let host = get_hostname(config);
+    let pct_str = format!("{pct}%");
+    let limit_str = format!("{limit}%");
+    let cpu_temp = read_cpu_temp().map_or_else(|| "N/A".to_string(), |t| format!("{t:.1} °C"));
+    let cpu_usage = read_cpu_usage().map_or_else(|| "N/A".to_string(), |u| format!("{u:.1}%"));
+    let batt_status = read_battery_status().unwrap_or_else(|| "unknown".to_string());
+
+    let fields = [
+        ("🖥 Host:", host.as_str()),
+        ("⚡ Action:", "Unplug AC charger to preserve lifespan"),
+        ("🔋 Battery:", pct_str.as_str()),
+        ("🎯 Target Limit:", limit_str.as_str()),
+        ("📊 Batt Status:", batt_status.as_str()),
+        ("🌡 CPU Temp:", cpu_temp.as_str()),
+        ("⚙ CPU Usage:", cpu_usage.as_str()),
+    ];
+
+    format_card("Charge Limit Alert", badge, &fields)
+}
+
+fn build_hp_acpi_card(
+    config: &TelegramConfig,
+    pct: u8,
+    limit: u8,
+    mode: crate::charge_limit::hp_acpi::HpChargeMode,
+) -> String {
+    let host = get_hostname(config);
+    let pct_str = format!("{pct}%");
+    let limit_str = format!("{limit}%");
+    let cpu_temp = read_cpu_temp().map_or_else(|| "N/A".to_string(), |t| format!("{t:.1} °C"));
+    let cpu_usage = read_cpu_usage().map_or_else(|| "N/A".to_string(), |u| format!("{u:.1}%"));
+    let batt_status = read_battery_status().unwrap_or_else(|| "unknown".to_string());
+
+    let fields = [
+        ("🖥 Host:", host.as_str()),
+        ("⚙ State:", mode.label()),
+        ("🔋 Battery:", pct_str.as_str()),
+        ("🎯 Target Limit:", limit_str.as_str()),
+        ("📊 Batt Status:", batt_status.as_str()),
+        ("🌡 CPU Temp:", cpu_temp.as_str()),
+        ("⚙ CPU Usage:", cpu_usage.as_str()),
+    ];
+
+    format_card(
+        "HP Charge Regulation",
+        "⚡ <b>FIRMWARE CHARGE CONTROL</b>",
+        &fields,
+    )
+}
+
 // ── System readers ────────────────────────────────────────────────────────────
+
+fn is_ac_online() -> bool {
+    let base = Path::new("/sys/class/power_supply");
+    let Ok(entries) = fs::read_dir(base) else {
+        return true;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let is_mains = fs::read_to_string(path.join("type"))
+            .is_ok_and(|k| k.trim().eq_ignore_ascii_case("mains"));
+        if is_mains {
+            return fs::read_to_string(path.join("online")).is_ok_and(|o| o.trim() == "1");
+        }
+    }
+    false
+}
 
 /// Read battery percentage from the first battery found in `/sys/class/power_supply`/.
 fn read_battery_percent() -> Option<u8> {
