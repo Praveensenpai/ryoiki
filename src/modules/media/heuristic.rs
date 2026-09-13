@@ -15,7 +15,10 @@ pub fn classify_media_heuristic(raw_name: &str) -> MediaInfo {
     let year = extract_year(&clean_stem);
     let language = extract_language(&clean_stem);
 
-    let media_type = if season.is_some() || episode.is_some() {
+    let is_anime = is_anime_marker(raw_name, language.as_deref());
+    let media_type = if is_anime {
+        MediaType::Anime
+    } else if season.is_some() || episode.is_some() {
         MediaType::Show
     } else {
         MediaType::Movie
@@ -45,6 +48,31 @@ pub fn classify_media_heuristic(raw_name: &str) -> MediaInfo {
     }
 }
 
+fn is_anime_marker(input: &str, language: Option<&str>) -> bool {
+    if language.is_some_and(|l| l.eq_ignore_ascii_case("Japanese")) {
+        return true;
+    }
+    let lower = input.to_ascii_lowercase();
+    for marker in [
+        "moozzi2",
+        "subsplease",
+        "erai-raws",
+        "horriblesubs",
+        "judas",
+        "asw",
+        "ani",
+        "ember",
+        "b-global",
+        "anime",
+        "[sp",
+    ] {
+        if lower.contains(marker) {
+            return true;
+        }
+    }
+    false
+}
+
 fn strip_tracker_prefixes(input: &str) -> String {
     let mut s = input.trim();
     if let Some(pos) = s.find(" - ") {
@@ -59,15 +87,18 @@ fn strip_tracker_prefixes(input: &str) -> String {
         }
     }
 
-    let cleaned = s.trim_start_matches('[');
-    if let Some(end_bracket) = cleaned.find(']') {
-        let bracket_content = &cleaned[..end_bracket].to_ascii_lowercase();
-        if bracket_content.contains("tgx")
-            || bracket_content.contains("yts")
-            || bracket_content.contains("eztv")
-            || bracket_content.contains("psa")
-        {
-            return cleaned[end_bracket + 1..].trim().to_string();
+    let trimmed = s.trim();
+    if trimmed.starts_with('[') {
+        if let Some(end_bracket) = trimmed.find(']') {
+            let bracket_content = &trimmed[1..end_bracket].to_ascii_lowercase();
+            if !bracket_content.contains("1080p")
+                && !bracket_content.contains("720p")
+                && !bracket_content.contains("2160p")
+                && !bracket_content.contains("4k")
+                && !bracket_content.contains("sp")
+            {
+                return trimmed[end_bracket + 1..].trim().to_string();
+            }
         }
     }
     s.to_string()
@@ -84,7 +115,15 @@ fn extract_resolution(input: &str) -> Option<String> {
             });
         }
     }
-    None
+    if lower.contains("1920x1080") || lower.contains("1080i") {
+        Some("1080p".to_string())
+    } else if lower.contains("1280x720") {
+        Some("720p".to_string())
+    } else if lower.contains("3840x2160") {
+        Some("2160p".to_string())
+    } else {
+        None
+    }
 }
 
 fn extract_season_episode(input: &str) -> (Option<u32>, Option<u32>) {
@@ -99,6 +138,7 @@ fn extract_season_episode(input: &str) -> (Option<u32>, Option<u32>) {
                 j += 1;
             }
             let s_str: String = chars[i + 1..j].iter().collect();
+
             if j < chars.len() && (chars[j] == 'e' || chars[j] == 'E') && j + 1 < chars.len() {
                 let mut k = j + 1;
                 while k < chars.len() && chars[k].is_ascii_digit() {
@@ -109,8 +149,33 @@ fn extract_season_episode(input: &str) -> (Option<u32>, Option<u32>) {
                     return (Some(s), Some(e));
                 }
             }
+
+            let mut k = j;
+            while k < chars.len() && (chars[k] == ' ' || chars[k] == '-' || chars[k] == '.') {
+                k += 1;
+            }
+            if k < chars.len() && chars[k].is_ascii_digit() {
+                let mut l = k;
+                while l < chars.len() && chars[l].is_ascii_digit() {
+                    l += 1;
+                }
+                let e_str: String = chars[k..l].iter().collect();
+                if let (Ok(s), Ok(e)) = (s_str.parse::<u32>(), e_str.parse::<u32>()) {
+                    return (Some(s), Some(e));
+                }
+            }
         }
     }
+
+    let lower = input.to_ascii_lowercase();
+    if let Some(sp_idx) = lower.find("sp") {
+        let after = &lower[sp_idx + 2..];
+        let digits: String = after.chars().take_while(char::is_ascii_digit).collect();
+        if let Ok(ep) = digits.parse::<u32>() {
+            return (Some(0), Some(ep));
+        }
+    }
+
     (None, None)
 }
 
@@ -144,7 +209,14 @@ fn extract_title(
     }
 
     if season.is_some() {
-        for marker in ["S0", "s0", "S1", "s1", "S2", "s2", "Season", "season"] {
+        for s in 0..=9 {
+            for marker in [&format!("S{s}"), &format!("s{s}")] {
+                if let Some(pos) = input.find(marker.as_str()) {
+                    cut_idx = cut_idx.min(pos);
+                }
+            }
+        }
+        for marker in ["Season", "season", "SP", "sp", "[SP", "[sp"] {
             if let Some(pos) = input.find(marker) {
                 cut_idx = cut_idx.min(pos);
             }
@@ -170,6 +242,7 @@ fn extract_title(
         "Telugu",
         "Malayalam",
         "English",
+        "Japanese",
     ] {
         let lower = input.to_ascii_lowercase();
         if let Some(pos) = lower.find(&tag.to_ascii_lowercase()) {
@@ -267,5 +340,28 @@ mod tests {
         assert_eq!(info.season, Some(2));
         assert_eq!(info.episode, Some(4));
         assert_eq!(info.clean_name, "House of the Dragon - S02E04 [1080p].mkv");
+    }
+
+    #[test]
+    fn test_heuristic_anime_cleaning() {
+        let raw = "[Moozzi2] Yuru Camp S3 - 01 (BD 1920x1080 x265-10Bit Flac).mkv";
+        let info = classify_media_heuristic(raw);
+        assert_eq!(info.media_type, MediaType::Anime);
+        assert_eq!(info.title, "Yuru Camp");
+        assert_eq!(info.season, Some(3));
+        assert_eq!(info.episode, Some(1));
+        assert_eq!(info.resolution.as_deref(), Some("1080p"));
+        assert_eq!(info.clean_name, "Yuru Camp - S03E01 [1080p].mkv");
+    }
+
+    #[test]
+    fn test_heuristic_anime_specials() {
+        let raw = "[Moozzi2] Yuru Camp S3 [SP01] NCED (BD 1920x1080 x265-10Bit Flac).mkv";
+        let info = classify_media_heuristic(raw);
+        assert_eq!(info.media_type, MediaType::Anime);
+        assert_eq!(info.title, "Yuru Camp");
+        assert_eq!(info.season, Some(0));
+        assert_eq!(info.episode, Some(1));
+        assert_eq!(info.clean_name, "Yuru Camp - S00E01 [1080p].mkv");
     }
 }

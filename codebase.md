@@ -62,7 +62,7 @@
 
 ```
 ryoiki/
-├── Cargo.toml                              # Package manifest (v0.1.42, edition 2021, dependencies & release profiles)
+├── Cargo.toml                              # Package manifest (v0.1.43, edition 2021, dependencies & release profiles)
 ├── Cargo.lock                              # Pinned dependency tree
 ├── install.sh                              # Source bootstrapper (installs rustup if missing, builds, runs)
 ├── remote-install.sh                       # Binary bootstrapper (downloads prebuilt x86_64/aarch64 tarball from GitHub)
@@ -267,15 +267,16 @@ Incoming Torrent File (e.g. ~/torrents/completed/Film.2023.1080p.mkv)
                   │                     │
                   └──────────┬──────────┘
                              │ Returns MediaInfo (Title, Year, Resolution, Language)
-                             ▼
+                              ▼
             ┌───────────────────────────┐
             │   src/modules/media/      │
             │       organizer.rs        │
             └─────────────┬─────────────┘
-                          │ • Ensures mandatory (Year) in Movie titles
+                          │ • Ensures mandatory (Year) in Movie/Anime Movie titles
                           │ • Injects [Language] bracket
+                          │ • Differentiates Movies (movies/), Shows (shows/), and Anime (anime/)
                           │ • Resolves collision & unique destination path
-                          │ • Moves file: ~/jellyfin/media/Movies/Title (Year)/Title (Year) [Lang] [Res].ext
+                          │ • Moves file: ~/jellyfin/media/{movies,shows,anime}/...
                           ▼
             ┌───────────────────────────┐
             │  modules/jellyfin/api.rs  │
@@ -284,18 +285,25 @@ Incoming Torrent File (e.g. ~/torrents/completed/Film.2023.1080p.mkv)
 ```
 
 ### Module Breakdown
+- **`src/modules/media.rs`**:
+  - `MediaType`: Enum with `Movie`, `Show`, and `Anime` variants.
+  - `MediaInfo`: Core metadata structure passed between engines and the organizer.
+  - `ClassificationEngine`: Tracks whether item was classified by `Ai` or `Heuristic`.
 - **`src/modules/media/probe.rs`**:
   - `probe_media_file(path: &Path) -> Option<MediaProbe>`: Invokes `ffprobe` in JSON mode extracting container duration, video stream height (converted to `2160p`, `1080p`, `720p`, `480p`), and audio streams language tags.
   - `map_language_code(code: &str) -> String`: Maps 3-letter ISO language codes (`mal`, `tam`, `tel`, `hin`, `kan`, `eng`, `jpn`, `kor`, `fra`, `deu`, etc.) to capitalized full language names.
   - `resolve_primary_language(languages: &[String]) -> Option<String>`: Evaluates audio tracks; if single track, returns that language; if multiple tracks with English, prioritizes the native language; if multiple non-English tracks, returns `"Multi"`.
 - **`src/modules/media/ai.rs`**:
-  - `classify_media_ai(...) -> Result<MediaInfo>`: Uses Google Gemini API (`gemini-2.5-flash` with fallback models) to parse messy filenames into clean schema.
-  - Injects `probe` metadata (duration, streams, resolution) into the prompt to resolve cinema remakes (e.g. *Drishyam* 2013 Malayalam vs *Drishyam* 2015 Hindi).
+  - `classify_media_ai(...) -> Result<MediaInfo>`: Uses Google Gemini API (`gemini-2.5-flash` with fallback models) to parse messy filenames into clean schema. Supports `media_type: "movie" | "show" | "anime"`.
+  - Injects `probe` metadata (duration, streams, resolution) into the prompt to resolve cinema remakes (e.g. *Drishyam* 2013 Malayalam vs *Drishyam* 2015 Hindi) and detect anime.
   - `ensure_year_in_clean_name(name, year)`: Guarantees `(YYYY)` format in filenames.
   - `ensure_language_in_clean_name(name, language)`: Guarantees `[Language]` format in filenames.
 - **`src/modules/media/heuristic.rs`**:
-  - `classify_media_heuristic(raw_name: &str) -> MediaInfo`: Offline regex and string manipulation fallback extracting title, year (`(19|20)\d{2}`), season/episode (`S\d{1,2}E\d{1,2}`), resolution (`2160p`, `1080p`), and regional language tokens.
+  - `classify_media_heuristic(raw_name: &str) -> MediaInfo`: Offline regex and string manipulation fallback extracting title, year (`(19|20)\d{2}`), season/episode (`S\d{1,2}E\d{1,2}`, `S\d{1,2} - \d{1,2}`, `[SP\d{2}]`), resolution (`2160p`, `1080p`, `1920x1080`), and regional language tokens.
+  - `is_anime_marker(input, language)`: Detects Japanese audio or anime release group tags (`Moozzi2`, `SubsPlease`, `Erai-raws`, `Judas`, `ANi`, etc.) to automatically classify as `MediaType::Anime`.
 - **`src/modules/media/organizer.rs`**:
+  - `calculate_dest_dir(info: &MediaInfo) -> PathBuf`: Routes `MediaType::Movie` to `~/jellyfin/media/movies/<Title> (<Year>)/`, `MediaType::Show` to `~/jellyfin/media/shows/<Title>/Season <NN>/`, and `MediaType::Anime` to `~/jellyfin/media/anime/<Title>/Season <NN>/` (or `anime/<Title> (<Year>)/` for standalone anime films).
+  - Auto-upgrades to `MediaType::Anime` when Japanese audio track is detected from container probe.
   - `organize_file(...) -> Result<OrganizeResult>`: Drives the ingestion workflow for single files or torrent folders.
   - `run_organize_cli(target: &Path, dry_run: bool) -> Result<()>`: CLI entrypoint scanning directory and notifying Jellyfin upon success.
 - **`src/modules/media/disk.rs` & `pruner.rs`**:

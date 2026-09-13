@@ -102,17 +102,18 @@ fn build_prompt(raw_name: &str, probe: Option<&super::probe::MediaProbe>) -> Str
         CRITICAL INSTRUCTIONS:\n\
         1. Identify remakes/versions: If multiple movies exist with this title (e.g. original vs regional remakes like Drishyam 2013 Malayalam vs Drishyam 2015 Hindi), use the detected audio language, media duration, and cinema knowledge to identify the EXACT film version.\n\
         2. Release Year is MANDATORY for movies: Always provide the 4-digit release year for movies in both the 'year' field and inside 'clean_name' (e.g. \"Title (YEAR) [Language] [1080p].ext\"). If missing in the filename, deduce the correct year from the title, runtime duration, and audio language.\n\
-        3. Clean title: Strip release groups, years, audio info, languages, and site tags from 'title'. Keep title clean.\n\
+        3. Anime classification: If the media is Japanese anime, animation, or OVA, classify 'media_type' as \"anime\".\n\
+        4. Clean title: Strip release groups, years, audio info, languages, and site tags from 'title'. Keep title clean.\n\
         \n\
         Parse and return JSON with keys:\n\
-        - media_type: \"movie\" or \"show\"\n\
+        - media_type: \"movie\", \"show\", or \"anime\"\n\
         - title: clean title without release group, websites, resolution, or year\n\
         - year: integer release year (e.g. 2013) or null\n\
-        - season: integer season number or null (if show)\n\
-        - episode: integer episode number or null (if show)\n\
+        - season: integer season number or null (if show or anime)\n\
+        - episode: integer episode number or null (if show or anime)\n\
         - resolution: string e.g. \"1080p\", \"2160p\", \"720p\" or null\n\
-        - language: string primary audio language capitalized (e.g. \"Malayalam\", \"English\", \"Tamil\", \"Hindi\", \"Multi\") or null\n\
-        - clean_name: formatted filename with original file extension (e.g. \"Title (2013) [Malayalam] [1080p].mkv\" or \"Title - S01E02 [English] [1080p].mkv\")"
+        - language: string primary audio language capitalized (e.g. \"Malayalam\", \"Japanese\", \"English\", \"Tamil\", \"Hindi\", \"Multi\") or null\n\
+        - clean_name: formatted filename with original file extension (e.g. \"Title (2013) [Malayalam] [1080p].mkv\" or \"Title - S01E02 [Japanese] [1080p].mkv\")"
     )
 }
 
@@ -216,7 +217,9 @@ fn parse_ai_json(json_text: &str, raw_name: &str) -> Result<MediaInfo> {
     let schema: AiOutputSchema =
         serde_json::from_str(json_text).context("Failed to parse model JSON into schema")?;
 
-    let media_type = if schema.media_type.eq_ignore_ascii_case("show") {
+    let media_type = if schema.media_type.eq_ignore_ascii_case("anime") {
+        MediaType::Anime
+    } else if schema.media_type.eq_ignore_ascii_case("show") {
         MediaType::Show
     } else {
         MediaType::Movie
@@ -260,7 +263,9 @@ fn resolve_clean_name(schema: &AiOutputSchema, media_type: MediaType, raw_name: 
         };
     };
 
-    if media_type == MediaType::Movie {
+    if media_type == MediaType::Movie
+        || (media_type == MediaType::Anime && schema.season.is_none() && schema.episode.is_none())
+    {
         if let Some(yr) = schema.year {
             let yr_str = format!("({yr})");
             if !cn.contains(&yr_str) {
@@ -332,6 +337,27 @@ mod tests {
         assert_eq!(info.year, Some(2013));
         assert_eq!(info.language.as_deref(), Some("Malayalam"));
         assert_eq!(info.clean_name, "Drishyam (2013) [Malayalam] [1080p].mkv");
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_ai_json_anime() -> Result<()> {
+        let json_text = r#"{
+            "media_type": "anime",
+            "title": "Yuru Camp",
+            "year": null,
+            "season": 3,
+            "episode": 1,
+            "resolution": "1080p",
+            "language": "Japanese",
+            "clean_name": "Yuru Camp - S03E01 [Japanese] [1080p].mkv"
+        }"#;
+
+        let info = parse_ai_json(json_text, "Yuru.Camp.S03E01.mkv")?;
+        assert_eq!(info.media_type, MediaType::Anime);
+        assert_eq!(info.season, Some(3));
+        assert_eq!(info.episode, Some(1));
+        assert_eq!(info.clean_name, "Yuru Camp - S03E01 [Japanese] [1080p].mkv");
         Ok(())
     }
 

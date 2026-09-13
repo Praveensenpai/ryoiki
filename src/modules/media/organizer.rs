@@ -52,6 +52,14 @@ pub fn organize_file(
         }
     }
 
+    if media_info.media_type != MediaType::Anime {
+        if let Some(lang) = &media_info.language {
+            if lang.eq_ignore_ascii_case("japanese") {
+                media_info.media_type = MediaType::Anime;
+            }
+        }
+    }
+
     let dest_dir = calculate_dest_dir(&media_info);
     let dest_path = resolve_unique_dest_path(file_path, &dest_dir, &media_info, dry_run);
 
@@ -143,6 +151,17 @@ fn calculate_dest_dir(info: &MediaInfo) -> PathBuf {
         MediaType::Show => {
             let season_str = format!("Season {:02}", info.season.unwrap_or(1));
             base.join("shows").join(&info.title).join(season_str)
+        }
+        MediaType::Anime => {
+            if info.season.is_some() || info.episode.is_some() {
+                let season_str = format!("Season {:02}", info.season.unwrap_or(1));
+                base.join("anime").join(&info.title).join(season_str)
+            } else {
+                let folder = info
+                    .year
+                    .map_or_else(|| info.title.clone(), |y| format!("{} ({y})", info.title));
+                base.join("anime").join(folder)
+            }
         }
     }
 }

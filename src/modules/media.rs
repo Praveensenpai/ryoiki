@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 pub enum MediaType {
     Movie,
     Show,
+    Anime,
 }
 
 impl std::fmt::Display for MediaType {
@@ -28,6 +29,7 @@ impl std::fmt::Display for MediaType {
         match self {
             Self::Movie => write!(f, "Movie"),
             Self::Show => write!(f, "TV Show"),
+            Self::Anime => write!(f, "Anime"),
         }
     }
 }
