@@ -31,7 +31,8 @@ All implementations must strictly adhere to the corresponding domain skills in K
   - **Zero Tolerance**: No unverified `# type: ignore` or `# noqa`.
 
 - **Releases & Versioning** (`skills/build-tooling/git-release-craft/`):
-  - **Release Workflow**: Mandatory multi-arch GitHub Actions release workflow (`.github/workflows/release.yml`) for all compiled binary projects (`x86_64` + `aarch64`).
+  - **Mandatory Binary Release Trigger**: For any project producing compiled binaries or compile-time embedded assets (e.g. Rust, Go, C/C++), modifying code, dependencies, or embedded assets automatically mandates the complete release lifecycle (version bump, tag, release notes, publish, CI verification). Never stop at `git push` or leave binary users with stale distributions.
+  - **Release Workflow**: Mandatory Linux x86_64 GitHub Actions release workflow (`.github/workflows/release.yml`) for all compiled binary projects (`x86_64-unknown-linux-gnu`).
   - **Release Notes**: Aesthetic highlight format with icons and direct install commands.
   - **Autonomous Workflow Verification**: Actively track GitHub Actions CI/Release runs until green before declaring release complete. Autonomously diagnose and fix any pipeline failures in a closed self-healing loop without asking permission.
 
@@ -46,3 +47,7 @@ All implementations must strictly adhere to the corresponding domain skills in K
 - **Bash & Shell Scripts** (`skills/system-ops/bash-clean-code/`):
   - **Preamble**: Mandatory `set -euo pipefail` and `IFS=$'\n\t'`.
   - **Zero Tolerance**: Zero ShellCheck warnings (`shellcheck -x`), mandatory trap cleanups for tempfiles, XDG compliance, strict variable quoting.
+
+- **AI Codebase Index** (`skills/build-tooling/codebase-digest/`):
+  - **Living Semantic Index**: Mandatory AI-first `CODEBASE.md` maintained in the root of the project with zero fluff, dense symbol skeletons, and module dependencies.
+  - **Iterative Auto-Update**: At the end of every turn/iteration involving file additions, deletions, renames, or signature modifications, `CODEBASE.md` must be updated before finishing the task.
