@@ -62,6 +62,8 @@ pub fn organize_file(
 
     perform_move(file_path, &dest_path)?;
 
+    super::audio::strip_audio_auto(&dest_path);
+
     Ok(OrganizeResult {
         source_path: file_path.to_path_buf(),
         dest_path,

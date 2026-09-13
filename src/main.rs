@@ -109,6 +109,9 @@ enum Commands {
         #[arg(long)]
         schedule: bool,
     },
+    /// Inspect or strip redundant dubbed audio tracks via dubstrip engine
+    #[command(subcommand)]
+    Audio(modules::media::audio::AudioSubcommand),
 }
 
 fn main() -> Result<()> {
@@ -252,6 +255,9 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
             } else {
                 modules::media::handle_media_cli(action.as_deref())?;
             }
+        }
+        Commands::Audio(sub) => {
+            modules::media::audio::handle_cli(sub)?;
         }
     }
     Ok(())

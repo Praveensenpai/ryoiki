@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod audio;
 pub mod config;
 pub mod disk;
 pub mod heuristic;
