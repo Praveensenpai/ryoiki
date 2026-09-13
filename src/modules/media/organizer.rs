@@ -118,21 +118,17 @@ fn resolve_unique_dest_path(
         .and_then(|s| s.to_str())
         .unwrap_or(&info.clean_name);
     let size_tag = crate::modules::torrent::notify::format_size(src_size).replace(' ', "");
-
-    let new_name = if let Some(prefix) = stem.strip_suffix(']') {
-        format!("{prefix} - {size_tag}].{ext}")
-    } else {
-        format!("{stem} - [{size_tag}].{ext}")
+    let append_tag = |s: &str, tag: &str| {
+        s.strip_suffix(']').map_or_else(
+            || format!("{s} - [{tag}].{ext}"),
+            |p| format!("{p} - {tag}].{ext}"),
+        )
     };
 
+    let new_name = append_tag(stem, &size_tag);
     if !dry_run && !stem.contains(" - ") {
         let old_size_tag = crate::modules::torrent::notify::format_size(dst_size).replace(' ', "");
-        let old_name = if let Some(prefix) = stem.strip_suffix(']') {
-            format!("{prefix} - {old_size_tag}].{ext}")
-        } else {
-            format!("{stem} - [{old_size_tag}].{ext}")
-        };
-        let _ = fs::rename(&standard, dest_dir.join(old_name));
+        let _ = fs::rename(&standard, dest_dir.join(append_tag(stem, &old_size_tag)));
     }
 
     dest_dir.join(new_name)
@@ -140,22 +136,31 @@ fn resolve_unique_dest_path(
 
 fn calculate_dest_dir(info: &MediaInfo) -> PathBuf {
     let base = get_jellyfin_media_dir();
+    let cat = match info.media_type {
+        MediaType::Movie => "movies",
+        MediaType::Show => "shows",
+        MediaType::Anime => "anime",
+    };
+    let parent = base.join(cat).join(&info.title);
+
+    if info.is_extra {
+        return info.season.map_or_else(
+            || parent.join("extras"),
+            |s| parent.join(format!("Season {s:02}")).join("extras"),
+        );
+    }
+
     match info.media_type {
         MediaType::Movie => {
-            let folder_name = match info.year {
-                Some(yr) => format!("{} ({yr})", info.title),
-                None => info.title.clone(),
-            };
-            base.join("movies").join(folder_name)
+            let folder = info
+                .year
+                .map_or_else(|| info.title.clone(), |y| format!("{} ({y})", info.title));
+            base.join("movies").join(folder)
         }
-        MediaType::Show => {
-            let season_str = format!("Season {:02}", info.season.unwrap_or(1));
-            base.join("shows").join(&info.title).join(season_str)
-        }
+        MediaType::Show => parent.join(format!("Season {:02}", info.season.unwrap_or(1))),
         MediaType::Anime => {
             if info.season.is_some() || info.episode.is_some() {
-                let season_str = format!("Season {:02}", info.season.unwrap_or(1));
-                base.join("anime").join(&info.title).join(season_str)
+                parent.join(format!("Season {:02}", info.season.unwrap_or(1)))
             } else {
                 let folder = info
                     .year

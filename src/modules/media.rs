@@ -59,6 +59,7 @@ pub struct MediaInfo {
     pub resolution: Option<String>,
     pub language: Option<String>,
     pub clean_name: String,
+    pub is_extra: bool,
     pub engine: ClassificationEngine,
 }
 

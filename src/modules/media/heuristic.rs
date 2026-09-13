@@ -11,6 +11,7 @@ pub fn classify_media_heuristic(raw_name: &str) -> MediaInfo {
 
     let clean_stem = strip_tracker_prefixes(stem);
     let resolution = extract_resolution(&clean_stem);
+    let is_extra = is_extra_content(raw_name);
     let (season, episode) = extract_season_episode(&clean_stem);
     let year = extract_year(&clean_stem);
     let language = extract_language(&clean_stem);
@@ -25,11 +26,18 @@ pub fn classify_media_heuristic(raw_name: &str) -> MediaInfo {
     };
 
     let title = extract_title(&clean_stem, year, season, episode);
+    let extra_desc = if is_extra {
+        extract_extra_desc(&clean_stem)
+    } else {
+        None
+    };
     let clean_name = format_clean_name(&CleanNameOptions {
         title: &title,
         year,
         season,
         episode,
+        is_extra,
+        extra_desc: extra_desc.as_deref(),
         language: language.as_deref(),
         resolution: resolution.as_deref(),
         ext,
@@ -44,44 +52,55 @@ pub fn classify_media_heuristic(raw_name: &str) -> MediaInfo {
         resolution,
         language,
         clean_name,
+        is_extra,
         engine: ClassificationEngine::Heuristic,
     }
 }
 
+const ANIME_MARKERS: &str =
+    "moozzi2 subsplease erai-raws horriblesubs judas asw ani ember b-global anime [sp";
+
 fn is_anime_marker(input: &str, language: Option<&str>) -> bool {
-    if language.is_some_and(|l| l.eq_ignore_ascii_case("Japanese")) {
-        return true;
-    }
+    language.is_some_and(|l| l.eq_ignore_ascii_case("Japanese"))
+        || ANIME_MARKERS
+            .split_whitespace()
+            .any(|m| input.to_ascii_lowercase().contains(m))
+}
+
+fn is_extra_content(input: &str) -> bool {
     let lower = input.to_ascii_lowercase();
-    for marker in [
-        "moozzi2",
-        "subsplease",
-        "erai-raws",
-        "horriblesubs",
-        "judas",
-        "asw",
-        "ani",
-        "ember",
-        "b-global",
-        "anime",
-        "[sp",
-    ] {
-        if lower.contains(marker) {
-            return true;
+    lower.contains("[sp")
+        || lower.contains("ncop")
+        || lower.contains("nced")
+        || lower.contains("menu")
+        || lower.contains("extra")
+        || lower.contains("pv")
+}
+
+fn extract_extra_desc(input: &str) -> Option<String> {
+    let lower = input.to_ascii_lowercase();
+    let start_idx = lower.find("[sp").or_else(|| lower.find("sp"))?;
+    let mut tail = &input[start_idx..];
+    for cut in [" (", " 1080p", " 720p", " 2160p", " 4k", ".mkv"] {
+        if let Some(pos) = tail.to_ascii_lowercase().find(cut) {
+            tail = &tail[..pos];
         }
     }
-    false
+    let trimmed = tail.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }
 
 fn strip_tracker_prefixes(input: &str) -> String {
     let mut s = input.trim();
     if let Some(pos) = s.find(" - ") {
-        let prefix = &s[..pos];
-        if prefix.to_ascii_lowercase().contains("www.")
-            || prefix.to_ascii_lowercase().contains(".com")
-            || prefix.to_ascii_lowercase().contains(".org")
-            || prefix.to_ascii_lowercase().contains(".center")
-            || prefix.to_ascii_lowercase().contains(".cc")
+        let prefix = s[..pos].to_ascii_lowercase();
+        if [".com", ".org", ".center", ".cc", "www."]
+            .iter()
+            .any(|d| prefix.contains(d))
         {
             s = &s[pos + 3..];
         }
@@ -89,15 +108,13 @@ fn strip_tracker_prefixes(input: &str) -> String {
 
     let trimmed = s.trim();
     if trimmed.starts_with('[') {
-        if let Some(end_bracket) = trimmed.find(']') {
-            let bracket_content = &trimmed[1..end_bracket].to_ascii_lowercase();
-            if !bracket_content.contains("1080p")
-                && !bracket_content.contains("720p")
-                && !bracket_content.contains("2160p")
-                && !bracket_content.contains("4k")
-                && !bracket_content.contains("sp")
+        if let Some(end) = trimmed.find(']') {
+            let b = &trimmed[1..end].to_ascii_lowercase();
+            if !["1080p", "720p", "2160p", "4k", "sp"]
+                .iter()
+                .any(|q| b.contains(q))
             {
-                return trimmed[end_bracket + 1..].trim().to_string();
+                return trimmed[end + 1..].trim().to_string();
             }
         }
     }
@@ -106,21 +123,14 @@ fn strip_tracker_prefixes(input: &str) -> String {
 
 fn extract_resolution(input: &str) -> Option<String> {
     let lower = input.to_ascii_lowercase();
-    for res in ["2160p", "4k", "1080p", "720p", "480p"] {
-        if lower.contains(res) {
-            return Some(if res == "4k" {
-                "2160p".to_string()
-            } else {
-                res.to_string()
-            });
-        }
-    }
-    if lower.contains("1920x1080") || lower.contains("1080i") {
-        Some("1080p".to_string())
-    } else if lower.contains("1280x720") {
-        Some("720p".to_string())
-    } else if lower.contains("3840x2160") {
+    if lower.contains("2160p") || lower.contains("4k") || lower.contains("3840x2160") {
         Some("2160p".to_string())
+    } else if lower.contains("1080p") || lower.contains("1920x1080") || lower.contains("1080i") {
+        Some("1080p".to_string())
+    } else if lower.contains("720p") || lower.contains("1280x720") {
+        Some("720p".to_string())
+    } else if lower.contains("480p") {
+        Some("480p".to_string())
     } else {
         None
     }
@@ -128,55 +138,54 @@ fn extract_resolution(input: &str) -> Option<String> {
 
 fn extract_season_episode(input: &str) -> (Option<u32>, Option<u32>) {
     let chars: Vec<char> = input.chars().collect();
+    let mut detected_season = None;
     for i in 0..chars.len() {
-        if (chars[i] == 's' || chars[i] == 'S')
-            && i + 1 < chars.len()
-            && chars[i + 1].is_ascii_digit()
-        {
+        if matches!(chars[i], 's' | 'S') && i + 1 < chars.len() && chars[i + 1].is_ascii_digit() {
             let mut j = i + 1;
             while j < chars.len() && chars[j].is_ascii_digit() {
                 j += 1;
             }
-            let s_str: String = chars[i + 1..j].iter().collect();
-
-            if j < chars.len() && (chars[j] == 'e' || chars[j] == 'E') && j + 1 < chars.len() {
-                let mut k = j + 1;
+            if let Ok(s) = chars[i + 1..j].iter().collect::<String>().parse::<u32>() {
+                detected_season = Some(s);
+            }
+            let parse_ep = |start: usize| -> Option<u32> {
+                let mut k = start;
                 while k < chars.len() && chars[k].is_ascii_digit() {
                     k += 1;
                 }
-                let e_str: String = chars[j + 1..k].iter().collect();
-                if let (Ok(s), Ok(e)) = (s_str.parse::<u32>(), e_str.parse::<u32>()) {
+                chars[start..k]
+                    .iter()
+                    .collect::<String>()
+                    .parse::<u32>()
+                    .ok()
+            };
+            if j < chars.len() && matches!(chars[j], 'e' | 'E') {
+                if let (Some(s), Some(e)) = (detected_season, parse_ep(j + 1)) {
                     return (Some(s), Some(e));
                 }
             }
-
             let mut k = j;
-            while k < chars.len() && (chars[k] == ' ' || chars[k] == '-' || chars[k] == '.') {
+            while k < chars.len() && matches!(chars[k], ' ' | '-' | '.') {
                 k += 1;
             }
             if k < chars.len() && chars[k].is_ascii_digit() {
-                let mut l = k;
-                while l < chars.len() && chars[l].is_ascii_digit() {
-                    l += 1;
-                }
-                let e_str: String = chars[k..l].iter().collect();
-                if let (Ok(s), Ok(e)) = (s_str.parse::<u32>(), e_str.parse::<u32>()) {
+                if let (Some(s), Some(e)) = (detected_season, parse_ep(k)) {
                     return (Some(s), Some(e));
                 }
             }
         }
     }
-
     let lower = input.to_ascii_lowercase();
     if let Some(sp_idx) = lower.find("sp") {
-        let after = &lower[sp_idx + 2..];
-        let digits: String = after.chars().take_while(char::is_ascii_digit).collect();
+        let digits: String = lower[sp_idx + 2..]
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect();
         if let Ok(ep) = digits.parse::<u32>() {
-            return (Some(0), Some(ep));
+            return (detected_season, Some(ep));
         }
     }
-
-    (None, None)
+    (detected_season, None)
 }
 
 fn extract_year(input: &str) -> Option<u32> {
@@ -193,6 +202,41 @@ fn extract_year(input: &str) -> Option<u32> {
     None
 }
 
+const TITLE_CUT_TAGS: &[&str] = &[
+    "1080p",
+    "720p",
+    "2160p",
+    "4k",
+    "web-dl",
+    "webrip",
+    "bluray",
+    "hdr",
+    "hdtv",
+    "x264",
+    "x265",
+    "hevc",
+    "kannada",
+    "tamil",
+    "hindi",
+    "telugu",
+    "malayalam",
+    "english",
+    "japanese",
+];
+
+const KNOWN_LANGUAGES: &[&str] = &[
+    "Malayalam",
+    "Tamil",
+    "Telugu",
+    "Kannada",
+    "Hindi",
+    "English",
+    "Korean",
+    "Japanese",
+    "Spanish",
+    "French",
+];
+
 fn extract_title(
     input: &str,
     year: Option<u32>,
@@ -200,87 +244,52 @@ fn extract_title(
     _episode: Option<u32>,
 ) -> String {
     let mut cut_idx = input.len();
+    let lower = input.to_ascii_lowercase();
 
     if let Some(yr) = year {
-        let yr_str = yr.to_string();
-        if let Some(pos) = input.find(&yr_str) {
+        if let Some(pos) = input.find(&yr.to_string()) {
             cut_idx = cut_idx.min(pos);
         }
     }
 
     if season.is_some() {
         for s in 0..=9 {
-            for marker in [&format!("S{s}"), &format!("s{s}")] {
-                if let Some(pos) = input.find(marker.as_str()) {
+            for m in [format!("s{s}"), format!("season {s}")] {
+                if let Some(pos) = lower.find(&m) {
                     cut_idx = cut_idx.min(pos);
                 }
             }
         }
-        for marker in ["Season", "season", "SP", "sp", "[SP", "[sp"] {
-            if let Some(pos) = input.find(marker) {
+        for marker in ["season", "sp"] {
+            if let Some(pos) = lower.find(marker) {
                 cut_idx = cut_idx.min(pos);
             }
         }
     }
 
-    for tag in [
-        "1080p",
-        "720p",
-        "2160p",
-        "4k",
-        "WEB-DL",
-        "WEBRip",
-        "BluRay",
-        "HDR",
-        "HDTV",
-        "x264",
-        "x265",
-        "HEVC",
-        "Kannada",
-        "Tamil",
-        "Hindi",
-        "Telugu",
-        "Malayalam",
-        "English",
-        "Japanese",
-    ] {
-        let lower = input.to_ascii_lowercase();
-        if let Some(pos) = lower.find(&tag.to_ascii_lowercase()) {
+    for tag in TITLE_CUT_TAGS {
+        if let Some(pos) = lower.find(tag) {
             cut_idx = cut_idx.min(pos);
         }
     }
 
-    let mut title = input[..cut_idx]
+    let title = input[..cut_idx]
         .replace(['.', '_', '-'], " ")
         .replace(['(', ')', '[', ']'], "");
-
-    title = title.split_whitespace().collect::<Vec<_>>().join(" ");
-    if title.is_empty() {
+    let words = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    if words.is_empty() {
         input.to_string()
     } else {
-        title
+        words
     }
 }
 
 fn extract_language(input: &str) -> Option<String> {
     let lower = input.to_ascii_lowercase();
-    for lang in [
-        "Malayalam",
-        "Tamil",
-        "Telugu",
-        "Kannada",
-        "Hindi",
-        "English",
-        "Korean",
-        "Japanese",
-        "Spanish",
-        "French",
-    ] {
-        if lower.contains(&lang.to_ascii_lowercase()) {
-            return Some(lang.to_string());
-        }
-    }
-    None
+    KNOWN_LANGUAGES
+        .iter()
+        .find(|l| lower.contains(&l.to_ascii_lowercase()))
+        .map(|l| (*l).to_string())
 }
 
 struct CleanNameOptions<'a> {
@@ -288,27 +297,34 @@ struct CleanNameOptions<'a> {
     year: Option<u32>,
     season: Option<u32>,
     episode: Option<u32>,
+    is_extra: bool,
+    extra_desc: Option<&'a str>,
     language: Option<&'a str>,
     resolution: Option<&'a str>,
     ext: &'a str,
 }
 
 fn format_clean_name(opts: &CleanNameOptions<'_>) -> String {
-    let lang_tag = opts
+    let lang = opts
         .language
         .map_or_else(String::new, |l| format!(" [{l}]"));
-    let res_tag = opts
+    let res = opts
         .resolution
         .map_or_else(String::new, |r| format!(" [{r}]"));
-    if let (Some(s), Some(e)) = (opts.season, opts.episode) {
-        format!(
-            "{} - S{s:02}E{e:02}{lang_tag}{res_tag}.{}",
-            opts.title, opts.ext
+    let ext = opts.ext;
+
+    if opts.is_extra {
+        let desc = opts.extra_desc.unwrap_or("Special");
+        opts.season.map_or_else(
+            || format!("{} - {desc}{lang}{res}.{ext}", opts.title),
+            |s| format!("{} - S{s:02} {desc}{lang}{res}.{ext}", opts.title),
         )
+    } else if let (Some(s), Some(e)) = (opts.season, opts.episode) {
+        format!("{} - S{s:02}E{e:02}{lang}{res}.{ext}", opts.title)
     } else if let Some(yr) = opts.year {
-        format!("{} ({yr}){lang_tag}{res_tag}.{}", opts.title, opts.ext)
+        format!("{} ({yr}){lang}{res}.{ext}", opts.title)
     } else {
-        format!("{}{lang_tag}{res_tag}.{}", opts.title, opts.ext)
+        format!("{}{lang}{res}.{ext}", opts.title)
     }
 }
 
@@ -352,16 +368,30 @@ mod tests {
         assert_eq!(info.episode, Some(1));
         assert_eq!(info.resolution.as_deref(), Some("1080p"));
         assert_eq!(info.clean_name, "Yuru Camp - S03E01 [1080p].mkv");
+        assert!(!info.is_extra);
     }
 
     #[test]
     fn test_heuristic_anime_specials() {
-        let raw = "[Moozzi2] Yuru Camp S3 [SP01] NCED (BD 1920x1080 x265-10Bit Flac).mkv";
-        let info = classify_media_heuristic(raw);
-        assert_eq!(info.media_type, MediaType::Anime);
-        assert_eq!(info.title, "Yuru Camp");
-        assert_eq!(info.season, Some(0));
-        assert_eq!(info.episode, Some(1));
-        assert_eq!(info.clean_name, "Yuru Camp - S00E01 [1080p].mkv");
+        let s2_raw = "[Moozzi2] Yuru Camp S2 [SP01] NCOP (BD 1920x1080 x265-10Bit Flac).mkv";
+        let info2 = classify_media_heuristic(s2_raw);
+        assert_eq!(info2.title, "Yuru Camp");
+        assert_eq!(info2.season, Some(2));
+        assert!(info2.is_extra);
+        assert_eq!(info2.clean_name, "Yuru Camp - S02 [SP01] NCOP [1080p].mkv");
+
+        let s3_raw = "[Moozzi2] Yuru Camp S3 [SP01] NCED (BD 1920x1080 x265-10Bit Flac).mkv";
+        let info3 = classify_media_heuristic(s3_raw);
+        assert_eq!(info3.title, "Yuru Camp");
+        assert_eq!(info3.season, Some(3));
+        assert!(info3.is_extra);
+        assert_eq!(info3.clean_name, "Yuru Camp - S03 [SP01] NCED [1080p].mkv");
+
+        let menu = "[Moozzi2] Yuru Camp S3 [SP00] Menu - 01 (BD 1920x1080 x265-10Bit Flac).mkv";
+        let info_menu = classify_media_heuristic(menu);
+        assert_eq!(
+            info_menu.clean_name,
+            "Yuru Camp - S03 [SP00] Menu - 01 [1080p].mkv"
+        );
     }
 }

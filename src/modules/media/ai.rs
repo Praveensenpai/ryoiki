@@ -40,6 +40,7 @@ struct AiOutputSchema {
     resolution: Option<String>,
     language: Option<String>,
     clean_name: Option<String>,
+    is_extra: Option<bool>,
 }
 
 pub fn classify_media_ai(
@@ -113,6 +114,7 @@ fn build_prompt(raw_name: &str, probe: Option<&super::probe::MediaProbe>) -> Str
         - episode: integer episode number or null (if show or anime)\n\
         - resolution: string e.g. \"1080p\", \"2160p\", \"720p\" or null\n\
         - language: string primary audio language capitalized (e.g. \"Malayalam\", \"Japanese\", \"English\", \"Tamil\", \"Hindi\", \"Multi\") or null\n\
+        - is_extra: boolean (true if bonus, special, OVA, NCED, NCOP, or extra content, otherwise false)\n\
         - clean_name: formatted filename with original file extension (e.g. \"Title (2013) [Malayalam] [1080p].mkv\" or \"Title - S01E02 [Japanese] [1080p].mkv\")"
     )
 }
@@ -226,6 +228,12 @@ fn parse_ai_json(json_text: &str, raw_name: &str) -> Result<MediaInfo> {
     };
 
     let clean_name = resolve_clean_name(&schema, media_type, raw_name);
+    let lower = raw_name.to_ascii_lowercase();
+    let is_extra = schema.is_extra.unwrap_or(false)
+        || lower.contains("extra")
+        || lower.contains("[sp")
+        || lower.contains("ncop")
+        || lower.contains("nced");
 
     Ok(MediaInfo {
         media_type,
@@ -236,6 +244,7 @@ fn parse_ai_json(json_text: &str, raw_name: &str) -> Result<MediaInfo> {
         resolution: schema.resolution,
         language: schema.language,
         clean_name,
+        is_extra,
         engine: ClassificationEngine::Ai,
     })
 }
