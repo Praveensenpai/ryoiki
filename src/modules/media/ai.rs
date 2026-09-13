@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use super::{ClassificationEngine, MediaInfo, MediaType};
 
-const RETRY_DELAYS: [u64; 6] = [1, 2, 5, 15, 30, 60];
-const GEMINI_MODEL: &str = "gemini-2.5-flash";
+const RETRY_DELAYS: [u64; 6] = [1, 2, 5, 10, 15, 30];
+const GEMINI_MODELS: &[&str] = &["gemini-3.6-flash", "gemini-flash-latest"];
 
 #[derive(Debug, Deserialize)]
 struct GeminiResponse {
@@ -45,30 +45,33 @@ pub fn classify_media_ai(client: &Client, api_key: &str, raw_name: &str) -> Resu
     let prompt = build_prompt(raw_name);
     let mut last_err = String::from("No response received");
 
-    for (attempt, &delay_secs) in [0].iter().chain(RETRY_DELAYS.iter()).enumerate() {
-        if attempt > 0 {
-            eprintln!(
-                "  ⚠️ Gemini API request failed (attempt {attempt}/6), retrying in {delay_secs}s..."
-            );
-            sleep(Duration::from_secs(delay_secs));
-        }
-
-        match send_gemini_request(client, api_key, &prompt) {
-            Ok(json_text) => {
-                if let Ok(info) = parse_ai_json(&json_text, raw_name) {
-                    return Ok(info);
-                }
+    for &model in GEMINI_MODELS {
+        for (attempt, &delay_secs) in [0].iter().chain(RETRY_DELAYS.iter()).enumerate() {
+            if attempt > 0 {
+                eprintln!(
+                    "  ⚠️ Gemini API request failed ({model}, attempt {attempt}/{}), retrying in {delay_secs}s...",
+                    RETRY_DELAYS.len()
+                );
+                sleep(Duration::from_secs(delay_secs));
             }
-            Err(e) => {
-                last_err = e.to_string();
+
+            match send_gemini_request(client, model, api_key, &prompt) {
+                Ok(json_text) => {
+                    if let Ok(info) = parse_ai_json(&json_text, raw_name) {
+                        return Ok(info);
+                    }
+                }
+                Err((status, e)) => {
+                    last_err = format!("{model}: {e}");
+                    if status.is_client_error() && status != reqwest::StatusCode::TOO_MANY_REQUESTS {
+                        break;
+                    }
+                }
             }
         }
     }
 
-    bail!(
-        "Gemini API failed after {} retries: {last_err}",
-        RETRY_DELAYS.len()
-    )
+    bail!("Gemini API failed: {last_err}")
 }
 
 fn build_prompt(raw_name: &str) -> String {
@@ -86,9 +89,14 @@ fn build_prompt(raw_name: &str) -> String {
     )
 }
 
-fn send_gemini_request(client: &Client, api_key: &str, prompt: &str) -> Result<String> {
+fn send_gemini_request(
+    client: &Client,
+    model: &str,
+    api_key: &str,
+    prompt: &str,
+) -> std::result::Result<String, (reqwest::StatusCode, anyhow::Error)> {
     let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
+        "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     );
 
     let body = json!({
@@ -104,16 +112,17 @@ fn send_gemini_request(client: &Client, api_key: &str, prompt: &str) -> Result<S
         .post(&url)
         .json(&body)
         .send()
-        .context("HTTP request to Gemini API failed")?;
+        .map_err(|e| (reqwest::StatusCode::INTERNAL_SERVER_ERROR, e.into()))?;
 
-    if !resp.status().is_success() {
-        bail!("Gemini API returned status {}", resp.status());
+    let status = resp.status();
+    if !status.is_success() {
+        return Err((status, anyhow::anyhow!("API status {status}")));
     }
 
     let parsed: GeminiResponse = resp
         .json()
-        .context("Failed to parse Gemini response JSON")?;
-    extract_part_text(parsed)
+        .map_err(|e| (reqwest::StatusCode::INTERNAL_SERVER_ERROR, e.into()))?;
+    extract_part_text(parsed).map_err(|e| (reqwest::StatusCode::INTERNAL_SERVER_ERROR, e))
 }
 
 fn extract_part_text(resp: GeminiResponse) -> Result<String> {
