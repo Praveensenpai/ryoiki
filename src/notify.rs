@@ -63,12 +63,45 @@ pub enum NotifySubcommand {
     BatteryWatch,
     /// Install systemd boot service and PAM/profile login hooks
     InstallHooks,
+    /// Send audio dub stripping event notification (called by dubstrip)
+    AudioStrip(AudioStripArgs),
     /// Legacy alias for torrent started event
     #[command(hide = true)]
     Started { hash: String },
     /// Legacy alias for torrent completed event
     #[command(hide = true)]
     Completed { hash: String },
+}
+
+#[derive(clap::Args, Debug, Clone)]
+pub struct AudioStripArgs {
+    /// Movie or media title
+    #[arg(long)]
+    pub title: String,
+
+    /// Detected origin language
+    #[arg(long)]
+    pub origin: String,
+
+    /// Native tracks kept
+    #[arg(long)]
+    pub kept: String,
+
+    /// Dubbed tracks stripped
+    #[arg(long)]
+    pub stripped: String,
+
+    /// Previous file size before stripping
+    #[arg(long)]
+    pub prev_size: String,
+
+    /// New file size after stripping
+    #[arg(long)]
+    pub new_size: String,
+
+    /// Space reclaimed
+    #[arg(long)]
+    pub reclaimed: String,
 }
 
 pub fn handle_cli(cmd: NotifySubcommand) -> Result<()> {
@@ -129,6 +162,13 @@ pub fn handle_cli(cmd: NotifySubcommand) -> Result<()> {
         NotifySubcommand::BatteryWatch => {
             println!("  {} Starting battery watcher…", "▶".cyan().bold());
             power::run_battery_watch(&config)?;
+        }
+        NotifySubcommand::AudioStrip(args) => {
+            system::send_audio_strip_notification(&config, &args)?;
+            println!(
+                "  {} Audio strip notification sent to Telegram",
+                "✔".green().bold()
+            );
         }
     }
     Ok(())

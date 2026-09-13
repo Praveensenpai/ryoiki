@@ -255,6 +255,41 @@ fn format_usage(used: u64, total: u64) -> String {
     format!("{u_gb}.{u_dec} / {t_gb}.{t_dec} GB ({pct}.{pct_dec}%)")
 }
 
+pub fn send_audio_strip_notification(
+    config: &TelegramConfig,
+    args: &crate::notify::AudioStripArgs,
+) -> Result<()> {
+    let host = get_hostname(config);
+    let ts_ip = get_tailscale_ip();
+    let host_info = if ts_ip.is_empty() {
+        host
+    } else {
+        format!("{host} ({ts_ip})")
+    };
+
+    let title_esc = escape_html(&args.title);
+    let origin_esc = escape_html(&args.origin);
+    let kept_esc = escape_html(&args.kept);
+    let stripped_esc = escape_html(&args.stripped);
+    let prev_esc = escape_html(&args.prev_size);
+    let new_esc = escape_html(&args.new_size);
+    let rec_esc = escape_html(&args.reclaimed);
+
+    let fields = [
+        ("🎬 Title:", title_esc.as_str()),
+        ("🧠 Origin:", origin_esc.as_str()),
+        ("🛡 Kept:", kept_esc.as_str()),
+        ("🗑 Stripped:", stripped_esc.as_str()),
+        ("📦 Previous:", prev_esc.as_str()),
+        ("📦 New Size:", new_esc.as_str()),
+        ("💾 Reclaimed:", rec_esc.as_str()),
+        ("🖥 Host:", host_info.as_str()),
+    ];
+
+    let card = format_card("DubStrip", "🗡️ <b>AUDIO DUB TRACKS STRIPPED</b>", &fields);
+    send_alert(&config.bot_token, &config.chat_id, &card)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,5 +305,23 @@ mod tests {
     fn test_resolve_user_fallback() {
         let u = resolve_user(Some("alice"));
         assert_eq!(u, "alice");
+    }
+
+    #[test]
+    fn test_audio_strip_card_formatting() {
+        let fields = [
+            ("🎬 Title:", "Test Movie (2026)"),
+            ("🧠 Origin:", "Telugu"),
+            ("🛡 Kept:", "Telugu 5.1"),
+            ("🗑 Stripped:", "Tamil 5.1"),
+            ("📦 Previous:", "4.50 GiB"),
+            ("📦 New Size:", "3.10 GiB"),
+            ("💾 Reclaimed:", "1.40 GiB"),
+            ("🖥 Host:", "mochi"),
+        ];
+        let card = format_card("DubStrip", "🗡️ <b>AUDIO DUB TRACKS STRIPPED</b>", &fields);
+        assert!(card.contains("DubStrip"));
+        assert!(card.contains("Test Movie (2026)"));
+        assert!(card.contains("1.40 GiB"));
     }
 }
