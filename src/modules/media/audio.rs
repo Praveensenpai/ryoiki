@@ -130,7 +130,7 @@ pub fn strip_audio_auto(path: &Path) {
         "🗡️".cyan()
     );
     match Command::new(bin)
-        .args(["strip", "--auto"])
+        .args(["strip", "--auto", "--force"])
         .arg(path)
         .status()
     {

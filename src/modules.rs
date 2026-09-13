@@ -1,6 +1,7 @@
 pub mod cli_tools;
 pub mod dev_runtimes;
 pub mod docker;
+pub mod dubstrip;
 pub mod essentials;
 pub mod git_ssh;
 pub mod jellyfin;
@@ -146,6 +147,14 @@ fn environment_modules() -> Vec<Module> {
             deps: &[],
         },
         Module {
+            id: "dubstrip",
+            title: "DubStrip Audio Preserver",
+            description:
+                "Autonomous zero-loss theatrical audio dub stripper (Praveensenpai/dubstrip)",
+            default_enabled: true,
+            deps: &[],
+        },
+        Module {
             id: "tailscale",
             title: "Tailscale Mesh VPN",
             description: "WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH",
@@ -220,6 +229,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "torrent" => torrent::setup(runner, non_interactive),
         "prompt" => prompt::setup(runner),
         "trash" => trash::setup(runner),
+        "dubstrip" => dubstrip::setup(runner),
         "tailscale" => tailscale::setup(runner, non_interactive),
         "dotfiles" => deploy_dotfiles_module(runner),
         "charge_limit" => crate::charge_limit::run(non_interactive),
@@ -266,6 +276,7 @@ pub fn run_system_check() {
         ("starship", "Starship shell prompt"),
         ("fastfetch", "Fastfetch system stats"),
         ("toss", "toss-rs trash manager"),
+        ("dubstrip", "DubStrip Audio Preserver"),
         ("tailscale", "Tailscale Mesh VPN"),
         ("rclone", "Rclone Cloud Sync & Mount"),
     ];
