@@ -4,13 +4,15 @@
 Never edit any code files or execute destructive modifications without first explaining:
 1. **WHY**: The specific rationale and root cause for the proposed change.
 2. **WHAT EFFECT or FIX**: The exact behavior, bug fix, or improvement it will produce.
-3. **APPROVAL**: Await explicit user confirmation before applying any file modifications.
+3. **APPROVAL**: Await explicit user confirmation before applying initial file modifications.
 
 ### Operational Boundaries:
-- **Feature Requests & Code Modifications (Approval Mandatory)**:
-  When asked to implement a feature, refactor, or fix an issue, never silently edit or build code without explaining the rationale, impact, and getting explicit user approval.
+- **Initial Proposals & Feature Requests (Approval Mandatory)**:
+  When asked to implement a new feature, perform a refactor, or fix an issue, never silently edit code. Always explain the root cause/rationale, expected impact, and obtain explicit user approval before starting modifications.
+- **Autonomous Task Execution & Error Self-Healing (Zero Permission-Seeking)**:
+  Once the user approves a task or fix, the agent has full authorization to carry it through to completion. If the agent's changes introduce compiler errors, clippy warnings, test failures, or secondary bugs during implementation, the agent MUST NOT stop and ask for permission to fix them. NEVER ask "I made a mistake / there's another error, should I fix it?"—own the error and resolve it autonomously in a closed loop until the task is complete and verified green.
 - **Autonomous Release & CI/CD Self-Healing (Zero Permission-Seeking)**:
-  Once a release is initiated or approved, the agent is 100% responsible for delivering a verified green pipeline. If GitHub Actions, compilation, or release workflows fail due to an error introduced during release/build, the agent MUST autonomously diagnose (`gh run view --log-failed`), fix the error, re-test, re-tag/re-push, and monitor until green. NEVER ask the user "I made a mistake, may I fix it?"—own the failure and fix it autonomously.
+  Once a release is initiated or approved, the agent is 100% responsible for delivering a verified green pipeline. If GitHub Actions, compilation, or release workflows fail due to an error introduced during release/build, the agent MUST autonomously diagnose (`gh run view --log-failed`), fix the error, re-test, re-tag/re-push, and monitor until green.
 
 ---
 

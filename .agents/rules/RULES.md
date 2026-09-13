@@ -4,7 +4,15 @@
 Never edit any code files or execute destructive modifications without first explaining:
 1. **WHY**: The specific rationale and root cause for the proposed change.
 2. **WHAT EFFECT or FIX**: The exact behavior, bug fix, or improvement it will produce.
-3. **APPROVAL**: Await explicit user confirmation before applying any file modifications.
+3. **APPROVAL**: Await explicit user confirmation before applying initial file modifications.
+
+### Operational Boundaries:
+- **Initial Proposals & Feature Requests (Approval Mandatory)**:
+  When asked to implement a new feature, perform a refactor, or fix an issue, never silently edit code. Always explain the root cause/rationale, expected impact, and obtain explicit user approval before starting modifications.
+- **Autonomous Task Execution & Error Self-Healing (Zero Permission-Seeking)**:
+  Once the user approves a task or fix, the agent has full authorization to carry it through to completion. If the agent's changes introduce compiler errors, clippy warnings, test failures, or secondary bugs during implementation, the agent MUST NOT stop and ask for permission to fix them. NEVER ask "I made a mistake / there's another error, should I fix it?"—own the error and resolve it autonomously in a closed loop until the task is complete and verified green.
+- **Autonomous Release & CI/CD Self-Healing (Zero Permission-Seeking)**:
+  Once a release is initiated or approved, the agent is 100% responsible for delivering a verified green pipeline. If GitHub Actions, compilation, or release workflows fail due to an error introduced during release/build, the agent MUST autonomously diagnose (`gh run view --log-failed`), fix the error, re-test, re-tag/re-push, and monitor until green.
 
 ---
 
@@ -23,8 +31,9 @@ All implementations must strictly adhere to the corresponding domain skills in K
   - **Zero Tolerance**: No unverified `# type: ignore` or `# noqa`.
 
 - **Releases & Versioning** (`skills/build-tooling/git-release-craft/`):
+  - **Release Workflow**: Mandatory multi-arch GitHub Actions release workflow (`.github/workflows/release.yml`) for all compiled binary projects (`x86_64` + `aarch64`).
   - **Release Notes**: Aesthetic highlight format with icons and direct install commands.
-  - **Workflow Verification**: Actively track GitHub Actions CI/Release runs until green before declaring release complete.
+  - **Autonomous Workflow Verification**: Actively track GitHub Actions CI/Release runs until green before declaring release complete. Autonomously diagnose and fix any pipeline failures in a closed self-healing loop without asking permission.
 
 - **Repository Management** (`skills/build-tooling/git-repo-craft/`):
   - **Descriptions**: Minimal yet meaningful (<90 chars), zero filler words, no redundant repo name prefix.
