@@ -31,8 +31,7 @@ TAG=$(curl -4 -sSL \
     -H "Cache-Control: no-cache" \
     -H "Pragma: no-cache" \
     "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
-    | grep '"tag_name":' \
-    | sed -E 's/.*"([^"]+)".*/\1/' \
+    | sed -n 's/.*"tag_name":[ ]*"\([^"]*\)".*/\1/p' \
     || true)
 
 if [ -z "${TAG:-}" ]; then
