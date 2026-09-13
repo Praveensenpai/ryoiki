@@ -229,7 +229,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "torrent" => torrent::setup(runner, non_interactive),
         "prompt" => prompt::setup(runner),
         "trash" => trash::setup(runner),
-        "dubstrip" => dubstrip::setup(runner),
+        "dubstrip" => dubstrip::setup(runner, non_interactive),
         "tailscale" => tailscale::setup(runner, non_interactive),
         "dotfiles" => deploy_dotfiles_module(runner),
         "charge_limit" => crate::charge_limit::run(non_interactive),
