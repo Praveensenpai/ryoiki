@@ -63,7 +63,8 @@ pub fn classify_media_ai(client: &Client, api_key: &str, raw_name: &str) -> Resu
                 }
                 Err((status, e)) => {
                     last_err = format!("{model}: {e}");
-                    if status.is_client_error() && status != reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if status.is_client_error() && status != reqwest::StatusCode::TOO_MANY_REQUESTS
+                    {
                         break;
                     }
                 }
