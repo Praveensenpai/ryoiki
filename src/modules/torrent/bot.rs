@@ -179,6 +179,16 @@ fn handle_command(client: &Client, config: &TelegramConfig, cmd: &str) -> Result
             let text = handle_bot_organize(config)?;
             reply(client, config, &text)?;
         }
+        "/sync" | "/refresh" => match crate::modules::jellyfin::api::refresh_library_auto() {
+            Ok(()) => {
+                let msg = "🌊 <b>領域 RYOIKI • Jellyfin</b>\n━━━━━━━━━━━━━━━━━━━━━━━\n🔄 <b>LIBRARY SCAN TRIGGERED</b>\n\nJellyfin is scanning libraries in the background!";
+                reply(client, config, msg)?;
+            }
+            Err(e) => {
+                let msg = format!("❌ <b>Jellyfin Sync Failed:</b>\n<code>{e}</code>");
+                reply(client, config, &msg)?;
+            }
+        },
         "/help" | "/start" => {
             let help_text = "🌊 <b>領域 RYOIKI • Command Center</b>\n━━━━━━━━━━━━━━━━━━━━━━━\n\
                 🧲 <i>Paste magnet or .torrent to download</i>\n\
@@ -186,6 +196,7 @@ fn handle_command(client: &Client, config: &TelegramConfig, cmd: &str) -> Result
                 💾 /storage — Free NVMe/SSD storage space\n\
                 🧹 /prune — Evict watched media to Google Drive\n\
                 🎬 /organize — Classify & move media\n\
+                🔄 /sync — Trigger Jellyfin library refresh\n\
                 ⏸ /pause • ▶️ /resume — Torrent controls\n\
                 ❓ /help — Show this command list\n━━━━━━━━━━━━━━━━━━━━━━━";
             reply(client, config, help_text)?;

@@ -159,6 +159,9 @@ pub fn organize_path(
         if is_video_file(target) {
             let res = organize_file(target, client, api_key, dry_run)?;
             results.push(res);
+            if !dry_run {
+                crate::modules::jellyfin::api::refresh_library_async();
+            }
         }
         return Ok(results);
     }
@@ -175,6 +178,10 @@ pub fn organize_path(
             Ok(res) => results.push(res),
             Err(e) => eprintln!("  ⚠️ Error organizing {}: {e}", vf.display()),
         }
+    }
+
+    if !results.is_empty() && !dry_run {
+        crate::modules::jellyfin::api::refresh_library_async();
     }
 
     Ok(results)

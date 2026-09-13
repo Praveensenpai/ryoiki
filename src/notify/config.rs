@@ -11,6 +11,10 @@ fn default_api_port() -> u16 {
     9119
 }
 
+fn default_jellyfin_url() -> String {
+    "http://localhost:8096".to_string()
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct TelegramConfig {
     pub bot_token: String,
@@ -23,6 +27,10 @@ pub struct TelegramConfig {
     pub api_port: u16,
     #[serde(default)]
     pub gemini_api_key: Option<String>,
+    #[serde(default = "default_jellyfin_url")]
+    pub jellyfin_url: String,
+    #[serde(default)]
+    pub jellyfin_api_key: Option<String>,
 }
 
 impl TelegramConfig {
@@ -103,6 +111,8 @@ mod tests {
         assert_eq!(cfg.bot_token, "123:ABC");
         assert_eq!(cfg.chat_id, "999");
         assert_eq!(cfg.qbittorrent_url, "http://localhost:6881");
+        assert_eq!(cfg.jellyfin_url, "http://localhost:8096");
+        assert!(cfg.jellyfin_api_key.is_none());
         assert_eq!(cfg.api_port, 9119);
         assert!(cfg.server_name.is_none());
         Ok(())
