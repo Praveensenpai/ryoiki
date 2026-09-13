@@ -13,6 +13,7 @@ pub fn classify_media_heuristic(raw_name: &str) -> MediaInfo {
     let resolution = extract_resolution(&clean_stem);
     let (season, episode) = extract_season_episode(&clean_stem);
     let year = extract_year(&clean_stem);
+    let language = extract_language(&clean_stem);
 
     let media_type = if season.is_some() || episode.is_some() {
         MediaType::Show
@@ -21,7 +22,15 @@ pub fn classify_media_heuristic(raw_name: &str) -> MediaInfo {
     };
 
     let title = extract_title(&clean_stem, year, season, episode);
-    let clean_name = format_clean_name(&title, year, season, episode, resolution.as_deref(), ext);
+    let clean_name = format_clean_name(&CleanNameOptions {
+        title: &title,
+        year,
+        season,
+        episode,
+        language: language.as_deref(),
+        resolution: resolution.as_deref(),
+        ext,
+    });
 
     MediaInfo {
         media_type,
@@ -30,6 +39,7 @@ pub fn classify_media_heuristic(raw_name: &str) -> MediaInfo {
         season,
         episode,
         resolution,
+        language,
         clean_name,
         engine: ClassificationEngine::Heuristic,
     }
@@ -179,21 +189,53 @@ fn extract_title(
     }
 }
 
-fn format_clean_name(
-    title: &str,
+fn extract_language(input: &str) -> Option<String> {
+    let lower = input.to_ascii_lowercase();
+    for lang in [
+        "Malayalam",
+        "Tamil",
+        "Telugu",
+        "Kannada",
+        "Hindi",
+        "English",
+        "Korean",
+        "Japanese",
+        "Spanish",
+        "French",
+    ] {
+        if lower.contains(&lang.to_ascii_lowercase()) {
+            return Some(lang.to_string());
+        }
+    }
+    None
+}
+
+struct CleanNameOptions<'a> {
+    title: &'a str,
     year: Option<u32>,
     season: Option<u32>,
     episode: Option<u32>,
-    res: Option<&str>,
-    ext: &str,
-) -> String {
-    let res_tag = res.map_or_else(String::new, |r| format!(" [{r}]"));
-    if let (Some(s), Some(e)) = (season, episode) {
-        format!("{title} - S{s:02}E{e:02}{res_tag}.{ext}")
-    } else if let Some(yr) = year {
-        format!("{title} ({yr}){res_tag}.{ext}")
+    language: Option<&'a str>,
+    resolution: Option<&'a str>,
+    ext: &'a str,
+}
+
+fn format_clean_name(opts: &CleanNameOptions<'_>) -> String {
+    let lang_tag = opts
+        .language
+        .map_or_else(String::new, |l| format!(" [{l}]"));
+    let res_tag = opts
+        .resolution
+        .map_or_else(String::new, |r| format!(" [{r}]"));
+    if let (Some(s), Some(e)) = (opts.season, opts.episode) {
+        format!(
+            "{} - S{s:02}E{e:02}{lang_tag}{res_tag}.{}",
+            opts.title, opts.ext
+        )
+    } else if let Some(yr) = opts.year {
+        format!("{} ({yr}){lang_tag}{res_tag}.{}", opts.title, opts.ext)
     } else {
-        format!("{title}{res_tag}.{ext}")
+        format!("{}{lang_tag}{res_tag}.{}", opts.title, opts.ext)
     }
 }
 
@@ -208,8 +250,12 @@ mod tests {
         assert_eq!(info.media_type, MediaType::Movie);
         assert_eq!(info.title, "Love Mocktail 3");
         assert_eq!(info.year, Some(2026));
+        assert_eq!(info.language.as_deref(), Some("Kannada"));
         assert_eq!(info.resolution.as_deref(), Some("1080p"));
-        assert_eq!(info.clean_name, "Love Mocktail 3 (2026) [1080p].mkv");
+        assert_eq!(
+            info.clean_name,
+            "Love Mocktail 3 (2026) [Kannada] [1080p].mkv"
+        );
     }
 
     #[test]

@@ -34,11 +34,23 @@ pub fn organize_file(
         .and_then(|n| n.to_str())
         .context("Invalid filename")?;
 
-    let media_info = match api_key {
-        Some(key) if !key.is_empty() => classify_media_ai(client, key, file_name)
+    let probe = super::probe::probe_media_file(file_path);
+
+    let mut media_info = match api_key {
+        Some(key) if !key.is_empty() => classify_media_ai(client, key, file_name, probe.as_ref())
             .unwrap_or_else(|_| classify_media_heuristic(file_name)),
         _ => classify_media_heuristic(file_name),
     };
+
+    if media_info.language.is_none() {
+        if let Some(p) = &probe {
+            if let Some(primary) = &p.primary_language {
+                media_info.language = Some(primary.clone());
+                media_info.clean_name =
+                    super::ai::ensure_language_in_clean_name(&media_info.clean_name, primary);
+            }
+        }
+    }
 
     let dest_dir = calculate_dest_dir(&media_info);
     let dest_path = resolve_unique_dest_path(file_path, &dest_dir, &media_info, dry_run);

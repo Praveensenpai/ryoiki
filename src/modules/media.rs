@@ -5,6 +5,7 @@ pub mod disk;
 pub mod heuristic;
 pub mod interactive;
 pub mod organizer;
+pub mod probe;
 pub mod prune_timer;
 pub mod pruner;
 pub mod status;
@@ -54,6 +55,7 @@ pub struct MediaInfo {
     pub season: Option<u32>,
     pub episode: Option<u32>,
     pub resolution: Option<String>,
+    pub language: Option<String>,
     pub clean_name: String,
     pub engine: ClassificationEngine,
 }
