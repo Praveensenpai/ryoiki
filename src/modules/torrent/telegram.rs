@@ -63,6 +63,7 @@ pub fn prompt_telegram_config(
         gemini_api_key,
         jellyfin_url: "http://localhost:8096".to_string(),
         jellyfin_api_key: None,
+        session_cooldown_mins: 60,
     };
 
     let test_msg = "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n⚡ <b>Pure-Rust 2-Way Bot Active</b>\n\nType /help to see commands or paste a magnet link!";

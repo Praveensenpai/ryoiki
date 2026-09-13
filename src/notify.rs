@@ -3,6 +3,7 @@ pub mod config;
 pub mod hooks;
 pub mod power;
 pub mod server;
+pub mod session;
 pub mod system;
 
 use anyhow::Result;

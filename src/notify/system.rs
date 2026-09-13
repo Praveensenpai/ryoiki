@@ -67,6 +67,11 @@ pub fn send_login_notification(
 
     let resolved_user = resolve_user(user);
     let resolved_ip = resolve_ip(ip);
+
+    if super::session::is_session_suppressed(&resolved_ip, config.session_cooldown_mins) {
+        return Ok(());
+    }
+
     let resolved_srv = service.unwrap_or("sshd");
     let resolved_tty = tty.unwrap_or("pts/0");
     let host = get_hostname(config);
@@ -80,7 +85,9 @@ pub fn send_login_notification(
     ];
 
     let card = format_card("Security Alert", "🔐 <b>NEW SESSION OPENED</b>", &fields);
-    send_alert(&config.bot_token, &config.chat_id, &card)
+    send_alert(&config.bot_token, &config.chat_id, &card)?;
+    super::session::record_session_login(&resolved_ip);
+    Ok(())
 }
 
 pub fn send_custom_notification(

@@ -15,6 +15,10 @@ fn default_jellyfin_url() -> String {
     "http://localhost:8096".to_string()
 }
 
+const fn default_session_cooldown_mins() -> u64 {
+    60
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct TelegramConfig {
     pub bot_token: String,
@@ -31,6 +35,8 @@ pub struct TelegramConfig {
     pub jellyfin_url: String,
     #[serde(default)]
     pub jellyfin_api_key: Option<String>,
+    #[serde(default = "default_session_cooldown_mins")]
+    pub session_cooldown_mins: u64,
 }
 
 impl TelegramConfig {
