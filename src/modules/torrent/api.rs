@@ -20,6 +20,16 @@ pub struct TorrentInfo {
     pub save_path: Option<String>,
 }
 
+impl TorrentInfo {
+    pub fn is_completed(&self) -> bool {
+        self.progress >= 1.0
+            || self.state == "pausedUP"
+            || self.state == "stalledUP"
+            || self.state == "uploading"
+            || self.state == "forcedUP"
+    }
+}
+
 pub fn get_torrents(
     client: &Client,
     base_url: &str,
@@ -120,4 +130,52 @@ pub fn delete_torrent(
         bail!("Failed to delete torrent: HTTP {}", resp.status());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dummy_torrent(progress: f64, state: &str) -> TorrentInfo {
+        TorrentInfo {
+            name: "Test Torrent".to_string(),
+            total_size: 1000,
+            progress,
+            dlspeed: 0,
+            upspeed: 0,
+            eta: 0,
+            state: state.to_string(),
+            category: String::new(),
+            has_metadata: true,
+            hash: "testhash".to_string(),
+            content_path: None,
+            save_path: None,
+        }
+    }
+
+    #[test]
+    fn test_is_completed_progress_one() {
+        let t = dummy_torrent(1.0, "pausedUP");
+        assert!(t.is_completed());
+    }
+
+    #[test]
+    fn test_is_completed_seeding_states() {
+        let t1 = dummy_torrent(0.99, "uploading");
+        assert!(t1.is_completed());
+        let t2 = dummy_torrent(0.99, "stalledUP");
+        assert!(t2.is_completed());
+        let t3 = dummy_torrent(0.99, "pausedUP");
+        assert!(t3.is_completed());
+    }
+
+    #[test]
+    fn test_is_completed_downloading_false() {
+        let t1 = dummy_torrent(0.5, "downloading");
+        assert!(!t1.is_completed());
+        let t2 = dummy_torrent(0.0, "missingFiles");
+        assert!(!t2.is_completed());
+        let t3 = dummy_torrent(0.99, "stalledDL");
+        assert!(!t3.is_completed());
+    }
 }

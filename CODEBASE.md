@@ -58,6 +58,16 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: Coordinates multi-stage media ingestion: scanning, dual-engine categorization, audio stripping, transfer, and cleanup.
 - **Sub-modules**: `scan`, `probe`, `ai`, `heuristic`, `audio`, `transfer`, `sync`, `pruner`, `interactive`.
 
+#### `src/modules/media/organizer.rs` & `organizer/pathing.rs` (Role: Media Organizer & Torrent Ingest, Lines: ~360 / ~135)
+- **Responsibility**: Manages media ingestion workflow. Pre-checks qBittorrent for completed torrents before scanning, protects in-progress downloads, routes completed files to Jellyfin library, and cleans history.
+- **Sub-modules**: `pathing.rs` (file pathing, unique destination resolution, and atomic moves).
+- **Public Functions**:
+  - `pub fn run_organize_cli(target: &Path, dry_run: bool) -> Result<()>`
+  - `pub fn organize_path(target: &Path, client: &Client, api_key: Option<&str>, dry_run: bool) -> Result<Vec<OrganizeResult>>`
+  - `pub fn organize_torrent(torrent: &TorrentInfo, client: &Client, api_key: Option<&str>, dry_run: bool) -> Result<Vec<OrganizeResult>>`
+  - `pub fn organize_completed_torrent(client: &Client, torrent: &TorrentInfo, api_key: Option<&str>) -> Result<Option<OrganizeResult>>`
+  - `pub fn cleanup_matching_torrents(client: &Client, base_url: &str, organized_files: &[OrganizeResult]) -> usize`
+
 #### `src/modules/media/ai.rs` (Role: AI Schema Classifier, Lines: ~210)
 - **Responsibility**: Gemini API structured prompt caller for media classification (series title, season, episode, specials).
 - **Public Functions**: `pub async fn classify_media_ai(filename: &str, api_key: &str) -> Result<MediaMetadata>`.
@@ -86,8 +96,9 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: qBittorrent client API integration and watcher.
 - **Sub-modules**: `api`, `bot`, `notify`, `report`, `telegram`.
 
-#### `src/modules/torrent/api.rs` (Role: qBittorrent WebAPI Client, Lines: ~260)
+#### `src/modules/torrent/api.rs` (Role: qBittorrent WebAPI Client, Lines: ~180)
 - **Responsibility**: Authenticates and interfaces with qBittorrent API (torrents list, pause, resume, delete).
+- **Types**: `TorrentInfo` (`is_completed(&self) -> bool` checks `progress >= 1.0` or seeding/uploading states).
 
 #### `src/modules/torrent/telegram.rs` & `bot.rs` (Role: Telegram Bot Integration, Lines: ~320 total)
 - **Responsibility**: Dispatches completion alerts and handles remote commands (`/status`, `/pause`) via Telegram Bot API.
@@ -140,4 +151,5 @@ cargo fmt --check
 ```
 
 ## 6. Recent Iteration Changes
+- **2026-09-16**: Added qBittorrent pre-completion check before organizing media to prevent premature moving of active/incomplete downloads; extracted `organizer/pathing.rs`; added `TorrentInfo::is_completed`; enhanced recursive scan to skip `incomplete/` directories.
 - **2026-09-13**: Generated AI-first `CODEBASE.md` following the `codebase-digest` standard; synced streamlined Linux x86_64 release rules and autonomous self-healing protocol.

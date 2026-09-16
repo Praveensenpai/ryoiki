@@ -207,19 +207,40 @@ fn handle_command(client: &Client, config: &TelegramConfig, cmd: &str) -> Result
 }
 
 fn handle_bot_organize(config: &TelegramConfig) -> Result<String> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let target = std::path::Path::new(&home).join("torrents");
     let http_client = Client::builder().timeout(Duration::from_secs(30)).build()?;
     let api_key = config.gemini_api_key.as_deref();
 
-    let results =
-        crate::modules::media::organizer::organize_path(&target, &http_client, api_key, false)?;
+    let torrents = api::get_torrents(&http_client, &config.qbittorrent_url, None)?;
+    let (completed, incomplete): (Vec<_>, Vec<_>) = torrents
+        .into_iter()
+        .partition(api::TorrentInfo::is_completed);
 
-    let cleared = crate::modules::media::organizer::cleanup_matching_torrents(
-        &http_client,
-        &config.qbittorrent_url,
-        &results,
-    );
+    if completed.is_empty() {
+        if !incomplete.is_empty() {
+            return Ok(format!(
+                "🌊 <b>領域 RYOIKI • Media Organizer</b>\n\
+                ━━━━━━━━━━━━━━━━━━━━━━━\n\
+                ℹ <b>No completed torrents to organize.</b>\n\
+                <i>{} active download(s) in progress — waiting for completion.</i>",
+                incomplete.len()
+            ));
+        }
+        return Ok("🌊 <b>領域 RYOIKI • Media Organizer</b>\n━━━━━━━━━━━━━━━━━━━━━━━\nNo active or completed torrents found in qBittorrent.".to_string());
+    }
+
+    let mut results = Vec::new();
+    let mut cleared = 0;
+
+    for t in &completed {
+        let res =
+            crate::modules::media::organizer::organize_torrent(t, &http_client, api_key, false)?;
+        if !res.is_empty()
+            && api::delete_torrent(&http_client, &config.qbittorrent_url, &t.hash, false).is_ok()
+        {
+            cleared += 1;
+        }
+        results.extend(res);
+    }
 
     if results.is_empty() {
         if cleared > 0 {
@@ -229,7 +250,7 @@ fn handle_bot_organize(config: &TelegramConfig) -> Result<String> {
                 🗑 <b>Cleaned {cleared} torrent(s) from qBittorrent history.</b>"
             ));
         }
-        return Ok("🌊 <b>領域 RYOIKI • Media Organizer</b>\n━━━━━━━━━━━━━━━━━━━━━━━\nNo new video files found to organize in ~/torrents.".to_string());
+        return Ok("🌊 <b>領域 RYOIKI • Media Organizer</b>\n━━━━━━━━━━━━━━━━━━━━━━━\nNo new video files found to organize.".to_string());
     }
 
     let mut lines = vec![
@@ -279,7 +300,7 @@ fn start_torrent_monitor(config: TelegramConfig) {
 
         if let Ok(items) = api::get_torrents(&client, &config.qbittorrent_url, None) {
             for t in items {
-                let is_done = is_completed(&t);
+                let is_done = t.is_completed();
                 known.insert(t.hash.clone(), is_done);
                 if is_done {
                     let hash = t.hash.clone();
@@ -303,10 +324,6 @@ fn start_torrent_monitor(config: TelegramConfig) {
     });
 }
 
-fn is_completed(t: &TorrentInfo) -> bool {
-    t.progress >= 1.0 || t.state == "pausedUP" || t.state == "stalledUP" || t.state == "uploading"
-}
-
 fn check_torrent_event(
     client: &Client,
     config: &TelegramConfig,
@@ -314,7 +331,7 @@ fn check_torrent_event(
     known: &mut HashMap<String, bool>,
     t: &TorrentInfo,
 ) {
-    let is_done = is_completed(t);
+    let is_done = t.is_completed();
     if let Some(was_done) = known.get_mut(&t.hash) {
         if !*was_done && is_done {
             *was_done = true;

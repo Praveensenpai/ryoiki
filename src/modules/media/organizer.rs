@@ -1,3 +1,7 @@
+pub mod pathing;
+
+pub use pathing::{calculate_dest_dir, is_video_file, perform_move, resolve_unique_dest_path};
+
 use anyhow::{Context, Result};
 use colored::Colorize;
 use reqwest::blocking::Client;
@@ -6,22 +10,9 @@ use std::path::{Path, PathBuf};
 
 use super::ai::classify_media_ai;
 use super::heuristic::classify_media_heuristic;
-use super::{MediaInfo, MediaType, OrganizeResult};
+use super::{MediaType, OrganizeResult};
 use crate::modules::torrent::api::{self, TorrentInfo};
 use crate::runner::Runner;
-
-const VIDEO_EXTENSIONS: [&str; 8] = ["mkv", "mp4", "avi", "mov", "wmv", "m4v", "webm", "ts"];
-
-pub fn is_video_file(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|ext| VIDEO_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
-}
-
-pub fn get_jellyfin_media_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    Path::new(&home).join("jellyfin/media")
-}
 
 pub fn organize_file(
     file_path: &Path,
@@ -91,98 +82,6 @@ pub fn organize_file(
     })
 }
 
-fn resolve_unique_dest_path(
-    src: &Path,
-    dest_dir: &Path,
-    info: &MediaInfo,
-    dry_run: bool,
-) -> PathBuf {
-    let standard = dest_dir.join(&info.clean_name);
-    if !standard.exists() {
-        return standard;
-    }
-
-    let src_size = fs::metadata(src).map_or(0, |m| m.len());
-    let dst_size = fs::metadata(&standard).map_or(0, |m| m.len());
-
-    if src_size.abs_diff(dst_size) < 1024 {
-        return standard;
-    }
-
-    let ext = standard
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("mkv");
-    let stem = standard
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or(&info.clean_name);
-    let size_tag = crate::modules::torrent::notify::format_size(src_size).replace(' ', "");
-    let append_tag = |s: &str, tag: &str| {
-        s.strip_suffix(']').map_or_else(
-            || format!("{s} - [{tag}].{ext}"),
-            |p| format!("{p} - {tag}].{ext}"),
-        )
-    };
-
-    let new_name = append_tag(stem, &size_tag);
-    if !dry_run && !stem.contains(" - ") {
-        let old_size_tag = crate::modules::torrent::notify::format_size(dst_size).replace(' ', "");
-        let _ = fs::rename(&standard, dest_dir.join(append_tag(stem, &old_size_tag)));
-    }
-
-    dest_dir.join(new_name)
-}
-
-fn calculate_dest_dir(info: &MediaInfo) -> PathBuf {
-    let base = get_jellyfin_media_dir();
-    let cat = match info.media_type {
-        MediaType::Movie => "movies",
-        MediaType::Show => "shows",
-        MediaType::Anime => "anime",
-    };
-    let parent = base.join(cat).join(&info.title);
-
-    if info.is_extra {
-        return info.season.map_or_else(
-            || parent.join("extras"),
-            |s| parent.join(format!("Season {s:02}")).join("extras"),
-        );
-    }
-
-    match info.media_type {
-        MediaType::Movie => {
-            let folder = info
-                .year
-                .map_or_else(|| info.title.clone(), |y| format!("{} ({y})", info.title));
-            base.join("movies").join(folder)
-        }
-        MediaType::Show => parent.join(format!("Season {:02}", info.season.unwrap_or(1))),
-        MediaType::Anime => {
-            if info.season.is_some() || info.episode.is_some() {
-                parent.join(format!("Season {:02}", info.season.unwrap_or(1)))
-            } else {
-                let folder = info
-                    .year
-                    .map_or_else(|| info.title.clone(), |y| format!("{} ({y})", info.title));
-                base.join("anime").join(folder)
-            }
-        }
-    }
-}
-
-fn perform_move(src: &Path, dst: &Path) -> Result<()> {
-    if fs::rename(src, dst).is_ok() {
-        return Ok(());
-    }
-
-    fs::copy(src, dst)
-        .with_context(|| format!("Failed to copy {} to {}", src.display(), dst.display()))?;
-    fs::remove_file(src)
-        .with_context(|| format!("Failed to remove source file {}", src.display()))?;
-    Ok(())
-}
-
 pub fn organize_path(
     target: &Path,
     client: &Client,
@@ -223,11 +122,15 @@ pub fn organize_path(
     Ok(results)
 }
 
-fn find_videos_recursive(dir: &Path, list: &mut Vec<PathBuf>) -> Result<()> {
+pub fn find_videos_recursive(dir: &Path, list: &mut Vec<PathBuf>) -> Result<()> {
     let entries = fs::read_dir(dir).with_context(|| format!("Cannot read {}", dir.display()))?;
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if name.eq_ignore_ascii_case("incomplete") || name.starts_with('.') {
+                continue;
+            }
             find_videos_recursive(&path, list)?;
         } else if is_video_file(&path) {
             list.push(path);
@@ -236,34 +139,54 @@ fn find_videos_recursive(dir: &Path, list: &mut Vec<PathBuf>) -> Result<()> {
     Ok(())
 }
 
+pub fn resolve_torrent_source(torrent: &TorrentInfo, default_dl: &Path) -> PathBuf {
+    if let Some(content_path) = &torrent.content_path {
+        let rel = content_path
+            .trim_start_matches("/downloads/")
+            .trim_start_matches('/');
+        let p = default_dl.join(rel);
+        if p.exists() {
+            return p;
+        }
+    }
+
+    if let Some(save_path) = &torrent.save_path {
+        let rel = save_path
+            .trim_start_matches("/downloads/")
+            .trim_start_matches('/');
+        let p = default_dl.join(rel).join(&torrent.name);
+        if p.exists() {
+            return p;
+        }
+    }
+
+    default_dl.join(&torrent.name)
+}
+
+pub fn organize_torrent(
+    torrent: &TorrentInfo,
+    client: &Client,
+    api_key: Option<&str>,
+    dry_run: bool,
+) -> Result<Vec<OrganizeResult>> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let default_dl = Path::new(&home).join("torrents");
+    let source = resolve_torrent_source(torrent, &default_dl);
+
+    if !source.exists() {
+        return Ok(Vec::new());
+    }
+
+    organize_path(&source, client, api_key, dry_run)
+}
+
 pub fn organize_completed_torrent(
     client: &Client,
     torrent: &TorrentInfo,
     api_key: Option<&str>,
 ) -> Result<Option<OrganizeResult>> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let default_dl = Path::new(&home).join("torrents");
-
-    let source = if let Some(content_path) = &torrent.content_path {
-        let rel = content_path
-            .trim_start_matches("/downloads/")
-            .trim_start_matches('/');
-        default_dl.join(rel)
-    } else if let Some(save_path) = &torrent.save_path {
-        let rel = save_path
-            .trim_start_matches("/downloads/")
-            .trim_start_matches('/');
-        default_dl.join(rel).join(&torrent.name)
-    } else {
-        default_dl.join(&torrent.name)
-    };
-
-    if !source.exists() {
-        return Ok(None);
-    }
-
-    let organized = organize_path(&source, client, api_key, false)?;
-    Ok(organized.into_iter().next())
+    let results = organize_torrent(torrent, client, api_key, false)?;
+    Ok(results.into_iter().next())
 }
 
 pub fn run_organize_cli(target: &Path, dry_run: bool) -> Result<()> {
@@ -278,7 +201,84 @@ pub fn run_organize_cli(target: &Path, dry_run: bool) -> Result<()> {
         .build()?;
     let api_key = super::config::get_or_prompt_gemini_key(!dry_run);
 
+    let qb_url = crate::notify::TelegramConfig::load().map_or_else(
+        |_| "http://localhost:6881".to_string(),
+        |c| c.qbittorrent_url,
+    );
+
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let default_torrents = Path::new(&home).join("torrents");
+
+    if target == default_torrents {
+        if let Ok(torrents) = api::get_torrents(&client, &qb_url, None) {
+            return process_qbittorrent_organize(
+                &client,
+                &qb_url,
+                api_key.as_deref(),
+                &torrents,
+                dry_run,
+            );
+        }
+    }
+
     let results = organize_path(target, &client, api_key.as_deref(), dry_run)?;
+    let cleared = cleanup_matching_torrents(&client, &qb_url, &results);
+    print_organize_summary(&results, cleared);
+
+    Ok(())
+}
+
+fn process_qbittorrent_organize(
+    client: &Client,
+    qb_url: &str,
+    api_key: Option<&str>,
+    torrents: &[TorrentInfo],
+    dry_run: bool,
+) -> Result<()> {
+    let (completed, incomplete): (Vec<_>, Vec<_>) = torrents.iter().partition(|t| t.is_completed());
+
+    if completed.is_empty() {
+        if !incomplete.is_empty() {
+            println!(
+                "  {} No completed torrents found in qBittorrent.\n    {} active torrent(s) currently downloading — skipping organize to protect active files.\n",
+                "ℹ".cyan().bold(),
+                incomplete.len()
+            );
+            return Ok(());
+        }
+        println!(
+            "  {} No torrents found in qBittorrent to organize.",
+            "•".dimmed()
+        );
+        return Ok(());
+    }
+
+    println!(
+        "  {} Found {} completed torrent(s) in qBittorrent to organize:\n",
+        "✔".green().bold(),
+        completed.len()
+    );
+
+    let mut all_results = Vec::new();
+    let mut cleared = 0;
+
+    for t in &completed {
+        println!("  • Ingesting completed torrent: {}", t.name.bold());
+        let res = organize_torrent(t, client, api_key, dry_run)?;
+        if !res.is_empty()
+            && !dry_run
+            && api::delete_torrent(client, qb_url, &t.hash, false).is_ok()
+        {
+            cleared += 1;
+        }
+        all_results.extend(res);
+    }
+
+    print_organize_summary(&all_results, cleared);
+    Ok(())
+}
+
+fn print_organize_summary(results: &[OrganizeResult], cleared: usize) {
     if results.is_empty() {
         println!("  {} No new video files found to organize.", "•".dimmed());
     } else {
@@ -287,14 +287,11 @@ pub fn run_organize_cli(target: &Path, dry_run: bool) -> Result<()> {
             "✔".green().bold(),
             results.len()
         );
-        for res in &results {
+        for res in results {
             println!(
-                "  • {} ({})",
+                "  • {} ({})\n    {} -> {}",
                 res.media_info.clean_name.bold(),
-                res.media_info.engine
-            );
-            println!(
-                "    {} -> {}",
+                res.media_info.engine,
                 res.source_path.display().to_string().dimmed(),
                 res.dest_path.display().to_string().cyan()
             );
@@ -302,11 +299,6 @@ pub fn run_organize_cli(target: &Path, dry_run: bool) -> Result<()> {
         println!();
     }
 
-    let qb_url = crate::notify::TelegramConfig::load().map_or_else(
-        |_| "http://localhost:6881".to_string(),
-        |c| c.qbittorrent_url,
-    );
-    let cleared = cleanup_matching_torrents(&client, &qb_url, &results);
     if cleared > 0 {
         println!(
             "  {} Removed {} completed torrent(s) from qBittorrent history",
@@ -314,8 +306,6 @@ pub fn run_organize_cli(target: &Path, dry_run: bool) -> Result<()> {
             cleared
         );
     }
-
-    Ok(())
 }
 
 pub fn cleanup_matching_torrents(
@@ -332,7 +322,7 @@ pub fn cleanup_matching_torrents(
     let mut cleared_count = 0;
 
     for t in &torrents {
-        if t.progress < 1.0 {
+        if !t.is_completed() {
             continue;
         }
 
@@ -366,31 +356,7 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
 
     let _ = super::config::get_or_prompt_gemini_key(!non_interactive);
     if target.exists() {
-        let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()?;
-        let api_key = super::config::get_or_prompt_gemini_key(false);
-        let results = organize_path(&target, &client, api_key.as_deref(), false)?;
-        if !results.is_empty() {
-            println!(
-                "  {} Organized {} item(s) into Jellyfin",
-                "✔".green().bold(),
-                results.len()
-            );
-        }
-
-        let qb_url = crate::notify::TelegramConfig::load().map_or_else(
-            |_| "http://localhost:6881".to_string(),
-            |c| c.qbittorrent_url,
-        );
-        let cleared = cleanup_matching_torrents(&client, &qb_url, &results);
-        if cleared > 0 {
-            println!(
-                "  {} Removed {} completed torrent(s) from qBittorrent history",
-                "🗑".green().bold(),
-                cleared
-            );
-        }
+        run_organize_cli(&target, false)?;
     }
     Ok(())
 }
