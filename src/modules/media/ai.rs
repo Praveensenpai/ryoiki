@@ -8,7 +8,7 @@ use std::time::Duration;
 use super::{ClassificationEngine, MediaInfo, MediaType};
 
 const RETRY_DELAYS: [u64; 6] = [1, 2, 5, 10, 15, 30];
-const GEMINI_MODELS: &[&str] = &["gemini-3.6-flash", "gemini-flash-latest"];
+const GEMINI_MODEL: &str = "gemini-3.5-flash-lite";
 
 #[derive(Debug, Deserialize)]
 struct GeminiResponse {
@@ -52,29 +52,26 @@ pub fn classify_media_ai(
     let prompt = build_prompt(raw_name, probe);
     let mut last_err = String::from("No response received");
 
-    for &model in GEMINI_MODELS {
-        for (attempt, &delay_secs) in [0].iter().chain(RETRY_DELAYS.iter()).enumerate() {
-            if attempt > 0 {
-                eprintln!(
-                    "  ⚠️ Gemini API request failed ({model}, attempt {attempt}/{}), retrying in {delay_secs}s...",
-                    RETRY_DELAYS.len()
-                );
-                sleep(Duration::from_secs(delay_secs));
-            }
+    for (attempt, &delay_secs) in [0].iter().chain(RETRY_DELAYS.iter()).enumerate() {
+        if attempt > 0 {
+            eprintln!(
+                "  ⚠️ Gemini API request failed ({GEMINI_MODEL}, attempt {attempt}/{}), retrying in {delay_secs}s...",
+                RETRY_DELAYS.len()
+            );
+            sleep(Duration::from_secs(delay_secs));
+        }
 
-            match send_gemini_request(client, model, api_key, &prompt) {
-                Ok(json_text) => {
-                    if let Ok(mut info) = parse_ai_json(&json_text, raw_name) {
-                        apply_probe_fallback(&mut info, probe);
-                        return Ok(info);
-                    }
+        match send_gemini_request(client, GEMINI_MODEL, api_key, &prompt) {
+            Ok(json_text) => {
+                if let Ok(mut info) = parse_ai_json(&json_text, raw_name) {
+                    apply_probe_fallback(&mut info, probe);
+                    return Ok(info);
                 }
-                Err((status, e)) => {
-                    last_err = format!("{model}: {e}");
-                    if status.is_client_error() && status != reqwest::StatusCode::TOO_MANY_REQUESTS
-                    {
-                        break;
-                    }
+            }
+            Err((status, e)) => {
+                last_err = format!("{GEMINI_MODEL}: {e}");
+                if status.is_client_error() && status != reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    break;
                 }
             }
         }

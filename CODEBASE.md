@@ -68,9 +68,9 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
   - `pub fn organize_completed_torrent(client: &Client, torrent: &TorrentInfo, api_key: Option<&str>) -> Result<Option<OrganizeResult>>`
   - `pub fn cleanup_matching_torrents(client: &Client, base_url: &str, organized_files: &[OrganizeResult]) -> usize`
 
-#### `src/modules/media/ai.rs` (Role: AI Schema Classifier, Lines: ~210)
-- **Responsibility**: Gemini API structured prompt caller for media classification (series title, season, episode, specials).
-- **Public Functions**: `pub async fn classify_media_ai(filename: &str, api_key: &str) -> Result<MediaMetadata>`.
+#### `src/modules/media/ai.rs` (Role: AI Schema Classifier, Lines: ~390)
+- **Responsibility**: Gemini API structured prompt caller (`gemini-3.5-flash-lite`) for media classification (series title, season, episode, specials).
+- **Public Functions**: `pub fn classify_media_ai(client: &Client, api_key: &str, raw_name: &str, probe: Option<&MediaProbe>) -> Result<MediaInfo>`.
 
 #### `src/modules/media/heuristic.rs` (Role: Offline Regex Classifier, Lines: ~240)
 - **Responsibility**: High-performance regex fallback parser for anime and TV show filenames when offline or unconfigured.
