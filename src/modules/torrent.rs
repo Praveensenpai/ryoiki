@@ -163,9 +163,7 @@ fn apply_default_preferences(config_dir: &Path, tg_installed: bool) -> Result<()
         "MemoryWorkingSetLimit=256",
     ];
 
-    let app_defaults = [
-        "MemoryWorkingSetLimit=256",
-    ];
+    let app_defaults = ["MemoryWorkingSetLimit=256"];
 
     let mut lines: Vec<String> = existing
         .lines()
