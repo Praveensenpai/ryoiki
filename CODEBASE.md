@@ -92,8 +92,8 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 
 ### Torrent Management Subsystem (`src/modules/torrent/`)
 
-#### `src/modules/torrent.rs` (Role: Torrent Orchestrator, Lines: ~180)
-- **Responsibility**: qBittorrent client API integration and watcher.
+#### `src/modules/torrent.rs` (Role: Torrent Orchestrator, Lines: ~380)
+- **Responsibility**: qBittorrent container lifecycle manager (384MB RAM cap, 64MB disk cache, 256MB working set limit), client API integration, and watcher.
 - **Sub-modules**: `api`, `bot`, `notify`, `report`, `telegram`.
 
 #### `src/modules/torrent/api.rs` (Role: qBittorrent WebAPI Client, Lines: ~180)

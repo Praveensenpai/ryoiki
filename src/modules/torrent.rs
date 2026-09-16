@@ -19,10 +19,11 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
 
     create_directories(runner, &config_dir, &download_dir)?;
 
-    let creds = prompt_credentials(runner, non_interactive)?;
-    if let Some((user, pass)) = &creds {
-        let hash = hash_password(pass)?;
-        apply_credentials(&config_dir, user, &hash)?;
+    let (user, pass) = prompt_credentials(runner, non_interactive)?
+        .unwrap_or_else(|| ("mochi".to_string(), "mochimochi".to_string()));
+    if !runner.dry_run {
+        let hash = hash_password(&pass)?;
+        apply_credentials(&config_dir, &user, &hash)?;
     }
 
     let tg_config = telegram::prompt_telegram_config(runner, non_interactive)?;
@@ -49,7 +50,7 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
 
     start_container(runner, &config_dir, &download_dir, (uid, gid))?;
     configure_firewall(runner);
-    print_access_info(&home, creds.as_ref().map(|(u, p)| (u.as_str(), p.as_str())));
+    print_access_info(&home, Some((&user, &pass)));
 
     Ok(())
 }
@@ -74,26 +75,24 @@ fn prompt_credentials(runner: &Runner, non_interactive: bool) -> Result<Option<(
     let mut choice = String::new();
     io::stdin().lock().read_line(&mut choice)?;
     if !choice.trim().eq_ignore_ascii_case("y") {
-        return Ok(None);
+        return Ok(Some(("mochi".to_string(), "mochimochi".to_string())));
     }
 
-    print!("  Enter WebUI username [{}]: ", "admin".cyan());
+    print!("  Enter WebUI username [{}]: ", "mochi".cyan());
     io::stdout().flush()?;
     let mut user = String::new();
     io::stdin().lock().read_line(&mut user)?;
     let user = user.trim();
-    let final_user = if user.is_empty() { "admin" } else { user };
+    let final_user = if user.is_empty() { "mochi" } else { user };
 
-    print!("  Enter WebUI password: ");
+    print!("  Enter WebUI password [{}]: ", "mochimochi".cyan());
     io::stdout().flush()?;
     let mut pass = String::new();
     io::stdin().lock().read_line(&mut pass)?;
     let pass = pass.trim();
-    if pass.is_empty() {
-        return Ok(None);
-    }
+    let final_pass = if pass.is_empty() { "mochimochi" } else { pass };
 
-    Ok(Some((final_user.to_string(), pass.to_string())))
+    Ok(Some((final_user.to_string(), final_pass.to_string())))
 }
 
 fn hash_password(password: &str) -> Result<String> {
@@ -150,6 +149,7 @@ fn apply_default_preferences(config_dir: &Path, tg_installed: bool) -> Result<()
         "Session\\UseCategoryPathsInManualMode=false",
         "Session\\TorrentBackupEnabled=false",
         "Session\\FinishedTorrentBackupDirectoryEnabled=false",
+        "Session\\DiskCacheSize=64",
     ];
 
     let pref_defaults = [
@@ -160,6 +160,11 @@ fn apply_default_preferences(config_dir: &Path, tg_installed: bool) -> Result<()
         "Downloads\\UseIncompleteExtension=true",
         "WebUI\\AuthSubnetWhitelist=127.0.0.1/32, ::1/128, 172.17.0.1/32",
         "WebUI\\AuthSubnetWhitelistEnabled=true",
+        "MemoryWorkingSetLimit=256",
+    ];
+
+    let app_defaults = [
+        "MemoryWorkingSetLimit=256",
     ];
 
     let mut lines: Vec<String> = existing
@@ -171,11 +176,15 @@ fn apply_default_preferences(config_dir: &Path, tg_installed: bool) -> Result<()
             }) && !pref_defaults.iter().any(|d| {
                 let prefix = d.split('=').next().unwrap_or("");
                 l.starts_with(prefix)
+            }) && !app_defaults.iter().any(|d| {
+                let prefix = d.split('=').next().unwrap_or("");
+                l.starts_with(prefix)
             })
         })
         .map(ToString::to_string)
         .collect();
 
+    insert_into_section(&mut lines, "[Application]", &app_defaults);
     insert_into_section(&mut lines, "[BitTorrent]", &bt_defaults);
     insert_into_section(&mut lines, "[Preferences]", &pref_defaults);
     telegram::configure_autorun(&mut lines, tg_installed);
@@ -240,6 +249,8 @@ fn start_container(
             "qbittorrent",
             "--restart",
             "unless-stopped",
+            "--memory",
+            "384m",
             "-e",
             &user_id_env,
             "-e",
