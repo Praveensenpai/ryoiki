@@ -23,30 +23,33 @@ pub fn get_jellyfin_media_dir() -> PathBuf {
 
 pub fn calculate_dest_dir(info: &MediaInfo) -> PathBuf {
     let base = get_jellyfin_media_dir();
-    let cat = match info.media_type {
-        MediaType::Movie => "movies",
-        MediaType::Show => "shows",
-        MediaType::Anime => "anime",
-    };
-    let parent = base.join(cat).join(&info.title);
-
-    if info.is_extra {
-        return info.season.map_or_else(
-            || parent.join("extras"),
-            |s| parent.join(format!("Season {s:02}")).join("extras"),
-        );
-    }
-
     match info.media_type {
         MediaType::Movie => {
             let folder = info
                 .year
                 .map_or_else(|| info.title.clone(), |y| format!("{} ({y})", info.title));
-            base.join("movies").join(folder)
+            let movie_dir = base.join("movies").join(folder);
+            if info.is_extra {
+                movie_dir.join("extras")
+            } else {
+                movie_dir
+            }
         }
-        MediaType::Show => parent.join(format!("Season {:02}", info.season.unwrap_or(1))),
+        MediaType::Show => {
+            let parent = base.join("shows").join(&info.title);
+            let season = if info.is_extra {
+                info.season.unwrap_or(0)
+            } else {
+                info.season.unwrap_or(1)
+            };
+            parent.join(format!("Season {season:02}"))
+        }
         MediaType::Anime => {
-            if info.season.is_some() || info.episode.is_some() {
+            let parent = base.join("anime").join(&info.title);
+            if info.is_extra {
+                let season = info.season.unwrap_or(0);
+                parent.join(format!("Season {season:02}"))
+            } else if info.season.is_some() || info.episode.is_some() {
                 parent.join(format!("Season {:02}", info.season.unwrap_or(1)))
             } else {
                 let folder = info
@@ -116,6 +119,7 @@ pub fn perform_move(src: &Path, dst: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::modules::media::ClassificationEngine;
 
     #[test]
     fn test_is_video_file_extensions() {
@@ -130,5 +134,53 @@ mod tests {
     fn test_is_video_file_skips_qb_incomplete() {
         assert!(!is_video_file(Path::new("movie.mkv.!qB")));
         assert!(!is_video_file(Path::new("movie.mp4.!qb")));
+    }
+
+    #[test]
+    fn test_calculate_dest_dir_tv_and_anime_extras() {
+        let anime_extra = MediaInfo {
+            media_type: MediaType::Anime,
+            title: "Shirokuma Cafe".to_string(),
+            year: None,
+            season: None,
+            episode: None,
+            resolution: Some("1080p".to_string()),
+            language: Some("Japanese".to_string()),
+            clean_name: "Shirokuma Cafe - S00E01 - Menu 01 [Japanese] [1080p].mkv".to_string(),
+            is_extra: true,
+            engine: ClassificationEngine::Ai,
+        };
+        let dest = calculate_dest_dir(&anime_extra);
+        assert!(dest.ends_with("anime/Shirokuma Cafe/Season 00"));
+
+        let anime_regular = MediaInfo {
+            media_type: MediaType::Anime,
+            title: "Shirokuma Cafe".to_string(),
+            year: None,
+            season: Some(1),
+            episode: Some(1),
+            resolution: Some("1080p".to_string()),
+            language: Some("Japanese".to_string()),
+            clean_name: "Shirokuma Cafe - S01E01 [Japanese] [1080p].mkv".to_string(),
+            is_extra: false,
+            engine: ClassificationEngine::Ai,
+        };
+        let dest = calculate_dest_dir(&anime_regular);
+        assert!(dest.ends_with("anime/Shirokuma Cafe/Season 01"));
+
+        let movie_extra = MediaInfo {
+            media_type: MediaType::Movie,
+            title: "Inception".to_string(),
+            year: Some(2010),
+            season: None,
+            episode: None,
+            resolution: Some("1080p".to_string()),
+            language: Some("English".to_string()),
+            clean_name: "Inception (2010) [English] [1080p].mkv".to_string(),
+            is_extra: true,
+            engine: ClassificationEngine::Ai,
+        };
+        let dest = calculate_dest_dir(&movie_extra);
+        assert!(dest.ends_with("movies/Inception (2010)/extras"));
     }
 }

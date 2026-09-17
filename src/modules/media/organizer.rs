@@ -1,5 +1,7 @@
+pub mod cli;
 pub mod pathing;
 
+pub use cli::{run_organize_cli, setup};
 pub use pathing::{calculate_dest_dir, is_video_file, perform_move, resolve_unique_dest_path};
 
 use anyhow::{Context, Result};
@@ -8,11 +10,12 @@ use reqwest::blocking::Client;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use super::ai::classify_media_ai;
+use super::ai::{classify_media_ai, classify_media_batch};
 use super::heuristic::classify_media_heuristic;
+use super::probe::MediaProbe;
 use super::{MediaType, OrganizeResult};
-use crate::modules::torrent::api::{self, TorrentInfo};
-use crate::runner::Runner;
+use crate::modules::torrent::api::TorrentInfo;
+use std::collections::HashMap;
 
 pub fn organize_file(
     file_path: &Path,
@@ -20,37 +23,93 @@ pub fn organize_file(
     api_key: Option<&str>,
     dry_run: bool,
 ) -> Result<OrganizeResult> {
-    let file_name = file_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .context("Invalid filename")?;
+    let classified = classify_video_files(&[file_path.to_path_buf()], client, api_key);
+    let Some((_, info, probe)) = classified.into_iter().next() else {
+        anyhow::bail!("Failed to classify file: {}", file_path.display());
+    };
+    execute_file_organize(file_path, info, probe.as_ref(), dry_run)
+}
 
-    let probe = super::probe::probe_media_file(file_path);
+fn classify_video_files(
+    files: &[PathBuf],
+    client: &Client,
+    api_key: Option<&str>,
+) -> Vec<(PathBuf, super::MediaInfo, Option<MediaProbe>)> {
+    if files.is_empty() {
+        return Vec::new();
+    }
 
-    let mut media_info = match api_key {
-        Some(key) if !key.is_empty() => classify_media_ai(client, key, file_name, probe.as_ref())
-            .unwrap_or_else(|_| classify_media_heuristic(file_name)),
-        _ => classify_media_heuristic(file_name),
+    let probes: Vec<Option<MediaProbe>> = files
+        .iter()
+        .map(|f| super::probe::probe_media_file(f))
+        .collect();
+    let names: Vec<&str> = files
+        .iter()
+        .map(|f| f.file_name().and_then(|n| n.to_str()).unwrap_or(""))
+        .collect();
+
+    let batch_ai_map: HashMap<String, super::MediaInfo> = match api_key {
+        Some(key) if !key.is_empty() && files.len() > 1 => {
+            let items: Vec<(&str, Option<&MediaProbe>)> = names
+                .iter()
+                .zip(probes.iter())
+                .map(|(n, p)| (*n, p.as_ref()))
+                .collect();
+            classify_media_batch(client, key, &items).unwrap_or_default()
+        }
+        _ => HashMap::new(),
     };
 
-    if media_info.language.is_none() {
-        if let Some(p) = &probe {
+    let mut out = Vec::with_capacity(files.len());
+    for (i, file_path) in files.iter().enumerate() {
+        let name = names[i];
+        let probe = probes[i].clone();
+
+        let mut media_info = if let Some(info) = batch_ai_map.get(name) {
+            info.clone()
+        } else {
+            match api_key {
+                Some(key) if !key.is_empty() => {
+                    classify_media_ai(client, key, name, probe.as_ref())
+                        .unwrap_or_else(|_| classify_media_heuristic(name))
+                }
+                _ => classify_media_heuristic(name),
+            }
+        };
+
+        adjust_media_info_post_classify(&mut media_info, probe.as_ref());
+        out.push((file_path.clone(), media_info, probe));
+    }
+
+    out
+}
+
+fn adjust_media_info_post_classify(info: &mut super::MediaInfo, probe: Option<&MediaProbe>) {
+    if info.language.is_none() {
+        if let Some(p) = probe {
             if let Some(primary) = &p.primary_language {
-                media_info.language = Some(primary.clone());
-                media_info.clean_name =
-                    super::ai::ensure_language_in_clean_name(&media_info.clean_name, primary);
+                info.language = Some(primary.clone());
+                info.clean_name =
+                    super::ai::ensure_language_in_clean_name(&info.clean_name, primary);
             }
         }
     }
 
-    if media_info.media_type != MediaType::Anime {
-        if let Some(lang) = &media_info.language {
+    if info.media_type != MediaType::Anime {
+        if let Some(lang) = &info.language {
             if lang.eq_ignore_ascii_case("japanese") {
-                media_info.media_type = MediaType::Anime;
+                info.media_type = MediaType::Anime;
             }
         }
     }
+}
 
+pub fn execute_file_organize(
+    file_path: &Path,
+    media_info: super::MediaInfo,
+    probe: Option<&MediaProbe>,
+    dry_run: bool,
+) -> Result<OrganizeResult> {
     let dest_dir = calculate_dest_dir(&media_info);
     let dest_path = resolve_unique_dest_path(file_path, &dest_dir, &media_info, dry_run);
 
@@ -73,7 +132,10 @@ pub fn organize_file(
 
     perform_move(file_path, &dest_path)?;
 
-    super::audio::strip_audio_auto(&dest_path);
+    let has_multiple_audio = probe.is_none_or(|p| p.audio_stream_count > 1);
+    if has_multiple_audio {
+        super::audio::strip_audio_auto(&dest_path);
+    }
 
     Ok(OrganizeResult {
         source_path: file_path.to_path_buf(),
@@ -108,8 +170,9 @@ pub fn organize_path(
     let mut video_files = Vec::new();
     find_videos_recursive(target, &mut video_files)?;
 
-    for vf in video_files {
-        match organize_file(&vf, client, api_key, dry_run) {
+    let classified = classify_video_files(&video_files, client, api_key);
+    for (vf, info, probe) in classified {
+        match execute_file_organize(&vf, info, probe.as_ref(), dry_run) {
             Ok(res) => results.push(res),
             Err(e) => eprintln!("  ⚠️ Error organizing {}: {e}", vf.display()),
         }
@@ -187,176 +250,4 @@ pub fn organize_completed_torrent(
 ) -> Result<Option<OrganizeResult>> {
     let results = organize_torrent(torrent, client, api_key, false)?;
     Ok(results.into_iter().next())
-}
-
-pub fn run_organize_cli(target: &Path, dry_run: bool) -> Result<()> {
-    println!(
-        "\n  {} Scanning {} for media to organize...",
-        "🎬".cyan(),
-        target.display().to_string().bold()
-    );
-
-    let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()?;
-    let api_key = super::config::get_or_prompt_gemini_key(!dry_run);
-
-    let qb_url = crate::notify::TelegramConfig::load().map_or_else(
-        |_| "http://localhost:6881".to_string(),
-        |c| c.qbittorrent_url,
-    );
-
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let default_torrents = Path::new(&home).join("torrents");
-
-    if target == default_torrents {
-        if let Ok(torrents) = api::get_torrents(&client, &qb_url, None) {
-            return process_qbittorrent_organize(
-                &client,
-                &qb_url,
-                api_key.as_deref(),
-                &torrents,
-                dry_run,
-            );
-        }
-    }
-
-    let results = organize_path(target, &client, api_key.as_deref(), dry_run)?;
-    let cleared = cleanup_matching_torrents(&client, &qb_url, &results);
-    print_organize_summary(&results, cleared);
-
-    Ok(())
-}
-
-fn process_qbittorrent_organize(
-    client: &Client,
-    qb_url: &str,
-    api_key: Option<&str>,
-    torrents: &[TorrentInfo],
-    dry_run: bool,
-) -> Result<()> {
-    let (completed, incomplete): (Vec<_>, Vec<_>) = torrents.iter().partition(|t| t.is_completed());
-
-    if completed.is_empty() {
-        if !incomplete.is_empty() {
-            println!(
-                "  {} No completed torrents found in qBittorrent.\n    {} active torrent(s) currently downloading — skipping organize to protect active files.\n",
-                "ℹ".cyan().bold(),
-                incomplete.len()
-            );
-            return Ok(());
-        }
-        println!(
-            "  {} No torrents found in qBittorrent to organize.",
-            "•".dimmed()
-        );
-        return Ok(());
-    }
-
-    println!(
-        "  {} Found {} completed torrent(s) in qBittorrent to organize:\n",
-        "✔".green().bold(),
-        completed.len()
-    );
-
-    let mut all_results = Vec::new();
-    let mut cleared = 0;
-
-    for t in &completed {
-        println!("  • Ingesting completed torrent: {}", t.name.bold());
-        let res = organize_torrent(t, client, api_key, dry_run)?;
-        if !res.is_empty()
-            && !dry_run
-            && api::delete_torrent(client, qb_url, &t.hash, false).is_ok()
-        {
-            cleared += 1;
-        }
-        all_results.extend(res);
-    }
-
-    print_organize_summary(&all_results, cleared);
-    Ok(())
-}
-
-fn print_organize_summary(results: &[OrganizeResult], cleared: usize) {
-    if results.is_empty() {
-        println!("  {} No new video files found to organize.", "•".dimmed());
-    } else {
-        println!(
-            "\n  {} Successfully organized {} item(s):\n",
-            "✔".green().bold(),
-            results.len()
-        );
-        for res in results {
-            println!(
-                "  • {} ({})\n    {} -> {}",
-                res.media_info.clean_name.bold(),
-                res.media_info.engine,
-                res.source_path.display().to_string().dimmed(),
-                res.dest_path.display().to_string().cyan()
-            );
-        }
-        println!();
-    }
-
-    if cleared > 0 {
-        println!(
-            "  {} Removed {} completed torrent(s) from qBittorrent history",
-            "🗑".green().bold(),
-            cleared
-        );
-    }
-}
-
-pub fn cleanup_matching_torrents(
-    client: &Client,
-    base_url: &str,
-    organized_files: &[OrganizeResult],
-) -> usize {
-    let Ok(torrents) = api::get_torrents(client, base_url, None) else {
-        return 0;
-    };
-
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let default_dl = Path::new(&home).join("torrents");
-    let mut cleared_count = 0;
-
-    for t in &torrents {
-        if !t.is_completed() {
-            continue;
-        }
-
-        let was_organized = organized_files
-            .iter()
-            .any(|r| r.source_path.to_string_lossy().contains(&t.name));
-
-        let source_missing = !default_dl.join(&t.name).exists();
-
-        if (was_organized || source_missing)
-            && api::delete_torrent(client, base_url, &t.hash, false).is_ok()
-        {
-            cleared_count += 1;
-        }
-    }
-
-    cleared_count
-}
-
-pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let target = Path::new(&home).join("torrents");
-
-    if runner.dry_run {
-        println!(
-            "  • [dry-run] Scan and organize media in {}",
-            target.display()
-        );
-        return Ok(());
-    }
-
-    let _ = super::config::get_or_prompt_gemini_key(!non_interactive);
-    if target.exists() {
-        run_organize_cli(&target, false)?;
-    }
-    Ok(())
 }

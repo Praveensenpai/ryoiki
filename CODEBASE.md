@@ -58,9 +58,9 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: Coordinates multi-stage media ingestion: scanning, dual-engine categorization, audio stripping, transfer, and cleanup.
 - **Sub-modules**: `scan`, `probe`, `ai`, `heuristic`, `audio`, `transfer`, `sync`, `pruner`, `interactive`.
 
-#### `src/modules/media/organizer.rs` & `organizer/pathing.rs` (Role: Media Organizer & Torrent Ingest, Lines: ~360 / ~135)
-- **Responsibility**: Manages media ingestion workflow. Pre-checks qBittorrent for completed torrents before scanning, protects in-progress downloads, routes completed files to Jellyfin library, and cleans history.
-- **Sub-modules**: `pathing.rs` (file pathing, unique destination resolution, and atomic moves).
+#### `src/modules/media/organizer.rs`, `organizer/cli.rs` & `organizer/pathing.rs` (Role: Media Organizer & Torrent Ingest, Lines: ~250 / ~180 / ~185)
+- **Responsibility**: Manages media ingestion workflow. Pre-checks qBittorrent for completed torrents before scanning, protects in-progress downloads, batches media files for AI classification, routes completed files to Jellyfin library, and cleans history.
+- **Sub-modules**: `cli.rs` (CLI command processing, dry-run simulation, summary tables, qBittorrent history cleanup), `pathing.rs` (file pathing, unique destination resolution with Season 00 flat placement for TV/Anime specials, and atomic moves).
 - **Public Functions**:
   - `pub fn run_organize_cli(target: &Path, dry_run: bool) -> Result<()>`
   - `pub fn organize_path(target: &Path, client: &Client, api_key: Option<&str>, dry_run: bool) -> Result<Vec<OrganizeResult>>`
@@ -68,15 +68,18 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
   - `pub fn organize_completed_torrent(client: &Client, torrent: &TorrentInfo, api_key: Option<&str>) -> Result<Option<OrganizeResult>>`
   - `pub fn cleanup_matching_torrents(client: &Client, base_url: &str, organized_files: &[OrganizeResult]) -> usize`
 
-#### `src/modules/media/ai.rs` (Role: AI Schema Classifier, Lines: ~390)
-- **Responsibility**: Gemini API structured prompt caller (`gemini-3.5-flash-lite`) for media classification (series title, season, episode, specials).
-- **Public Functions**: `pub fn classify_media_ai(client: &Client, api_key: &str, raw_name: &str, probe: Option<&MediaProbe>) -> Result<MediaInfo>`.
+#### `src/modules/media/ai.rs` & `src/modules/media/ai/*.rs` (Role: AI Schema Classifier, Lines: ~30 / ~500 total)
+- **Responsibility**: Gemini API caller (`gemini-3.5-flash-lite`) supporting single-file and chunked batch classification (up to 35 files per request) to respect rate limits.
+- **Sub-modules**: `batch.rs` (chunked batch classification orchestrator), `client.rs` (HTTP request & exponential backoff retry loop), `prompt.rs` (single/batch prompts & probe context builder), `schema.rs` (deserialization schemas & clean name resolvers).
+- **Public Functions**:
+  - `pub fn classify_media_ai(client: &Client, api_key: &str, raw_name: &str, probe: Option<&MediaProbe>) -> Result<MediaInfo>`
+  - `pub fn classify_media_batch(client: &Client, api_key: &str, items: &[(&str, Option<&MediaProbe>)]) -> Result<HashMap<String, MediaInfo>>`
 
 #### `src/modules/media/heuristic.rs` (Role: Offline Regex Classifier, Lines: ~240)
 - **Responsibility**: High-performance regex fallback parser for anime and TV show filenames when offline or unconfigured.
 
-#### `src/modules/media/probe.rs` (Role: FFprobe Inspector, Lines: ~180)
-- **Responsibility**: Inspects video files for container codecs, audio streams, and subtitle tracks via `ffprobe`.
+#### `src/modules/media/probe.rs` (Role: FFprobe Inspector, Lines: ~250)
+- **Responsibility**: Inspects video files for container codecs, audio stream count (bypassing single-audio streams), audio tracks, and subtitle tracks via `ffprobe`.
 
 #### `src/modules/media/audio.rs` (Role: Dubstrip Audio Transcoder, Lines: ~210)
 - **Responsibility**: Strips unwanted foreign audio tracks or retains specified languages via `ffmpeg`.
@@ -151,5 +154,6 @@ cargo fmt --check
 ```
 
 ## 6. Recent Iteration Changes
+- **2026-09-17**: Introduced chunked batch media classification (`classify_media_batch` in `ai/batch.rs`) processing up to 35 files per Gemini request to prevent 15 RPM rate exhaustion; decoupled download completion Telegram alerts from media organization in `torrent/notify.rs`; added audio stream count check in `probe.rs` to bypass single-track dubstrip overhead; extracted `organizer/cli.rs` and modularized `ai/*.rs`.
 - **2026-09-16**: Added qBittorrent pre-completion check before organizing media to prevent premature moving of active/incomplete downloads; extracted `organizer/pathing.rs`; added `TorrentInfo::is_completed`; enhanced recursive scan to skip `incomplete/` directories.
 - **2026-09-13**: Generated AI-first `CODEBASE.md` following the `codebase-digest` standard; synced streamlined Linux x86_64 release rules and autonomous self-healing protocol.

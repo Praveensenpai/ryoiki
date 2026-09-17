@@ -345,6 +345,11 @@ fn check_torrent_event(
         if !is_done && t.has_metadata && t.total_size > 0 {
             let text = notify::render_message("started", Some(t), host, ts_ip);
             let _ = notify::send_telegram_alert(client, &config.bot_token, &config.chat_id, &text);
+        } else if is_done {
+            let hash = t.hash.clone();
+            std::thread::spawn(move || {
+                let _ = notify::execute("completed", &hash);
+            });
         }
     }
 }

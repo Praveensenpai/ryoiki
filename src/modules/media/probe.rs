@@ -6,6 +6,7 @@ use std::process::Command;
 pub struct MediaProbe {
     pub duration_mins: Option<u64>,
     pub audio_languages: Vec<String>,
+    pub audio_stream_count: usize,
     pub primary_language: Option<String>,
     pub resolution: Option<String>,
 }
@@ -98,6 +99,7 @@ fn populate_streams_info(streams: Vec<FfprobeStream>, probe: &mut MediaProbe) {
         if codec == "video" && probe.resolution.is_none() {
             probe.resolution = s.height.and_then(height_to_resolution);
         } else if codec == "audio" {
+            probe.audio_stream_count += 1;
             extract_audio_language(s.tags.as_ref(), &mut probe.audio_languages);
         }
     }

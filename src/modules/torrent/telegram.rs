@@ -113,9 +113,9 @@ pub fn configure_autorun(lines: &mut Vec<String>, enabled: bool) {
 
     let autorun_entries = [
         "enabled=true".to_string(),
-        format!("program={bin} notify \"completed\" \"%I\""),
+        format!("program={bin} notify completed \"%I\""),
         "OnTorrentAdded\\Enabled=true".to_string(),
-        format!("OnTorrentAdded\\Program={bin} notify \"started\" \"%I\""),
+        format!("OnTorrentAdded\\Program={bin} notify started \"%I\""),
     ];
 
     lines.retain(|l| {

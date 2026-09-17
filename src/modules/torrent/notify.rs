@@ -16,25 +16,25 @@ pub fn execute(event: &str, hash: &str) -> Result<()> {
 
     let base_url = &config.qbittorrent_url;
     let torrent = resolve_torrent_data(&client, base_url, event, hash);
+    let (ts_ip, host) = super::get_access_urls();
 
-    let (organized, qb_cleared) = if event == "completed" {
-        process_completed_media(
+    let text = render_message(event, torrent.as_ref(), &host, &ts_ip);
+    let _ = send_telegram_alert(&client, &config.bot_token, &config.chat_id, &text);
+
+    if event == "completed" {
+        let (organized, qb_cleared) = process_completed_media(
             &client,
             base_url,
             torrent.as_ref(),
             config.gemini_api_key.as_deref(),
-        )
-    } else {
-        (None, false)
-    };
+        );
 
-    let (ts_ip, host) = super::get_access_urls();
-    let text = match organized.as_ref() {
-        Some(org) => render_organized_message(org, &host, &ts_ip, qb_cleared),
-        None => render_message(event, torrent.as_ref(), &host, &ts_ip),
-    };
+        if let Some(org) = organized.as_ref() {
+            let org_text = render_organized_message(org, &host, &ts_ip, qb_cleared);
+            let _ = send_telegram_alert(&client, &config.bot_token, &config.chat_id, &org_text);
+        }
+    }
 
-    send_telegram_alert(&client, &config.bot_token, &config.chat_id, &text)?;
     Ok(())
 }
 
