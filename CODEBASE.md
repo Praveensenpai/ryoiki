@@ -103,8 +103,8 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: Authenticates and interfaces with qBittorrent API (torrents list, pause, resume, delete).
 - **Types**: `TorrentInfo` (`is_completed(&self) -> bool` checks `progress >= 1.0` or seeding/uploading states).
 
-#### `src/modules/torrent/telegram.rs` & `bot.rs` (Role: Telegram Bot Integration, Lines: ~320 total)
-- **Responsibility**: Dispatches completion alerts and handles remote commands (`/status`, `/pause`) via Telegram Bot API.
+#### `src/modules/torrent/telegram.rs` & `bot.rs` (Role: Telegram Bot Integration, Lines: ~485 total)
+- **Responsibility**: Dispatches completion alerts, auto-organizes completed downloads with error logging, and handles remote commands (`/status`, `/pause`, `/organize`) via Telegram Bot API.
 
 ### System Notification Daemon (`src/notify/`)
 
