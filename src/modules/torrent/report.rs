@@ -26,10 +26,10 @@ pub fn format_status_report(torrents: &[TorrentInfo]) -> String {
             format_size(t.dlspeed),
             format_size(t.upspeed)
         );
+        let clean_name = crate::notify::client::escape_html(&t.name);
+        let clean_state = crate::notify::client::escape_html(&t.state);
         lines.push(format!(
-            "📦 <b>{}</b>\n<code>{bar}</code> • <b>{}</b>\nSize: {} | {speed} | ETA: {}\n",
-            t.name,
-            t.state,
+            "📦 <b>{clean_name}</b>\n<code>{bar}</code> • <b>{clean_state}</b>\nSize: {} | {speed} | ETA: {}\n",
             format_size(t.total_size),
             format_eta(t.eta)
         ));
@@ -81,5 +81,33 @@ fn get_disk_info(path: &str) -> Option<(u64, u64, u64)> {
         Some((total, used, free))
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_status_report_escapes_html() {
+        let torrents = vec![TorrentInfo {
+            hash: "1234".into(),
+            name: "Anime & Manga <Special> \"Edition\"".into(),
+            progress: 0.5,
+            dlspeed: 1024 * 1024,
+            upspeed: 0,
+            eta: 120,
+            state: "downloading & active".into(),
+            category: "anime".into(),
+            total_size: 1024 * 1024 * 500,
+            save_path: Some("/downloads".into()),
+            content_path: Some("/downloads/file".into()),
+            has_metadata: true,
+        }];
+
+        let report = format_status_report(&torrents);
+        assert!(report.contains("Anime &amp; Manga &lt;Special&gt; &quot;Edition&quot;"));
+        assert!(report.contains("downloading &amp; active"));
+        assert!(!report.contains("Anime & Manga"));
     }
 }

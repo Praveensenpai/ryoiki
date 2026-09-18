@@ -95,19 +95,30 @@ pub fn add_torrent_file(
 }
 
 pub fn pause_all(client: &Client, base_url: &str) -> Result<()> {
-    let url = format!("{base_url}/api/v2/torrents/pause");
-    let resp = client.post(&url).form(&[("hashes", "all")]).send()?;
-    if !resp.status().is_success() {
-        bail!("Failed to pause torrents: HTTP {}", resp.status());
-    }
-    Ok(())
+    post_all(client, base_url, "stop", "pause")
 }
 
 pub fn resume_all(client: &Client, base_url: &str) -> Result<()> {
-    let url = format!("{base_url}/api/v2/torrents/resume");
+    post_all(client, base_url, "start", "resume")
+}
+
+fn post_all(client: &Client, base_url: &str, primary: &str, fallback: &str) -> Result<()> {
+    let url = format!("{base_url}/api/v2/torrents/{primary}");
     let resp = client.post(&url).form(&[("hashes", "all")]).send()?;
-    if !resp.status().is_success() {
-        bail!("Failed to resume torrents: HTTP {}", resp.status());
+    if resp.status().is_success() {
+        return Ok(());
+    }
+
+    let fallback_url = format!("{base_url}/api/v2/torrents/{fallback}");
+    let fb_resp = client
+        .post(&fallback_url)
+        .form(&[("hashes", "all")])
+        .send()?;
+    if !fb_resp.status().is_success() {
+        bail!(
+            "Failed to execute {primary}/{fallback}: HTTP {}",
+            fb_resp.status()
+        );
     }
     Ok(())
 }

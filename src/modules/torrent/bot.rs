@@ -103,8 +103,15 @@ fn handle_incoming_message(client: &Client, config: &TelegramConfig, msg: Messag
         if trimmed.starts_with("magnet:?xt=urn:") {
             let _ = handle_magnet(client, config, trimmed);
         } else if trimmed.starts_with('/') {
-            let cmd = trimmed.split_whitespace().next().unwrap_or("");
-            let _ = handle_command(client, config, cmd);
+            let full_cmd = trimmed.split_whitespace().next().unwrap_or("");
+            let cmd = full_cmd.split('@').next().unwrap_or(full_cmd);
+            if let Err(e) = handle_command(client, config, cmd) {
+                eprintln!("[bot] Command '{cmd}' failed: {e}");
+                let clean_err = crate::notify::client::escape_html(&e.to_string());
+                let err_msg =
+                    format!("❌ <b>Command Failed ({cmd}):</b>\n<code>{clean_err}</code>");
+                let _ = reply(client, config, &err_msg);
+            }
         }
     }
 }
@@ -201,7 +208,13 @@ fn handle_command(client: &Client, config: &TelegramConfig, cmd: &str) -> Result
                 ❓ /help — Show this command list\n━━━━━━━━━━━━━━━━━━━━━━━";
             reply(client, config, help_text)?;
         }
-        _ => {}
+        _ => {
+            reply(
+                client,
+                config,
+                "❓ <b>Unknown command.</b> Send /help to view available commands.",
+            )?;
+        }
     }
     Ok(())
 }
