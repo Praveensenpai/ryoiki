@@ -49,11 +49,15 @@ fn process_completed_media(
     };
 
     let organized =
-        crate::modules::media::organizer::organize_completed_torrent(client, t, gemini_key)
-            .ok()
-            .flatten();
+        match crate::modules::media::organizer::organize_completed_torrent(client, t, gemini_key) {
+            Ok(res) => res,
+            Err(e) => {
+                eprintln!("  ⚠️ Failed to organize completed torrent {}: {e}", t.name);
+                None
+            }
+        };
 
-    let cleared = if organized.is_some() || t.progress >= 1.0 {
+    let cleared = if organized.is_some() {
         api::delete_torrent(client, base_url, &t.hash, false).is_ok()
     } else {
         false

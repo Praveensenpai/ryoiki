@@ -288,6 +288,14 @@ fn reply(client: &Client, config: &TelegramConfig, text: &str) -> Result<()> {
     crate::notify::client::send_telegram_alert(client, &config.bot_token, &config.chat_id, text)
 }
 
+fn spawn_completed_task(hash: String) {
+    std::thread::spawn(move || {
+        if let Err(e) = notify::execute("completed", &hash) {
+            eprintln!("  ⚠️ Error organizing completed torrent {hash}: {e}");
+        }
+    });
+}
+
 fn start_torrent_monitor(config: TelegramConfig) {
     std::thread::spawn(move || {
         let client = Client::builder()
@@ -303,10 +311,7 @@ fn start_torrent_monitor(config: TelegramConfig) {
                 let is_done = t.is_completed();
                 known.insert(t.hash.clone(), is_done);
                 if is_done {
-                    let hash = t.hash.clone();
-                    std::thread::spawn(move || {
-                        let _ = notify::execute("completed", &hash);
-                    });
+                    spawn_completed_task(t.hash.clone());
                 }
             }
         }
@@ -335,10 +340,7 @@ fn check_torrent_event(
     if let Some(was_done) = known.get_mut(&t.hash) {
         if !*was_done && is_done {
             *was_done = true;
-            let hash = t.hash.clone();
-            std::thread::spawn(move || {
-                let _ = notify::execute("completed", &hash);
-            });
+            spawn_completed_task(t.hash.clone());
         }
     } else {
         known.insert(t.hash.clone(), is_done);
@@ -346,10 +348,7 @@ fn check_torrent_event(
             let text = notify::render_message("started", Some(t), host, ts_ip);
             let _ = notify::send_telegram_alert(client, &config.bot_token, &config.chat_id, &text);
         } else if is_done {
-            let hash = t.hash.clone();
-            std::thread::spawn(move || {
-                let _ = notify::execute("completed", &hash);
-            });
+            spawn_completed_task(t.hash.clone());
         }
     }
 }
