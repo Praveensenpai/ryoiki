@@ -112,6 +112,8 @@ enum Commands {
     /// Inspect or strip redundant dubbed audio tracks via dubstrip engine
     #[command(subcommand)]
     Audio(modules::media::audio::AudioSubcommand),
+    /// Configure system timezone (auto-detect via IP provider or set custom)
+    Timezone(modules::timezone::TimezoneArgs),
 }
 
 fn main() -> Result<()> {
@@ -258,6 +260,12 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
         }
         Commands::Audio(sub) => {
             modules::media::audio::handle_cli(sub)?;
+        }
+        Commands::Timezone(args) => {
+            if !args.status {
+                runner.ensure_sudo()?;
+            }
+            modules::timezone::handle_cli(args, runner)?;
         }
     }
     Ok(())

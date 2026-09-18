@@ -130,6 +130,7 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - `docker.rs`: Docker engine installation, daemon config, and non-root group management.
 - `rclone/`: Rclone setup, OAuth flow, systemd mount services.
 - `tailscale.rs`: Tailscale VPN installation, subnet routing, and exit node configuration.
+- `timezone.rs`: Auto-detects local timezone via IP geolocation (ip-api, ipapi, ipinfo) or configures custom IANA timezone via timedatectl; dynamically injects host timezone into qBittorrent container.
 - `security.rs`: UFW firewall rules, SSH hardening, Fail2ban setup.
 - `jellyfin/`: Media server deployment, systemd timers, automated metadata backups.
 
@@ -154,6 +155,7 @@ cargo fmt --check
 ```
 
 ## 6. Recent Iteration Changes
+- **2026-09-18**: Added system and container timezone auto-detection and custom configuration module (`src/modules/timezone.rs`). Supports querying IP geolocation providers (`ip-api.com`, `ipapi.co`, `ipinfo.io`) with automatic fallback, interactive prompt selection, custom IANA override, and dynamic `TZ` environment injection into the qBittorrent container. Added `ryoiki timezone` CLI command (`--auto`, `--status`, `--provider <PROVIDER>`). Bumped version to `v0.1.53`.
 - **2026-09-18**: Fixed qBittorrent torrents JSON deserialization error on `metaDL` downloads by updating `TorrentInfo::total_size` from `u64` to signed `i64` and safely formatting negative sizes as `"Unknown"` in status and notification reports. Added pathing safeguards in `organizer.rs` for empty `content_path`. Bumped version to `v0.1.52`.
 - **2026-09-18**: Integrated `tayori` standalone notification engine (`v0.1.0`) into `ryoiki` (`v0.1.51`). Refactored `src/notify/client.rs` to delegate HTML escaping and raw Telegram dispatch to `tayori::infra::telegram`. Added automatic `tayori` standalone binary installation to `src/modules/cli_tools.rs`.
 - **2026-09-17**: Introduced chunked batch media classification (`classify_media_batch` in `ai/batch.rs`) processing up to 35 files per Gemini request to prevent 15 RPM rate exhaustion; decoupled download completion Telegram alerts from media organization in `torrent/notify.rs`; added audio stream count check in `probe.rs` to bypass single-track dubstrip overhead; extracted `organizer/cli.rs` and modularized `ai/*.rs`.

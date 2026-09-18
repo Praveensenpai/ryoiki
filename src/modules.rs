@@ -10,6 +10,7 @@ pub mod prompt;
 pub mod rclone;
 pub mod security;
 pub mod tailscale;
+pub mod timezone;
 pub mod torrent;
 pub mod trash;
 
@@ -43,6 +44,7 @@ pub fn requires_sudo(modules: &[String]) -> bool {
                 | "torrent"
                 | "prompt"
                 | "tailscale"
+                | "timezone"
                 | "charge_limit"
                 | "rclone"
         )
@@ -84,6 +86,13 @@ fn core_modules() -> Vec<Module> {
             id: "dev_runtimes",
             title: "Dev Runtimes",
             description: "Go, Rust (rustup), Python (uv), JavaScript (Bun)",
+            default_enabled: true,
+            deps: &[],
+        },
+        Module {
+            id: "timezone",
+            title: "System Timezone",
+            description: "Auto-detect via IP provider or configure custom IANA timezone",
             default_enabled: true,
             deps: &[],
         },
@@ -232,6 +241,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "dubstrip" => dubstrip::setup(runner, non_interactive),
         "tailscale" => tailscale::setup(runner, non_interactive),
         "dotfiles" => deploy_dotfiles_module(runner),
+        "timezone" => timezone::setup(runner, non_interactive),
         "charge_limit" => crate::charge_limit::run(non_interactive),
         "media" => media::organizer::setup(runner, non_interactive),
         "rclone" => rclone::setup(runner, non_interactive),

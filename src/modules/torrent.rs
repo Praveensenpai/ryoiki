@@ -234,47 +234,54 @@ fn start_container(
 
     let cfg_vol = format!("{}:/config", config.display());
     let dl_vol = format!("{}:/downloads", download.display());
-    let user_id_env = format!("PUID={uid}");
-    let group_id_env = format!("PGID={gid}");
+    let uid_env = format!("PUID={uid}");
+    let gid_env = format!("PGID={gid}");
+    let tz = crate::modules::timezone::get_current_timezone();
+    let tz_env = format!("TZ={tz}");
 
-    runner.exec_silent(
-        "Starting qBittorrent container...",
-        "docker",
-        &[
-            "run",
-            "-d",
-            "--name",
-            "qbittorrent",
-            "--restart",
-            "unless-stopped",
-            "--memory",
-            "384m",
-            "-e",
-            &user_id_env,
-            "-e",
-            &group_id_env,
-            "-e",
-            "TZ=Etc/UTC",
-            "-e",
-            "WEBUI_PORT=6881",
-            "-e",
-            "TORRENTING_PORT=6882",
-            "-p",
-            "6881:6881",
-            "-p",
-            "6882:6882",
-            "-p",
-            "6882:6882/udp",
-            "-v",
-            &cfg_vol,
-            "-v",
-            &dl_vol,
-            "lscr.io/linuxserver/qbittorrent:latest",
-        ],
-    )?;
+    let envs = [
+        uid_env.as_str(),
+        gid_env.as_str(),
+        tz_env.as_str(),
+        "WEBUI_PORT=6881",
+        "TORRENTING_PORT=6882",
+    ];
+    let args = build_qbittorrent_args(&cfg_vol, &dl_vol, &envs);
 
+    runner.exec_silent("Starting qBittorrent container...", "docker", &args)?;
     std::thread::sleep(std::time::Duration::from_millis(1500));
     Ok(())
+}
+
+fn build_qbittorrent_args<'a>(cfg_vol: &'a str, dl_vol: &'a str, envs: &[&'a str]) -> Vec<&'a str> {
+    let mut args = vec![
+        "run",
+        "-d",
+        "--name",
+        "qbittorrent",
+        "--restart",
+        "unless-stopped",
+        "--memory",
+        "384m",
+    ];
+    for &env in envs {
+        args.push("-e");
+        args.push(env);
+    }
+    args.extend_from_slice(&[
+        "-p",
+        "6881:6881",
+        "-p",
+        "6882:6882",
+        "-p",
+        "6882:6882/udp",
+        "-v",
+        cfg_vol,
+        "-v",
+        dl_vol,
+        "lscr.io/linuxserver/qbittorrent:latest",
+    ]);
+    args
 }
 
 fn configure_firewall(runner: &mut Runner) {

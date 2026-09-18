@@ -37,6 +37,8 @@ pub struct TelegramConfig {
     pub jellyfin_api_key: Option<String>,
     #[serde(default = "default_session_cooldown_mins")]
     pub session_cooldown_mins: u64,
+    #[serde(default)]
+    pub timezone: Option<String>,
 }
 
 impl TelegramConfig {
@@ -121,6 +123,7 @@ mod tests {
         assert!(cfg.jellyfin_api_key.is_none());
         assert_eq!(cfg.api_port, 9119);
         assert!(cfg.server_name.is_none());
+        assert!(cfg.timezone.is_none());
         Ok(())
     }
 }

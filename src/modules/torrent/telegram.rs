@@ -64,6 +64,7 @@ pub fn prompt_telegram_config(
         jellyfin_url: "http://localhost:8096".to_string(),
         jellyfin_api_key: None,
         session_cooldown_mins: 60,
+        timezone: Some(crate::modules::timezone::get_current_timezone()),
     };
 
     let test_msg = "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n⚡ <b>Pure-Rust 2-Way Bot Active</b>\n\nType /help to see commands or paste a magnet link!";
