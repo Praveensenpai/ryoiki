@@ -130,7 +130,10 @@ pub(crate) fn render_message(
     let (name, size_str, category) = match torrent {
         Some(t) => (
             escape_html(&t.name),
-            format_size(t.total_size),
+            match u64::try_from(t.total_size) {
+                Ok(sz) => format_size(sz),
+                Err(_) => "Unknown".to_string(),
+            },
             if t.category.is_empty() {
                 "Default".to_string()
             } else {

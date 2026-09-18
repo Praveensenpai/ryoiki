@@ -28,9 +28,12 @@ pub fn format_status_report(torrents: &[TorrentInfo]) -> String {
         );
         let clean_name = crate::notify::client::escape_html(&t.name);
         let clean_state = crate::notify::client::escape_html(&t.state);
+        let size_str = match u64::try_from(t.total_size) {
+            Ok(sz) => format_size(sz),
+            Err(_) => "Unknown".to_string(),
+        };
         lines.push(format!(
-            "📦 <b>{clean_name}</b>\n<code>{bar}</code> • <b>{clean_state}</b>\nSize: {} | {speed} | ETA: {}\n",
-            format_size(t.total_size),
+            "📦 <b>{clean_name}</b>\n<code>{bar}</code> • <b>{clean_state}</b>\nSize: {size_str} | {speed} | ETA: {}\n",
             format_eta(t.eta)
         ));
     }
@@ -109,5 +112,28 @@ mod tests {
         assert!(report.contains("Anime &amp; Manga &lt;Special&gt; &quot;Edition&quot;"));
         assert!(report.contains("downloading &amp; active"));
         assert!(!report.contains("Anime & Manga"));
+    }
+
+    #[test]
+    fn test_format_status_report_meta_dl_negative_total_size() {
+        let torrents = vec![TorrentInfo {
+            hash: "meta1".into(),
+            name: "Magnet Downloading Metadata".into(),
+            progress: 0.0,
+            dlspeed: 0,
+            upspeed: 0,
+            eta: 8_640_000,
+            state: "metaDL".into(),
+            category: String::new(),
+            total_size: -1,
+            save_path: Some("/downloads".into()),
+            content_path: Some(String::new()),
+            has_metadata: false,
+        }];
+
+        let report = format_status_report(&torrents);
+        assert!(report.contains("Magnet Downloading Metadata"));
+        assert!(report.contains("Size: Unknown"));
+        assert!(report.contains("metaDL"));
     }
 }

@@ -204,22 +204,26 @@ pub fn find_videos_recursive(dir: &Path, list: &mut Vec<PathBuf>) -> Result<()> 
 
 pub fn resolve_torrent_source(torrent: &TorrentInfo, default_dl: &Path) -> PathBuf {
     if let Some(content_path) = &torrent.content_path {
-        let rel = content_path
-            .trim_start_matches("/downloads/")
-            .trim_start_matches('/');
-        let p = default_dl.join(rel);
-        if p.exists() {
-            return p;
+        if !content_path.trim().is_empty() {
+            let rel = content_path
+                .trim_start_matches("/downloads/")
+                .trim_start_matches('/');
+            let p = default_dl.join(rel);
+            if p.exists() {
+                return p;
+            }
         }
     }
 
     if let Some(save_path) = &torrent.save_path {
-        let rel = save_path
-            .trim_start_matches("/downloads/")
-            .trim_start_matches('/');
-        let p = default_dl.join(rel).join(&torrent.name);
-        if p.exists() {
-            return p;
+        if !save_path.trim().is_empty() {
+            let rel = save_path
+                .trim_start_matches("/downloads/")
+                .trim_start_matches('/');
+            let p = default_dl.join(rel).join(&torrent.name);
+            if p.exists() {
+                return p;
+            }
         }
     }
 

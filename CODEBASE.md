@@ -99,9 +99,9 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: qBittorrent container lifecycle manager (384MB RAM cap, 64MB disk cache, 256MB working set limit), client API integration, and watcher.
 - **Sub-modules**: `api`, `bot`, `notify`, `report`, `telegram`.
 
-#### `src/modules/torrent/api.rs` (Role: qBittorrent WebAPI Client, Lines: ~195)
+#### `src/modules/torrent/api.rs` (Role: qBittorrent WebAPI Client, Lines: ~275)
 - **Responsibility**: Authenticates and interfaces with qBittorrent API (torrents list, pause/stop, resume/start, delete) with v5.x endpoint support and v4.x fallback.
-- **Types**: `TorrentInfo` (`is_completed(&self) -> bool` checks `progress >= 1.0` or seeding/uploading states).
+- **Types**: `TorrentInfo` (`is_completed(&self) -> bool` checks `progress >= 1.0` or seeding/uploading states; `total_size: i64` handles `-1` on `metaDL`).
 
 #### `src/modules/torrent/telegram.rs` & `bot.rs` (Role: Telegram Bot Integration, Lines: ~500 total)
 - **Responsibility**: Dispatches completion alerts, auto-organizes completed downloads with error logging, and handles remote commands (`/status`, `/pause`, `/resume`, `/storage`, `/prune`, `/organize`, `/sync`) with bot mention stripping (`@...`), HTML escaping, and interactive error feedback.
@@ -154,6 +154,7 @@ cargo fmt --check
 ```
 
 ## 6. Recent Iteration Changes
+- **2026-09-18**: Fixed qBittorrent torrents JSON deserialization error on `metaDL` downloads by updating `TorrentInfo::total_size` from `u64` to signed `i64` and safely formatting negative sizes as `"Unknown"` in status and notification reports. Added pathing safeguards in `organizer.rs` for empty `content_path`. Bumped version to `v0.1.52`.
 - **2026-09-18**: Integrated `tayori` standalone notification engine (`v0.1.0`) into `ryoiki` (`v0.1.51`). Refactored `src/notify/client.rs` to delegate HTML escaping and raw Telegram dispatch to `tayori::infra::telegram`. Added automatic `tayori` standalone binary installation to `src/modules/cli_tools.rs`.
 - **2026-09-17**: Introduced chunked batch media classification (`classify_media_batch` in `ai/batch.rs`) processing up to 35 files per Gemini request to prevent 15 RPM rate exhaustion; decoupled download completion Telegram alerts from media organization in `torrent/notify.rs`; added audio stream count check in `probe.rs` to bypass single-track dubstrip overhead; extracted `organizer/cli.rs` and modularized `ai/*.rs`.
 - **2026-09-16**: Added qBittorrent pre-completion check before organizing media to prevent premature moving of active/incomplete downloads; extracted `organizer/pathing.rs`; added `TorrentInfo::is_completed`; enhanced recursive scan to skip `incomplete/` directories.

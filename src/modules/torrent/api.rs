@@ -5,7 +5,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize, Clone)]
 pub struct TorrentInfo {
     pub name: String,
-    pub total_size: u64,
+    pub total_size: i64,
     pub progress: f64,
     pub dlspeed: u64,
     pub upspeed: u64,
@@ -188,5 +188,87 @@ mod tests {
         assert!(!t2.is_completed());
         let t3 = dummy_torrent(0.99, "stalledDL");
         assert!(!t3.is_completed());
+    }
+
+    #[test]
+    fn test_deserialize_meta_dl_negative_total_size() -> Result<()> {
+        let json_str = r#"[
+            {
+                "name": "magnet_downloading_metadata",
+                "total_size": -1,
+                "progress": 0,
+                "dlspeed": 0,
+                "upspeed": 0,
+                "eta": 8640000,
+                "state": "metaDL",
+                "category": "",
+                "has_metadata": false,
+                "hash": "8785008159dd93a6084924330ed4698701e78819",
+                "content_path": "",
+                "save_path": "/downloads"
+            }
+        ]"#;
+
+        let torrents: Vec<TorrentInfo> = serde_json::from_str(json_str)?;
+        assert_eq!(torrents.len(), 1);
+        assert_eq!(torrents[0].total_size, -1);
+        assert!(!torrents[0].has_metadata);
+        assert!(!torrents[0].is_completed());
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_multiple_torrents_with_mixed_states() -> Result<()> {
+        let json_str = r#"[
+            {
+                "name": "meta_dl_torrent",
+                "total_size": -1,
+                "progress": 0,
+                "dlspeed": 0,
+                "upspeed": 0,
+                "eta": 8640000,
+                "state": "metaDL",
+                "category": "",
+                "has_metadata": false,
+                "hash": "8785008159dd93a6084924330ed4698701e78819",
+                "content_path": "",
+                "save_path": "/downloads"
+            },
+            {
+                "name": "downloading_torrent",
+                "total_size": 3806202719,
+                "progress": 0.50191,
+                "dlspeed": 102400,
+                "upspeed": 51200,
+                "eta": 1800,
+                "state": "downloading",
+                "category": "anime",
+                "has_metadata": true,
+                "hash": "dfb57c4bb32fc14086dc6f212d99422b9e7aa75a",
+                "content_path": "/downloads/incomplete/test",
+                "save_path": "/downloads"
+            }
+        ]"#;
+
+        let torrents: Vec<TorrentInfo> = serde_json::from_str(json_str)?;
+        assert_eq!(torrents.len(), 2);
+        assert_eq!(torrents[0].total_size, -1);
+        assert_eq!(torrents[1].total_size, 3_806_202_719);
+        Ok(())
+    }
+
+    #[test]
+    fn test_live_qbittorrent_if_running() {
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_millis(500))
+            .build()
+            .unwrap_or_else(|_| Client::new());
+        if let Ok(torrents) = get_torrents(&client, "http://localhost:6881", None) {
+            println!("Fetched {} live torrents successfully!", torrents.len());
+            assert!(!torrents.is_empty());
+            for t in &torrents {
+                assert!(!t.name.is_empty());
+            }
+        }
     }
 }
