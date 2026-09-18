@@ -154,6 +154,7 @@ cargo fmt --check
 ```
 
 ## 6. Recent Iteration Changes
+- **2026-09-18**: Integrated `tayori` standalone notification engine (`v0.1.0`) into `ryoiki` (`v0.1.51`). Refactored `src/notify/client.rs` to delegate HTML escaping and raw Telegram dispatch to `tayori::infra::telegram`. Added automatic `tayori` standalone binary installation to `src/modules/cli_tools.rs`.
 - **2026-09-17**: Introduced chunked batch media classification (`classify_media_batch` in `ai/batch.rs`) processing up to 35 files per Gemini request to prevent 15 RPM rate exhaustion; decoupled download completion Telegram alerts from media organization in `torrent/notify.rs`; added audio stream count check in `probe.rs` to bypass single-track dubstrip overhead; extracted `organizer/cli.rs` and modularized `ai/*.rs`.
 - **2026-09-16**: Added qBittorrent pre-completion check before organizing media to prevent premature moving of active/incomplete downloads; extracted `organizer/pathing.rs`; added `TorrentInfo::is_completed`; enhanced recursive scan to skip `incomplete/` directories.
 - **2026-09-13**: Generated AI-first `CODEBASE.md` following the `codebase-digest` standard; synced streamlined Linux x86_64 release rules and autonomous self-healing protocol.

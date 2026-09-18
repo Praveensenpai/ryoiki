@@ -40,5 +40,13 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
         }
     }
 
+    // tayori (Standalone Telegram notification CLI & agent alerts)
+    if !Runner::command_exists("tayori") {
+        runner.exec_bash(
+            "Installing tayori notification utility (Praveensenpai/tayori)...",
+            "curl -fsSL https://raw.githubusercontent.com/Praveensenpai/tayori/main/install.sh | bash",
+        )?;
+    }
+
     Ok(())
 }

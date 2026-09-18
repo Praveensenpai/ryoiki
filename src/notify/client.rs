@@ -5,34 +5,12 @@ use std::time::Duration;
 
 #[must_use]
 pub fn escape_html(input: &str) -> String {
-    input
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
+    tayori::infra::telegram::escape_html(input)
 }
 
 pub fn send_telegram_alert(client: &Client, token: &str, chat_id: &str, text: &str) -> Result<()> {
-    let url = format!("https://api.telegram.org/bot{token}/sendMessage");
-    let params = [
-        ("chat_id", chat_id),
-        ("parse_mode", "HTML"),
-        ("text", text),
-        ("disable_web_page_preview", "true"),
-    ];
-
-    let resp = client
-        .post(&url)
-        .form(&params)
-        .send()
-        .context("Failed to send HTTP request to Telegram API")?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().unwrap_or_default();
-        anyhow::bail!("Telegram sendMessage failed with HTTP {status}: {body}");
-    }
-    Ok(())
+    tayori::infra::telegram::send_telegram_raw(client, token, chat_id, text)
+        .context("Failed to dispatch Telegram message via tayori engine")
 }
 
 pub fn send_alert(token: &str, chat_id: &str, text: &str) -> Result<()> {
