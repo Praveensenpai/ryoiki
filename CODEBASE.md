@@ -88,8 +88,9 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 #### `src/modules/media/transfer.rs` & `transfer/*.rs` (Role: File Migration, Lines: ~340 total)
 - **Responsibility**: Safely moves/hardlinks processed media into organized destination library paths with atomic renaming.
 
-#### `src/modules/media/pruner.rs` & `prune_timer.rs` (Role: Retention Janitor, Lines: ~250 total)
-- **Responsibility**: Automated disk cleanup rules deleting old watch queues or expired downloads.
+#### `src/modules/media/pruner.rs`, `pruner/scan.rs`, `pruner/execute.rs` & `prune_timer.rs` (Role: Retention Janitor, Lines: ~195 / ~87 / ~198 / ~95)
+- **Responsibility**: Automated disk cleanup rules evicting cold/watched media to Google Drive cold storage (`gdrive:ryoiki-archive/media/`) on 6h timer or 80% watermark; failure detection and Telegram alert reporting.
+- **Public Functions**: `pub fn run_prune(opts: PruneOptions) -> Result<()>`, `pub fn handle_bot_prune() -> Result<String>`, `pub fn is_timer_active() -> bool`.
 
 #### `src/modules/media/interactive/` (Role: Media TUI Reviewer, Lines: ~400 total)
 - **Responsibility**: Interactive review UI (`events.rs`, `ui/*.rs`) allowing manual approval of filenames before moving.
