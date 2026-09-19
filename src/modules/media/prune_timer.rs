@@ -21,18 +21,18 @@ ExecStart=%h/.local/bin/ryoiki prune --threshold {threshold} --target {target}
 }
 
 const TIMER_CONTENT: &str = r"[Unit]
-Description=Run Ryoiki Media Storage Pruner every 6 hours
+Description=Run Ryoiki Media Storage Pruner every hour
 
 [Timer]
 OnBootSec=10min
-OnUnitActiveSec=6h
+OnUnitActiveSec=1h
 Persistent=true
 
 [Install]
 WantedBy=timers.target
 ";
 
-/// Deploys and activates the 6-hour systemd user timer for media storage pruning.
+/// Deploys and activates the 1-hour systemd user timer for media storage pruning.
 pub fn deploy_prune_timer(home: &str, threshold: u8, target: u8) -> Result<()> {
     let systemd_dir = Path::new(home).join(".config/systemd/user");
     fs::create_dir_all(&systemd_dir)
@@ -57,7 +57,7 @@ pub fn deploy_prune_timer(home: &str, threshold: u8, target: u8) -> Result<()> {
 
     if status.success() {
         println!(
-            "  {} Automated pruner timer enabled (checks SSD every 6h, threshold: {threshold}%, target: {target}%)",
+            "  {} Automated pruner timer enabled (checks SSD every 1h, threshold: {threshold}%, target: {target}%)",
             "✔".green().bold()
         );
     } else {
@@ -87,8 +87,8 @@ mod tests {
     }
 
     #[test]
-    fn test_timer_content_has_6h_cadence() {
-        assert!(TIMER_CONTENT.contains("OnUnitActiveSec=6h"));
+    fn test_timer_content_has_1h_cadence() {
+        assert!(TIMER_CONTENT.contains("OnUnitActiveSec=1h"));
         assert!(TIMER_CONTENT.contains("OnBootSec=10min"));
     }
 }
