@@ -38,9 +38,10 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: Manages persistent installation state in `~/.config/ryoiki/state.json`.
 - **Types**: `pub struct AppState { installed_modules: HashSet<String>, last_run: DateTime }`.
 
-#### `src/configs.rs` (Role: User Config Management, Lines: ~150)
-- **Responsibility**: Loads, parses, and persists `~/.config/ryoiki/config.toml`.
-- **Types**: `pub struct Config { pub telegram: Option<TelegramConfig>, pub media: Option<MediaConfig>, ... }`.
+#### `src/configs.rs` (Role: Dotfiles & User Config Management, Lines: ~170)
+- **Responsibility**: Loads, parses, and persists `~/.config/ryoiki/config.toml`; embeds and deploys dotfiles (`.tmux.conf` with TPM persistence, `.bash_aliases`, `starship.toml`) and provisions TPM plugins.
+- **Public Functions**: `pub fn deploy_dotfiles(home: &str) -> Result<()>`.
+- **Embedded Assets**: `TMUX_CONF`, `BASH_ALIASES`, `STARSHIP_TOML`.
 
 #### `src/runner.rs` (Role: Command Execution Engine, Lines: ~140)
 - **Responsibility**: Safe sub-process execution wrapper with stdout capture, error formatting, and root privilege checks.

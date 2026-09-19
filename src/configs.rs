@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::process::{Command, Stdio};
 
 pub const TMUX_CONF: &str = include_str!("../configs/.tmux.conf");
 pub const BASH_ALIASES: &str = include_str!("../configs/.bash_aliases");
@@ -31,8 +32,46 @@ pub fn deploy_dotfiles(home: &str) -> Result<()> {
     )?;
 
     ensure_bashrc_hooks(&home_path.join(".bashrc"))?;
+    ensure_tmux_plugins(home_path);
 
     Ok(())
+}
+
+fn ensure_tmux_plugins(home_path: &Path) {
+    let tpm_dir = home_path.join(".tmux/plugins/tpm");
+    if !tpm_dir.exists() && crate::runner::Runner::command_exists("git") {
+        let _ = Command::new("git")
+            .args([
+                "clone",
+                "--depth",
+                "1",
+                "https://github.com/tmux-plugins/tpm",
+            ])
+            .arg(&tpm_dir)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+
+    let installer = tpm_dir.join("bin/install_plugins");
+    if installer.exists() && crate::runner::Runner::command_exists("tmux") {
+        let tmux_conf = home_path.join(".tmux.conf");
+        let _ = Command::new("tmux")
+            .arg("start-server")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        let _ = Command::new("tmux")
+            .arg("source-file")
+            .arg(&tmux_conf)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        let _ = Command::new(&installer)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
 }
 
 fn write_dotfile(path: &Path, content: &str, error_msg: &'static str) -> Result<()> {
@@ -109,5 +148,13 @@ mod tests {
 
         let _ = fs::remove_dir_all(&tmp_dir);
         Ok(())
+    }
+
+    #[test]
+    fn test_ensure_tmux_plugins_does_not_panic() {
+        let tmp_dir = std::env::temp_dir().join("ryoiki_test_tmux_plugins_run");
+        let _ = fs::create_dir_all(&tmp_dir);
+        ensure_tmux_plugins(&tmp_dir);
+        let _ = fs::remove_dir_all(&tmp_dir);
     }
 }
