@@ -59,9 +59,9 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: Coordinates multi-stage media ingestion: scanning, dual-engine categorization, audio stripping, transfer, and cleanup.
 - **Sub-modules**: `scan`, `probe`, `ai`, `heuristic`, `audio`, `transfer`, `sync`, `pruner`, `interactive`.
 
-#### `src/modules/media/organizer.rs`, `organizer/cli.rs` & `organizer/pathing.rs` (Role: Media Organizer & Torrent Ingest, Lines: ~250 / ~180 / ~185)
+#### `src/modules/media/organizer.rs`, `organizer/cli.rs` & `organizer/pathing.rs` (Role: Media Organizer & Torrent Ingest, Lines: ~250 / ~180 / ~290)
 - **Responsibility**: Manages media ingestion workflow. Pre-checks qBittorrent for completed torrents before scanning, protects in-progress downloads, batches media files for AI classification, routes completed files to Jellyfin library, and cleans history.
-- **Sub-modules**: `cli.rs` (CLI command processing, dry-run simulation, summary tables, qBittorrent history cleanup), `pathing.rs` (file pathing, unique destination resolution with Season 00 flat placement for TV/Anime specials, and atomic moves).
+- **Sub-modules**: `cli.rs` (CLI command processing, dry-run simulation, summary tables, qBittorrent history cleanup), `pathing.rs` (file pathing, franchise prefix directory resolution, filename canonicalization, unique destination resolution with Season 00 flat placement for TV/Anime specials, and atomic moves).
 - **Public Functions**:
   - `pub fn run_organize_cli(target: &Path, dry_run: bool) -> Result<()>`
   - `pub fn organize_path(target: &Path, client: &Client, api_key: Option<&str>, dry_run: bool) -> Result<Vec<OrganizeResult>>`
@@ -157,6 +157,7 @@ cargo fmt --check
 ```
 
 ## 6. Recent Iteration Changes
+- **2026-09-20**: Resolved multi-season anime directory fragmentation (e.g. Non Non Biyori sequels). Implemented franchise prefix directory resolution and destination filename canonicalization in `src/modules/media/organizer/pathing.rs`. Enhanced Gemini AI prompt in `src/modules/media/ai/prompt.rs` to enforce canonical base franchise titles across multi-season batches and sequels. Bumped version to `v0.1.57`.
 - **2026-09-18**: Added system and container timezone auto-detection and custom configuration module (`src/modules/timezone.rs`). Supports querying IP geolocation providers (`ip-api.com`, `ipapi.co`, `ipinfo.io`) with automatic fallback, interactive prompt selection, custom IANA override, and dynamic `TZ` environment injection into the qBittorrent container. Added `ryoiki timezone` CLI command (`--auto`, `--status`, `--provider <PROVIDER>`). Bumped version to `v0.1.53`.
 - **2026-09-18**: Fixed qBittorrent torrents JSON deserialization error on `metaDL` downloads by updating `TorrentInfo::total_size` from `u64` to signed `i64` and safely formatting negative sizes as `"Unknown"` in status and notification reports. Added pathing safeguards in `organizer.rs` for empty `content_path`. Bumped version to `v0.1.52`.
 - **2026-09-18**: Integrated `tayori` standalone notification engine (`v0.1.0`) into `ryoiki` (`v0.1.51`). Refactored `src/notify/client.rs` to delegate HTML escaping and raw Telegram dispatch to `tayori::infra::telegram`. Added automatic `tayori` standalone binary installation to `src/modules/cli_tools.rs`.

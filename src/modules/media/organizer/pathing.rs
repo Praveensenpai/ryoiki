@@ -36,7 +36,7 @@ pub fn calculate_dest_dir(info: &MediaInfo) -> PathBuf {
             }
         }
         MediaType::Show => {
-            let parent = base.join("shows").join(&info.title);
+            let parent = resolve_series_dir(&base.join("shows"), &info.title);
             let season = if info.is_extra {
                 info.season.unwrap_or(0)
             } else {
@@ -45,11 +45,12 @@ pub fn calculate_dest_dir(info: &MediaInfo) -> PathBuf {
             parent.join(format!("Season {season:02}"))
         }
         MediaType::Anime => {
-            let parent = base.join("anime").join(&info.title);
             if info.is_extra {
+                let parent = resolve_series_dir(&base.join("anime"), &info.title);
                 let season = info.season.unwrap_or(0);
                 parent.join(format!("Season {season:02}"))
             } else if info.season.is_some() || info.episode.is_some() {
+                let parent = resolve_series_dir(&base.join("anime"), &info.title);
                 parent.join(format!("Season {:02}", info.season.unwrap_or(1)))
             } else {
                 let folder = info
@@ -61,13 +62,58 @@ pub fn calculate_dest_dir(info: &MediaInfo) -> PathBuf {
     }
 }
 
+pub fn resolve_series_dir(parent_category: &Path, title: &str) -> PathBuf {
+    let exact_dir = parent_category.join(title);
+    if exact_dir.exists() {
+        return exact_dir;
+    }
+
+    if let Ok(entries) = fs::read_dir(parent_category) {
+        let mut candidates: Vec<PathBuf> = Vec::new();
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                if let Some(folder_name) = entry.file_name().to_str() {
+                    if is_franchise_prefix(title, folder_name) {
+                        candidates.push(entry.path());
+                    }
+                }
+            }
+        }
+        if let Some(best) = candidates
+            .into_iter()
+            .max_by_key(|p| p.to_string_lossy().len())
+        {
+            return best;
+        }
+    }
+
+    exact_dir
+}
+
+fn is_franchise_prefix(title: &str, folder_name: &str) -> bool {
+    if folder_name.is_empty() || title.len() <= folder_name.len() {
+        return false;
+    }
+
+    if title
+        .to_ascii_lowercase()
+        .starts_with(&folder_name.to_ascii_lowercase())
+    {
+        let next_char = title[folder_name.len()..].chars().next();
+        return matches!(next_char, Some(' ' | '-' | ':' | '_'));
+    }
+
+    false
+}
+
 pub fn resolve_unique_dest_path(
     src: &Path,
     dest_dir: &Path,
     info: &MediaInfo,
     dry_run: bool,
 ) -> PathBuf {
-    let standard = dest_dir.join(&info.clean_name);
+    let clean_name = canonicalize_filename_for_dest(dest_dir, info);
+    let standard = dest_dir.join(&clean_name);
     if !standard.exists() {
         return standard;
     }
@@ -104,6 +150,34 @@ pub fn resolve_unique_dest_path(
     dest_dir.join(new_name)
 }
 
+fn canonicalize_filename_for_dest(dest_dir: &Path, info: &MediaInfo) -> String {
+    let is_season_folder = dest_dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|name| name.starts_with("Season ") || name.eq_ignore_ascii_case("extras"));
+
+    if is_season_folder {
+        if let Some(parent_series) = dest_dir
+            .parent()
+            .and_then(|p| p.file_name())
+            .and_then(|n| n.to_str())
+        {
+            if !parent_series.is_empty()
+                && !parent_series.eq_ignore_ascii_case(&info.title)
+                && info
+                    .clean_name
+                    .to_ascii_lowercase()
+                    .starts_with(&info.title.to_ascii_lowercase())
+            {
+                let suffix = &info.clean_name[info.title.len()..];
+                return format!("{parent_series}{suffix}");
+            }
+        }
+    }
+
+    info.clean_name.clone()
+}
+
 pub fn perform_move(src: &Path, dst: &Path) -> Result<()> {
     if fs::rename(src, dst).is_ok() {
         return Ok(());
@@ -136,51 +210,81 @@ mod tests {
         assert!(!is_video_file(Path::new("movie.mp4.!qb")));
     }
 
-    #[test]
-    fn test_calculate_dest_dir_tv_and_anime_extras() {
-        let anime_extra = MediaInfo {
+    fn mock_info(title: &str, clean_name: &str, season: Option<u32>) -> MediaInfo {
+        MediaInfo {
             media_type: MediaType::Anime,
-            title: "Shirokuma Cafe".to_string(),
+            title: title.to_string(),
             year: None,
-            season: None,
-            episode: None,
-            resolution: Some("1080p".to_string()),
-            language: Some("Japanese".to_string()),
-            clean_name: "Shirokuma Cafe - S00E01 - Menu 01 [Japanese] [1080p].mkv".to_string(),
-            is_extra: true,
-            engine: ClassificationEngine::Ai,
-        };
-        let dest = calculate_dest_dir(&anime_extra);
-        assert!(dest.ends_with("anime/Shirokuma Cafe/Season 00"));
-
-        let anime_regular = MediaInfo {
-            media_type: MediaType::Anime,
-            title: "Shirokuma Cafe".to_string(),
-            year: None,
-            season: Some(1),
+            season,
             episode: Some(1),
             resolution: Some("1080p".to_string()),
             language: Some("Japanese".to_string()),
-            clean_name: "Shirokuma Cafe - S01E01 [Japanese] [1080p].mkv".to_string(),
+            clean_name: clean_name.to_string(),
             is_extra: false,
             engine: ClassificationEngine::Ai,
-        };
-        let dest = calculate_dest_dir(&anime_regular);
-        assert!(dest.ends_with("anime/Shirokuma Cafe/Season 01"));
+        }
+    }
 
-        let movie_extra = MediaInfo {
-            media_type: MediaType::Movie,
-            title: "Inception".to_string(),
-            year: Some(2010),
-            season: None,
-            episode: None,
-            resolution: Some("1080p".to_string()),
-            language: Some("English".to_string()),
-            clean_name: "Inception (2010) [English] [1080p].mkv".to_string(),
-            is_extra: true,
-            engine: ClassificationEngine::Ai,
-        };
-        let dest = calculate_dest_dir(&movie_extra);
-        assert!(dest.ends_with("movies/Inception (2010)/extras"));
+    #[test]
+    fn test_canonicalize_filename_for_dest() {
+        let info = mock_info(
+            "Non Non Biyori Repeat",
+            "Non Non Biyori Repeat - S02E01 [Japanese] [1080p].mkv",
+            Some(2),
+        );
+
+        let season_dest = Path::new("/media/anime/Non Non Biyori/Season 02");
+        assert_eq!(
+            canonicalize_filename_for_dest(season_dest, &info),
+            "Non Non Biyori - S02E01 [Japanese] [1080p].mkv"
+        );
+
+        let standalone_dest = Path::new("/media/anime/Non Non Biyori Repeat");
+        assert_eq!(
+            canonicalize_filename_for_dest(standalone_dest, &info),
+            "Non Non Biyori Repeat - S02E01 [Japanese] [1080p].mkv"
+        );
+    }
+
+    #[test]
+    fn test_resolve_series_dir_franchise_prefix() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("ryoiki_test_anime_{}", std::process::id()));
+        let _ = fs::create_dir_all(temp_dir.join("Non Non Biyori"));
+
+        assert_eq!(
+            resolve_series_dir(&temp_dir, "Non Non Biyori Repeat"),
+            temp_dir.join("Non Non Biyori")
+        );
+        assert_eq!(
+            resolve_series_dir(&temp_dir, "Non Non Biyori Nonstop"),
+            temp_dir.join("Non Non Biyori")
+        );
+        assert_eq!(
+            resolve_series_dir(&temp_dir, "Demon Slayer"),
+            temp_dir.join("Demon Slayer")
+        );
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_calculate_dest_dir_tv_and_anime_extras() {
+        let mut anime_extra = mock_info(
+            "Shirokuma Cafe",
+            "Shirokuma Cafe - S00E01 - Menu 01.mkv",
+            None,
+        );
+        anime_extra.is_extra = true;
+        assert!(calculate_dest_dir(&anime_extra).ends_with("anime/Shirokuma Cafe/Season 00"));
+
+        let anime_regular = mock_info("Shirokuma Cafe", "Shirokuma Cafe - S01E01.mkv", Some(1));
+        assert!(calculate_dest_dir(&anime_regular).ends_with("anime/Shirokuma Cafe/Season 01"));
+
+        let mut movie_extra = mock_info("Inception", "Inception (2010).mkv", None);
+        movie_extra.media_type = MediaType::Movie;
+        movie_extra.year = Some(2010);
+        movie_extra.is_extra = true;
+        assert!(calculate_dest_dir(&movie_extra).ends_with("movies/Inception (2010)/extras"));
     }
 }
