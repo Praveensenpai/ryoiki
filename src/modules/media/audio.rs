@@ -166,9 +166,36 @@ pub fn strip_audio_auto(path: &Path) {
             "  {} Audio stream optimization complete",
             "✔".green().bold()
         );
+        sync_filename_after_strip(path);
     } else {
         eprintln!("  ⚠️ dubstrip failed — enqueueing for hourly retry");
         strip_queue::enqueue(path);
+    }
+}
+
+/// If the file was named [Multi] and was stripped down to a single native language,
+/// updates the file tag from [Multi] to [<Language>].
+pub fn sync_filename_after_strip(path: &Path) {
+    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    if !filename.contains("[Multi]") {
+        return;
+    }
+
+    let Some(probe) = super::probe::probe_media_file(path) else {
+        return;
+    };
+
+    if let Some(ref primary) = probe.primary_language {
+        if primary != "Multi" && !primary.is_empty() {
+            let new_filename = filename.replace("[Multi]", &format!("[{primary}]"));
+            let new_path = path.with_file_name(&new_filename);
+            if let Ok(()) = std::fs::rename(path, &new_path) {
+                println!(
+                    "  {} Updated media tag: [Multi] -> [{primary}]",
+                    "✔".green().bold()
+                );
+            }
+        }
     }
 }
 

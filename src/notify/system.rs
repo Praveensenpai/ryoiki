@@ -282,18 +282,33 @@ pub fn send_audio_strip_notification(
     let new_esc = escape_html(&args.new_size);
     let rec_esc = escape_html(&args.reclaimed);
 
-    let fields = [
-        ("🎬 Title:", title_esc.as_str()),
-        ("🧠 Origin:", origin_esc.as_str()),
-        ("🛡 Kept:", kept_esc.as_str()),
-        ("🗑 Stripped:", stripped_esc.as_str()),
-        ("📦 Previous:", prev_esc.as_str()),
-        ("📦 New Size:", new_esc.as_str()),
-        ("💾 Reclaimed:", rec_esc.as_str()),
-        ("🖥 Host:", host_info.as_str()),
-    ];
+    let is_multi_preserved = args.stripped.to_lowercase().contains("none")
+        || args.reclaimed.to_lowercase().contains("multi");
 
-    let card = format_card("DubStrip", "🗡️ <b>AUDIO DUB TRACKS STRIPPED</b>", &fields);
+    let card = if is_multi_preserved {
+        let fields = [
+            ("🎬 Title:", title_esc.as_str()),
+            ("🧠 Origin:", origin_esc.as_str()),
+            ("🛡 Kept Tracks:", kept_esc.as_str()),
+            ("📦 Size:", prev_esc.as_str()),
+            ("ℹ Status:", "Preserved Multi (Low confidence / Uncertain)"),
+            ("🖥 Host:", host_info.as_str()),
+        ];
+        format_card("DubStrip", "🛡️ <b>AUDIO PRESERVED AS MULTI</b>", &fields)
+    } else {
+        let fields = [
+            ("🎬 Title:", title_esc.as_str()),
+            ("🧠 Origin:", origin_esc.as_str()),
+            ("🛡 Kept:", kept_esc.as_str()),
+            ("🗑 Stripped:", stripped_esc.as_str()),
+            ("📦 Previous:", prev_esc.as_str()),
+            ("📦 New Size:", new_esc.as_str()),
+            ("💾 Reclaimed:", rec_esc.as_str()),
+            ("🖥 Host:", host_info.as_str()),
+        ];
+        format_card("DubStrip", "🗡️ <b>AUDIO DUB TRACKS STRIPPED</b>", &fields)
+    };
+
     send_alert(&config.bot_token, &config.chat_id, &card)
 }
 

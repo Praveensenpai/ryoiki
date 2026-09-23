@@ -88,6 +88,7 @@ pub fn process_queue(dubstrip_bin: &Path) -> Result<()> {
                 entry.attempts,
                 entry.path.display()
             );
+            super::sync_filename_after_strip(&entry.path);
         } else if entry.attempts >= MAX_ATTEMPTS {
             println!(
                 "  {} Giving up after {MAX_ATTEMPTS} attempts: {}",
