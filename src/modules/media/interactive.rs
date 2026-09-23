@@ -49,7 +49,15 @@ impl ItemFilter {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewMode {
     Main,
-    SubView { item_idx: usize, cursor: usize },
+    SubView {
+        item_idx: usize,
+        cursor: usize,
+    },
+    FilesView {
+        item_idx: usize,
+        season_idx: Option<usize>,
+        cursor: usize,
+    },
 }
 
 pub struct AppState {
@@ -139,6 +147,16 @@ impl AppState {
             .sum()
     }
 
+    pub fn total_needed_pull_bytes(&self) -> u64 {
+        self.remote_items
+            .iter()
+            .enumerate()
+            .map(|(idx, it)| {
+                it.selected_needed_bytes(self.remote_selected.get(idx).copied().unwrap_or(false))
+            })
+            .sum()
+    }
+
     pub fn can_add_bytes(&self, additional_bytes: u64) -> bool {
         if self.direction != TransferDirection::Pull {
             return true;
@@ -146,7 +164,9 @@ impl AppState {
         let Some(disk) = self.local_disk else {
             return true;
         };
-        self.total_selected_bytes().saturating_add(additional_bytes) <= disk.free_bytes
+        self.total_needed_pull_bytes()
+            .saturating_add(additional_bytes)
+            <= disk.free_bytes
     }
 
     pub fn remaining_free_bytes(&self) -> Option<u64> {
@@ -155,9 +175,10 @@ impl AppState {
             TransferDirection::Push => {
                 Some(disk.free_bytes.saturating_add(self.total_selected_bytes()))
             }
-            TransferDirection::Pull => {
-                Some(disk.free_bytes.saturating_sub(self.total_selected_bytes()))
-            }
+            TransferDirection::Pull => Some(
+                disk.free_bytes
+                    .saturating_sub(self.total_needed_pull_bytes()),
+            ),
         }
     }
 
@@ -180,12 +201,19 @@ impl AppState {
                 return;
             };
             let all = item.are_all_seasons_selected();
-            let n: u64 = item
-                .seasons
-                .iter()
-                .filter(|s| !s.is_selected)
-                .map(|s| s.size_bytes)
-                .sum();
+            let n: u64 = if self.direction == TransferDirection::Pull {
+                item.seasons
+                    .iter()
+                    .filter(|s| !s.is_selected)
+                    .map(|s| s.sync_status.missing_bytes)
+                    .sum()
+            } else {
+                item.seasons
+                    .iter()
+                    .filter(|s| !s.is_selected)
+                    .map(|s| s.size_bytes)
+                    .sum()
+            };
             (all, n)
         };
 
@@ -218,10 +246,15 @@ impl AppState {
     }
 
     fn toggle_single_item(&mut self, real_idx: usize) {
-        let item_size = self
-            .current_items()
-            .get(real_idx)
-            .map_or(0, |it| it.size_bytes);
+        let item_needed = if self.direction == TransferDirection::Pull {
+            self.current_items()
+                .get(real_idx)
+                .map_or(0, |it| it.sync_status.missing_bytes)
+        } else {
+            self.current_items()
+                .get(real_idx)
+                .map_or(0, |it| it.size_bytes)
+        };
         let is_sel = self
             .current_selected()
             .get(real_idx)
@@ -236,12 +269,12 @@ impl AppState {
             return;
         }
 
-        if !self.can_add_bytes(item_size) {
+        if !self.can_add_bytes(item_needed) {
             let free = self.remaining_free_bytes().unwrap_or(0);
             self.warning_msg = Some(format!(
                 "⚠️ Exceeds free storage (free: {}, need: {})",
                 disk::format_bytes(free),
-                disk::format_bytes(item_size)
+                disk::format_bytes(item_needed)
             ));
             return;
         }
@@ -271,6 +304,8 @@ impl AppState {
                             local_path: season.local_path.clone(),
                             remote_path: season.remote_path.clone(),
                             seasons: Vec::new(),
+                            files: season.files.clone(),
+                            sync_status: season.sync_status,
                         });
                     }
                 }

@@ -1,10 +1,16 @@
 use crossterm::event::KeyCode;
 
+use super::ui::files_view::handle_files_key;
 use super::{AppState, MediaItem, TransferDirection, ViewMode};
 use crate::modules::media::disk;
 
 pub fn handle_key(code: KeyCode, state: &mut AppState) -> Option<bool> {
     match state.view_mode {
+        ViewMode::FilesView {
+            item_idx,
+            season_idx,
+            cursor,
+        } => handle_files_key(code, state, item_idx, season_idx, cursor),
         ViewMode::SubView { item_idx, cursor } => handle_subview_key(code, state, item_idx, cursor),
         ViewMode::Main => handle_main_key(code, state),
     }
@@ -22,28 +28,24 @@ fn handle_subview_key(
         .map_or(0, |it| it.seasons.len());
 
     match code {
-        KeyCode::Up | KeyCode::Char('k') => {
+        KeyCode::Up | KeyCode::Char('k') if seasons_len > 0 => {
             state.warning_msg = None;
-            if seasons_len > 0 {
-                cursor = if cursor > 0 {
-                    cursor - 1
-                } else {
-                    seasons_len - 1
-                };
-                state.view_mode = ViewMode::SubView { item_idx, cursor };
-            }
+            cursor = if cursor > 0 {
+                cursor - 1
+            } else {
+                seasons_len - 1
+            };
+            state.view_mode = ViewMode::SubView { item_idx, cursor };
             None
         }
-        KeyCode::Down | KeyCode::Char('j') => {
+        KeyCode::Down | KeyCode::Char('j') if seasons_len > 0 => {
             state.warning_msg = None;
-            if seasons_len > 0 {
-                cursor = if cursor + 1 < seasons_len {
-                    cursor + 1
-                } else {
-                    0
-                };
-                state.view_mode = ViewMode::SubView { item_idx, cursor };
-            }
+            cursor = if cursor + 1 < seasons_len {
+                cursor + 1
+            } else {
+                0
+            };
+            state.view_mode = ViewMode::SubView { item_idx, cursor };
             None
         }
         KeyCode::Char(' ') => {
@@ -63,6 +65,15 @@ fn handle_subview_key(
             state.warning_msg = None;
             None
         }
+        KeyCode::Char('v' | 'i') => {
+            state.warning_msg = None;
+            state.view_mode = ViewMode::FilesView {
+                item_idx,
+                season_idx: Some(cursor),
+                cursor: 0,
+            };
+            None
+        }
         KeyCode::Enter | KeyCode::Esc | KeyCode::Left | KeyCode::Char('q') => {
             state.warning_msg = None;
             state.view_mode = ViewMode::Main;
@@ -73,14 +84,19 @@ fn handle_subview_key(
 }
 
 fn toggle_subview_season(state: &mut AppState, item_idx: usize, cursor: usize) {
-    let (is_selected, season_size) = {
+    let (is_selected, season_cost) = {
         let Some(item) = state.current_items().get(item_idx) else {
             return;
         };
         let Some(season) = item.seasons.get(cursor) else {
             return;
         };
-        (season.is_selected, season.size_bytes)
+        let cost = if state.direction == TransferDirection::Pull {
+            season.sync_status.missing_bytes
+        } else {
+            season.size_bytes
+        };
+        (season.is_selected, cost)
     };
 
     if is_selected {
@@ -93,12 +109,12 @@ fn toggle_subview_season(state: &mut AppState, item_idx: usize, cursor: usize) {
         return;
     }
 
-    if !state.can_add_bytes(season_size) {
+    if !state.can_add_bytes(season_cost) {
         let free = state.remaining_free_bytes().unwrap_or(0);
         state.warning_msg = Some(format!(
             "⚠️ Season exceeds free storage (free: {}, need: {})",
             disk::format_bytes(free),
-            disk::format_bytes(season_size)
+            disk::format_bytes(season_cost)
         ));
         return;
     }
@@ -116,11 +132,19 @@ fn select_all_subview_seasons(state: &mut AppState, item_idx: usize) {
         let Some(item) = state.current_items().get(item_idx) else {
             return;
         };
+        let is_pull = state.direction == TransferDirection::Pull;
         item.seasons
             .iter()
             .enumerate()
             .filter(|(_, s)| !s.is_selected)
-            .map(|(idx, s)| (idx, s.size_bytes))
+            .map(|(idx, s)| {
+                let sz = if is_pull {
+                    s.sync_status.missing_bytes
+                } else {
+                    s.size_bytes
+                };
+                (idx, sz)
+            })
             .collect()
     };
 
@@ -199,8 +223,22 @@ fn handle_main_key(code: KeyCode, state: &mut AppState) -> Option<bool> {
                         cursor: 0,
                     };
                 } else {
-                    state.toggle_main_item(real_idx);
+                    state.view_mode = ViewMode::FilesView {
+                        item_idx: real_idx,
+                        season_idx: None,
+                        cursor: 0,
+                    };
                 }
+            }
+            None
+        }
+        KeyCode::Char('v' | 'i') => {
+            if let Some(&real_idx) = indices.get(state.cursor) {
+                state.view_mode = ViewMode::FilesView {
+                    item_idx: real_idx,
+                    season_idx: None,
+                    cursor: 0,
+                };
             }
             None
         }
@@ -238,6 +276,7 @@ fn select_all_main_items(state: &mut AppState, indices: &[usize]) {
     let mut accumulated: u64 = 0;
     let mut items_to_select = Vec::new();
     let mut seasons_to_select: Vec<(usize, usize)> = Vec::new();
+    let is_pull = state.direction == TransferDirection::Pull;
 
     for &idx in indices {
         let Some(item) = state.current_items().get(idx) else {
@@ -246,7 +285,12 @@ fn select_all_main_items(state: &mut AppState, indices: &[usize]) {
         if item.has_seasons() {
             for (s_idx, s) in item.seasons.iter().enumerate() {
                 if !s.is_selected {
-                    let needed = accumulated.saturating_add(s.size_bytes);
+                    let cost = if is_pull {
+                        s.sync_status.missing_bytes
+                    } else {
+                        s.size_bytes
+                    };
+                    let needed = accumulated.saturating_add(cost);
                     if state.can_add_bytes(needed) {
                         accumulated = needed;
                         seasons_to_select.push((idx, s_idx));
@@ -259,7 +303,12 @@ fn select_all_main_items(state: &mut AppState, indices: &[usize]) {
         } else {
             let is_sel = state.is_selected(idx);
             if !is_sel {
-                let needed = accumulated.saturating_add(item.size_bytes);
+                let cost = if is_pull {
+                    item.sync_status.missing_bytes
+                } else {
+                    item.size_bytes
+                };
+                let needed = accumulated.saturating_add(cost);
                 if state.can_add_bytes(needed) {
                     accumulated = needed;
                     items_to_select.push(idx);
@@ -299,10 +348,7 @@ fn deselect_all_main_items(state: &mut AppState, indices: &[usize]) {
                 s.is_selected = false;
             }
         }
-    }
-    let sel = state.current_selected();
-    for &idx in indices {
-        if let Some(val) = sel.get_mut(idx) {
+        if let Some(val) = state.current_selected().get_mut(idx) {
             *val = false;
         }
     }

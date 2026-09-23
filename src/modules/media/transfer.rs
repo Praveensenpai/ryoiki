@@ -1,9 +1,11 @@
 pub mod execute;
 pub mod notify;
 pub mod scan;
+pub mod sync_status;
 
 pub use execute::{confirm_transfer, execute_transfer};
 pub use scan::{scan_local_media, scan_remote_media};
+pub use sync_status::{cross_reference_libraries, MediaFile, SyncStatus};
 
 use std::path::PathBuf;
 
@@ -13,7 +15,7 @@ pub enum TransferDirection {
     Pull,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MediaCategory {
     Movie,
     Show,
@@ -45,6 +47,8 @@ pub struct MediaSeason {
     pub local_path: Option<PathBuf>,
     pub remote_path: String,
     pub is_selected: bool,
+    pub files: Vec<MediaFile>,
+    pub sync_status: SyncStatus,
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +60,8 @@ pub struct MediaItem {
     pub local_path: Option<PathBuf>,
     pub remote_path: String,
     pub seasons: Vec<MediaSeason>,
+    pub files: Vec<MediaFile>,
+    pub sync_status: SyncStatus,
 }
 
 impl MediaItem {
@@ -76,6 +82,20 @@ impl MediaItem {
                 .sum()
         } else if is_item_selected {
             self.size_bytes
+        } else {
+            0
+        }
+    }
+
+    pub fn selected_needed_bytes(&self, is_item_selected: bool) -> u64 {
+        if self.has_seasons() {
+            self.seasons
+                .iter()
+                .filter(|s| s.is_selected)
+                .map(|s| s.sync_status.missing_bytes)
+                .sum()
+        } else if is_item_selected {
+            self.sync_status.missing_bytes
         } else {
             0
         }
@@ -118,6 +138,8 @@ mod tests {
                     local_path: None,
                     remote_path: "media/anime/Test Anime/Season 01".into(),
                     is_selected: false,
+                    files: Vec::new(),
+                    sync_status: SyncStatus::default(),
                 },
                 MediaSeason {
                     title: "Season 02".into(),
@@ -125,8 +147,12 @@ mod tests {
                     local_path: None,
                     remote_path: "media/anime/Test Anime/Season 02".into(),
                     is_selected: true,
+                    files: Vec::new(),
+                    sync_status: SyncStatus::default(),
                 },
             ],
+            files: Vec::new(),
+            sync_status: SyncStatus::default(),
         };
         assert!(item.has_seasons());
         assert_eq!(item.selected_seasons_count(), 1);

@@ -92,8 +92,9 @@ pub fn handle_media_cli(action: Option<&str>) -> anyhow::Result<()> {
         "\n  {} Scanning local and cloud media libraries...",
         "▶".cyan().bold()
     );
-    let local_items = transfer::scan_local_media(home_path);
-    let remote_items = transfer::scan_remote_media(home_path)?;
+    let mut local_items = transfer::scan_local_media(home_path);
+    let mut remote_items = transfer::scan_remote_media(home_path)?;
+    transfer::cross_reference_libraries(&mut local_items, &mut remote_items);
 
     let media_base = home_path.join("jellyfin/media");
     let check_path = if media_base.exists() {

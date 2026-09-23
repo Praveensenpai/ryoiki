@@ -41,12 +41,20 @@ pub fn confirm_transfer(dir: TransferDirection, items: &[MediaItem]) -> bool {
     println!("  Selected items:");
     for (idx, item) in items.iter().take(8).enumerate() {
         let item_size = disk::format_bytes(item.size_bytes);
+        let detail = if dir == TransferDirection::Pull && item.sync_status.is_partial() {
+            let miss = disk::format_bytes(item.sync_status.missing_bytes);
+            format!("{item_size}, need {miss} new")
+        } else if dir == TransferDirection::Pull && item.sync_status.is_all_in_other() {
+            format!("{item_size}, already on SSD")
+        } else {
+            item_size
+        };
         println!(
             "    {}. [{}] {} ({})",
             idx + 1,
             item.category.as_str().dimmed(),
             item.title.bold(),
-            item_size.cyan()
+            detail.cyan()
         );
     }
     if count > 8 {

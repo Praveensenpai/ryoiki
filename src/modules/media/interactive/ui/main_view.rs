@@ -121,18 +121,26 @@ fn build_storage_line(state: &AppState) -> Line<'static> {
             ),
         ]),
         TransferDirection::Pull => {
-            let rem = disk.free_bytes.saturating_sub(sel_bytes);
+            let needed_bytes = state.total_needed_pull_bytes();
+            let needed_str = disk::format_bytes(needed_bytes);
+            let rem = disk.free_bytes.saturating_sub(needed_bytes);
             let rem_str = disk::format_bytes(rem);
             let rem_color = if rem < 10 * 1024 * 1024 * 1024 {
                 Color::Red
             } else {
                 Color::Green
             };
+            let dl_info = if needed_bytes < sel_bytes {
+                format!("Selected: {sel_str} ({needed_str} new) │ ")
+            } else {
+                format!("Selected: {sel_str} │ ")
+            };
             Line::from(vec![
                 Span::styled(
-                    format!(" 💾 Local SSD: {free_str} free / {total_str} ({pct}% used) │ Selected: {sel_str} │ "),
+                    format!(" 💾 Local SSD: {free_str} free / {total_str} ({pct}% used) │ "),
                     Style::default().fg(Color::Cyan),
                 ),
+                Span::styled(dl_info, Style::default().fg(Color::Yellow)),
                 Span::styled(
                     format!("Remaining Free: {rem_str} "),
                     Style::default().fg(rem_color).add_modifier(Modifier::BOLD),
@@ -231,7 +239,7 @@ fn build_main_item_line<'a>(
         Style::default().fg(Color::Gray)
     };
     let title = Span::styled(
-        format!("{:<32} ", truncate_str(&item.title, 32)),
+        format!("{:<28} ", truncate_str(&item.title, 28)),
         title_style,
     );
 
@@ -253,8 +261,9 @@ fn build_main_item_line<'a>(
         item.size_bytes
     };
     let size_str = disk::format_bytes(size_bytes);
-    let size = Span::styled(format!("{size_str:<10} "), Style::default().fg(Color::Cyan));
+    let size = Span::styled(format!("{size_str:<9} "), Style::default().fg(Color::Cyan));
 
+    let sync_badge = build_main_sync_badge(item, state.direction);
     let status = build_status_span(item, state);
 
     Line::from(vec![
@@ -264,19 +273,68 @@ fn build_main_item_line<'a>(
         title,
         season_badge,
         size,
+        sync_badge,
+        Span::raw(" "),
         status,
     ])
 }
 
+fn build_main_sync_badge(item: &MediaItem, dir: TransferDirection) -> Span<'static> {
+    match dir {
+        TransferDirection::Push => {
+            if item.sync_status.is_all_in_other() {
+                Span::styled("[☁️ In Cloud] ", Style::default().fg(Color::Green))
+            } else if item.sync_status.is_partial() {
+                let badge = if item.has_seasons() {
+                    let total = item.seasons.len();
+                    let syn = item
+                        .seasons
+                        .iter()
+                        .filter(|s| s.sync_status.is_all_in_other())
+                        .count();
+                    format!("[☁️ Part {syn}/{total}s] ")
+                } else {
+                    let f = item.sync_status.other_files;
+                    let t = item.sync_status.total_files;
+                    format!("[☁️ Part {f}/{t}f] ")
+                };
+                Span::styled(badge, Style::default().fg(Color::Yellow))
+            } else {
+                Span::styled("[💾 SSD Only] ", Style::default().fg(Color::Cyan))
+            }
+        }
+        TransferDirection::Pull => {
+            if item.sync_status.is_all_in_other() {
+                Span::styled("[💾 On SSD]   ", Style::default().fg(Color::Green))
+            } else if item.sync_status.is_partial() {
+                let badge = if item.has_seasons() {
+                    let total = item.seasons.len();
+                    let syn = item
+                        .seasons
+                        .iter()
+                        .filter(|s| s.sync_status.is_all_in_other())
+                        .count();
+                    format!("[💾 Part {syn}/{total}s] ")
+                } else {
+                    let f = item.sync_status.other_files;
+                    let t = item.sync_status.total_files;
+                    format!("[💾 Part {f}/{t}f] ")
+                };
+                Span::styled(badge, Style::default().fg(Color::Yellow))
+            } else {
+                Span::styled("[☁️ Cloud Only] ", Style::default().fg(Color::DarkGray))
+            }
+        }
+    }
+}
+
 fn build_check_span(item: &MediaItem, checked: bool) -> Span<'static> {
+    let green = Style::default()
+        .fg(Color::Green)
+        .add_modifier(Modifier::BOLD);
     if item.has_seasons() {
         if item.are_all_seasons_selected() {
-            Span::styled(
-                "[✓] ",
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            )
+            Span::styled("[✓] ", green)
         } else if item.are_some_seasons_selected() {
             Span::styled(
                 "[~] ",
@@ -288,12 +346,7 @@ fn build_check_span(item: &MediaItem, checked: bool) -> Span<'static> {
             Span::styled("[ ] ", Style::default().fg(Color::DarkGray))
         }
     } else if checked {
-        Span::styled(
-            "[✓] ",
-            Style::default()
-                .fg(Color::Green)
-                .add_modifier(Modifier::BOLD),
-        )
+        Span::styled("[✓] ", green)
     } else {
         Span::styled("[ ] ", Style::default().fg(Color::DarkGray))
     }
@@ -302,7 +355,7 @@ fn build_check_span(item: &MediaItem, checked: bool) -> Span<'static> {
 fn build_status_span(item: &MediaItem, state: &AppState) -> Span<'static> {
     if state.direction == TransferDirection::Pull {
         if let Some(disk) = state.local_disk {
-            if item.size_bytes > disk.free_bytes {
+            if item.sync_status.missing_bytes > disk.free_bytes {
                 return Span::styled(
                     "🚫 No Space",
                     Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
@@ -321,7 +374,8 @@ fn build_status_span(item: &MediaItem, state: &AppState) -> Span<'static> {
 fn render_main_footer(f: &mut Frame, area: Rect) {
     let shortcuts = [
         ("[Space]", "Toggle"),
-        ("[Enter]", "Open Seasons"),
+        ("[Enter]", "Open"),
+        ("[v]", "View Files"),
         ("[p]", "Proceed Transfer"),
         ("[Tab]", "Mode"),
         ("[f]", "Filter"),

@@ -108,18 +108,26 @@ fn build_subview_storage_line(state: &AppState) -> Line<'static> {
             ),
         ]),
         TransferDirection::Pull => {
-            let rem = disk.free_bytes.saturating_sub(sel_bytes);
+            let needed_bytes = state.total_needed_pull_bytes();
+            let needed_str = disk::format_bytes(needed_bytes);
+            let rem = disk.free_bytes.saturating_sub(needed_bytes);
             let rem_str = disk::format_bytes(rem);
             let rem_color = if rem < 10 * 1024 * 1024 * 1024 {
                 Color::Red
             } else {
                 Color::Green
             };
+            let dl_info = if needed_bytes < sel_bytes {
+                format!("Selected: {sel_str} ({needed_str} new) │ ")
+            } else {
+                format!("Selected: {sel_str} │ ")
+            };
             Line::from(vec![
                 Span::styled(
-                    format!(" 💾 Local SSD: {free_str} free / {total_str} ({pct}% used) │ Selected: {sel_str} │ "),
+                    format!(" 💾 Local SSD: {free_str} free / {total_str} ({pct}% used) │ "),
                     Style::default().fg(Color::Cyan),
                 ),
+                Span::styled(dl_info, Style::default().fg(Color::Yellow)),
                 Span::styled(
                     format!("Remaining Free: {rem_str} "),
                     Style::default().fg(rem_color).add_modifier(Modifier::BOLD),
@@ -218,18 +226,21 @@ fn build_season_line<'a>(
         Style::default().fg(Color::Gray)
     };
     let title = Span::styled(
-        format!("{num:02}. {:<48} ", truncate_str(&season.title, 48)),
+        format!("{num:02}. {:<32} ", truncate_str(&season.title, 32)),
         title_style,
     );
 
     let size_str = disk::format_bytes(season.size_bytes);
-    let size = Span::styled(format!("{size_str:<10} "), Style::default().fg(Color::Cyan));
+    let size = Span::styled(format!("{size_str:<9} "), Style::default().fg(Color::Cyan));
 
-    let mut spans = vec![pointer, check, title, size];
+    let sync_badge = build_season_sync_badge(season, state.direction);
+
+    let mut spans = vec![pointer, check, title, size, sync_badge];
 
     if state.direction == TransferDirection::Pull {
         if let Some(disk) = state.local_disk {
-            if season.size_bytes > disk.free_bytes {
+            if season.sync_status.missing_bytes > disk.free_bytes {
+                spans.push(Span::raw(" "));
                 spans.push(Span::styled(
                     "🚫 No Space",
                     Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
@@ -241,9 +252,44 @@ fn build_season_line<'a>(
     Line::from(spans)
 }
 
+fn build_season_sync_badge(season: &MediaSeason, dir: TransferDirection) -> Span<'static> {
+    match dir {
+        TransferDirection::Push => {
+            if season.sync_status.is_all_in_other() {
+                Span::styled("[☁️ In Cloud] ", Style::default().fg(Color::Green))
+            } else if season.sync_status.is_partial() {
+                let f = season.sync_status.other_files;
+                let t = season.sync_status.total_files;
+                Span::styled(
+                    format!("[☁️ Part {f}/{t}f] "),
+                    Style::default().fg(Color::Yellow),
+                )
+            } else {
+                Span::styled("[💾 SSD Only] ", Style::default().fg(Color::Cyan))
+            }
+        }
+        TransferDirection::Pull => {
+            if season.sync_status.is_all_in_other() {
+                Span::styled("[💾 On SSD]   ", Style::default().fg(Color::Green))
+            } else if season.sync_status.is_partial() {
+                let f = season.sync_status.other_files;
+                let t = season.sync_status.total_files;
+                let need = disk::format_bytes(season.sync_status.missing_bytes);
+                Span::styled(
+                    format!("[💾 Part {f}/{t}f (need {need})] "),
+                    Style::default().fg(Color::Yellow),
+                )
+            } else {
+                Span::styled("[☁️ Cloud Only] ", Style::default().fg(Color::DarkGray))
+            }
+        }
+    }
+}
+
 fn render_subview_footer(f: &mut Frame, area: Rect) {
     let shortcuts = [
         ("[Space]", "Toggle Season"),
+        ("[v]", "View Files"),
         ("[a]", "Select All"),
         ("[n]", "Deselect All"),
         ("[Esc]/[Enter]", "Done (Back to Main)"),

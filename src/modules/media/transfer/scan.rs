@@ -3,24 +3,57 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use super::{MediaCategory, MediaItem, MediaSeason};
+use super::{MediaCategory, MediaFile, MediaItem, MediaSeason, SyncStatus};
 
-pub fn calculate_dir_size(path: &Path) -> u64 {
+pub fn collect_dir_files(path: &Path, rel_prefix: &str) -> Vec<MediaFile> {
+    let mut files = Vec::new();
     if path.is_file() {
-        return fs::metadata(path).map_or(0, |m| m.len());
+        let name = path
+            .file_name()
+            .map_or_else(String::new, |n| n.to_string_lossy().to_string());
+        let size = fs::metadata(path).map_or(0, |m| m.len());
+        files.push(MediaFile {
+            name: name.clone(),
+            rel_path: if rel_prefix.is_empty() {
+                name
+            } else {
+                format!("{rel_prefix}/{name}")
+            },
+            size_bytes: size,
+            exists_in_other: false,
+        });
+        return files;
     }
-    let mut total: u64 = 0;
-    if let Ok(entries) = fs::read_dir(path) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.is_file() {
-                total = total.saturating_add(fs::metadata(&p).map_or(0, |m| m.len()));
-            } else if p.is_dir() {
-                total = total.saturating_add(calculate_dir_size(&p));
-            }
+
+    let Ok(entries) = fs::read_dir(path) else {
+        return files;
+    };
+
+    for entry in entries.flatten() {
+        let p = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        let sub_rel = if rel_prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{rel_prefix}/{name}")
+        };
+        if p.is_file() {
+            let size = fs::metadata(&p).map_or(0, |m| m.len());
+            files.push(MediaFile {
+                name,
+                rel_path: sub_rel,
+                size_bytes: size,
+                exists_in_other: false,
+            });
+        } else if p.is_dir() {
+            files.extend(collect_dir_files(&p, &sub_rel));
         }
     }
-    total
+    files.sort_by_key(|a| a.name.to_lowercase());
+    files
 }
 
 pub fn scan_local_media(home: &Path) -> Vec<MediaItem> {
@@ -50,16 +83,14 @@ fn scan_local_category(base: &Path, folder: &str, cat: MediaCategory, items: &mu
         }
 
         let remote_rel = format!("media/{}/{}", cat.remote_folder(), name);
-        let seasons = if cat == MediaCategory::Movie {
-            Vec::new()
+        let (seasons, files, size) = if cat == MediaCategory::Movie {
+            let f = collect_dir_files(&path, "");
+            let s: u64 = f.iter().map(|it| it.size_bytes).sum();
+            (Vec::new(), f, s)
         } else {
-            detect_seasons(&path, &remote_rel, true)
-        };
-
-        let size = if seasons.is_empty() {
-            calculate_dir_size(&path)
-        } else {
-            seasons.iter().map(|s| s.size_bytes).sum()
+            let ssn = detect_seasons(&path, &remote_rel, true);
+            let s: u64 = ssn.iter().map(|s| s.size_bytes).sum();
+            (ssn, Vec::new(), s)
         };
 
         items.push(MediaItem {
@@ -70,6 +101,8 @@ fn scan_local_category(base: &Path, folder: &str, cat: MediaCategory, items: &mu
             local_path: Some(path),
             remote_path: remote_rel,
             seasons,
+            files,
+            sync_status: SyncStatus::default(),
         });
     }
 }
@@ -111,16 +144,14 @@ fn scan_remote_mounted(base: &Path, folder: &str, cat: MediaCategory, items: &mu
         }
 
         let remote_path = format!("media/{folder}/{name}");
-        let seasons = if cat == MediaCategory::Movie {
-            Vec::new()
+        let (seasons, files, size) = if cat == MediaCategory::Movie {
+            let f = collect_dir_files(&entry.path(), "");
+            let s: u64 = f.iter().map(|it| it.size_bytes).sum();
+            (Vec::new(), f, s)
         } else {
-            detect_seasons(&entry.path(), &remote_path, false)
-        };
-
-        let size = if seasons.is_empty() {
-            calculate_dir_size(&entry.path())
-        } else {
-            seasons.iter().map(|s| s.size_bytes).sum()
+            let ssn = detect_seasons(&entry.path(), &remote_path, false);
+            let s: u64 = ssn.iter().map(|s| s.size_bytes).sum();
+            (ssn, Vec::new(), s)
         };
 
         items.push(MediaItem {
@@ -131,6 +162,8 @@ fn scan_remote_mounted(base: &Path, folder: &str, cat: MediaCategory, items: &mu
             local_path: None,
             remote_path,
             seasons,
+            files,
+            sync_status: SyncStatus::default(),
         });
     }
 }
@@ -155,7 +188,8 @@ fn detect_seasons(dir_path: &Path, remote_base: &str, is_local: bool) -> Vec<Med
     subdirs.sort_by_key(|(name, _)| name.to_lowercase());
 
     for (name, path) in subdirs {
-        let size = calculate_dir_size(&path);
+        let files = collect_dir_files(&path, "");
+        let size: u64 = files.iter().map(|f| f.size_bytes).sum();
         let remote_path = format!("{remote_base}/{name}");
         seasons.push(MediaSeason {
             title: name,
@@ -163,6 +197,8 @@ fn detect_seasons(dir_path: &Path, remote_base: &str, is_local: bool) -> Vec<Med
             local_path: if is_local { Some(path) } else { None },
             remote_path,
             is_selected: false,
+            files,
+            sync_status: SyncStatus::default(),
         });
     }
 
@@ -196,6 +232,8 @@ fn scan_remote_via_rclone(
             local_path: None,
             remote_path,
             seasons: Vec::new(),
+            files: Vec::new(),
+            sync_status: SyncStatus::default(),
         });
     }
     Ok(())
