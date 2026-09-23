@@ -1,9 +1,11 @@
 use anyhow::Result;
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use super::{MediaCategory, MediaFile, MediaItem, MediaSeason, SyncStatus};
+use super::cache::MediaScanCache;
+use super::{MediaCategory, MediaFile, MediaItem, SyncStatus};
 
 pub fn collect_dir_files(path: &Path, rel_prefix: &str) -> Vec<MediaFile> {
     let mut files = Vec::new();
@@ -56,20 +58,64 @@ pub fn collect_dir_files(path: &Path, rel_prefix: &str) -> Vec<MediaFile> {
     files
 }
 
-pub fn scan_local_media(home: &Path) -> Vec<MediaItem> {
+pub fn scan_libraries(home: &Path) -> Result<(Vec<MediaItem>, Vec<MediaItem>)> {
+    let mut cache = super::cache::load_cache(home);
+    let mut local = scan_local_media(home, &mut cache);
+    let mut remote = scan_remote_media(home, &mut cache)?;
+    super::cross_reference_libraries(&mut local, &mut remote);
+    let _ = cache.save(home);
+    Ok((local, remote))
+}
+
+pub fn rescan_libraries(home: &Path) -> Result<(Vec<MediaItem>, Vec<MediaItem>)> {
+    let _ = MediaScanCache::invalidate(home);
+    scan_libraries(home)
+}
+
+pub fn scan_local_media(home: &Path, cache: &mut MediaScanCache) -> Vec<MediaItem> {
     let mut items = Vec::new();
+    let mut found_keys = HashSet::new();
     let media_base = home.join("jellyfin/media");
 
-    scan_local_category(&media_base, "movies", MediaCategory::Movie, &mut items);
-    scan_local_category(&media_base, "shows", MediaCategory::Show, &mut items);
-    scan_local_category(&media_base, "anime", MediaCategory::Anime, &mut items);
+    scan_local_category(
+        &media_base,
+        "movies",
+        MediaCategory::Movie,
+        &mut items,
+        &mut found_keys,
+        cache,
+    );
+    scan_local_category(
+        &media_base,
+        "shows",
+        MediaCategory::Show,
+        &mut items,
+        &mut found_keys,
+        cache,
+    );
+    scan_local_category(
+        &media_base,
+        "anime",
+        MediaCategory::Anime,
+        &mut items,
+        &mut found_keys,
+        cache,
+    );
 
+    cache.local_items.retain(|k, _| found_keys.contains(k));
     tag_watched_local(&mut items);
     items.sort_by_key(|a| a.title.to_lowercase());
     items
 }
 
-fn scan_local_category(base: &Path, folder: &str, cat: MediaCategory, items: &mut Vec<MediaItem>) {
+fn scan_local_category(
+    base: &Path,
+    folder: &str,
+    cat: MediaCategory,
+    items: &mut Vec<MediaItem>,
+    found_keys: &mut HashSet<String>,
+    cache: &mut MediaScanCache,
+) {
     let cat_dir = base.join(folder);
     let Ok(entries) = fs::read_dir(&cat_dir) else {
         return;
@@ -82,13 +128,13 @@ fn scan_local_category(base: &Path, folder: &str, cat: MediaCategory, items: &mu
             continue;
         }
 
+        found_keys.insert(format!("{}/{}", cat.as_str(), name));
         let remote_rel = format!("media/{}/{}", cat.remote_folder(), name);
         let (seasons, files, size) = if cat == MediaCategory::Movie {
-            let f = collect_dir_files(&path, "");
-            let s: u64 = f.iter().map(|it| it.size_bytes).sum();
+            let (f, s) = cache.get_or_scan_movie(&path, &name, cat, true);
             (Vec::new(), f, s)
         } else {
-            let ssn = detect_seasons(&path, &remote_rel, true);
+            let ssn = cache.get_or_scan_seasons(&path, &remote_rel, true, cat, &name);
             let s: u64 = ssn.iter().map(|s| s.size_bytes).sum();
             (ssn, Vec::new(), s)
         };
@@ -107,20 +153,45 @@ fn scan_local_category(base: &Path, folder: &str, cat: MediaCategory, items: &mu
     }
 }
 
-pub fn scan_remote_media(home: &Path) -> Result<Vec<MediaItem>> {
+pub fn scan_remote_media(home: &Path, cache: &mut MediaScanCache) -> Result<Vec<MediaItem>> {
     let mut items = Vec::new();
+    let mut found_keys = HashSet::new();
     let gdrive_media = home.join("gdrive/media");
 
     if gdrive_media.exists() {
-        scan_remote_mounted(&gdrive_media, "movie", MediaCategory::Movie, &mut items);
-        scan_remote_mounted(&gdrive_media, "anime", MediaCategory::Anime, &mut items);
+        scan_remote_mounted(
+            &gdrive_media,
+            "movie",
+            MediaCategory::Movie,
+            &mut items,
+            &mut found_keys,
+            cache,
+        );
+        scan_remote_mounted(
+            &gdrive_media,
+            "anime",
+            MediaCategory::Anime,
+            &mut items,
+            &mut found_keys,
+            cache,
+        );
         scan_remote_mounted(
             &gdrive_media,
             "anime/movie",
             MediaCategory::Anime,
             &mut items,
+            &mut found_keys,
+            cache,
         );
-        scan_remote_mounted(&gdrive_media, "shows", MediaCategory::Show, &mut items);
+        scan_remote_mounted(
+            &gdrive_media,
+            "shows",
+            MediaCategory::Show,
+            &mut items,
+            &mut found_keys,
+            cache,
+        );
+        cache.remote_items.retain(|k, _| found_keys.contains(k));
     } else {
         scan_remote_via_rclone("media/movie", MediaCategory::Movie, &mut items)?;
         scan_remote_via_rclone("media/anime", MediaCategory::Anime, &mut items)?;
@@ -131,7 +202,14 @@ pub fn scan_remote_media(home: &Path) -> Result<Vec<MediaItem>> {
     Ok(items)
 }
 
-fn scan_remote_mounted(base: &Path, folder: &str, cat: MediaCategory, items: &mut Vec<MediaItem>) {
+fn scan_remote_mounted(
+    base: &Path,
+    folder: &str,
+    cat: MediaCategory,
+    items: &mut Vec<MediaItem>,
+    found_keys: &mut HashSet<String>,
+    cache: &mut MediaScanCache,
+) {
     let folder_path = base.join(folder);
     let Ok(entries) = fs::read_dir(folder_path) else {
         return;
@@ -143,13 +221,13 @@ fn scan_remote_mounted(base: &Path, folder: &str, cat: MediaCategory, items: &mu
             continue;
         }
 
+        found_keys.insert(format!("{}/{}", cat.as_str(), name));
         let remote_path = format!("media/{folder}/{name}");
         let (seasons, files, size) = if cat == MediaCategory::Movie {
-            let f = collect_dir_files(&entry.path(), "");
-            let s: u64 = f.iter().map(|it| it.size_bytes).sum();
+            let (f, s) = cache.get_or_scan_movie(&entry.path(), &name, cat, false);
             (Vec::new(), f, s)
         } else {
-            let ssn = detect_seasons(&entry.path(), &remote_path, false);
+            let ssn = cache.get_or_scan_seasons(&entry.path(), &remote_path, false, cat, &name);
             let s: u64 = ssn.iter().map(|s| s.size_bytes).sum();
             (ssn, Vec::new(), s)
         };
@@ -166,43 +244,6 @@ fn scan_remote_mounted(base: &Path, folder: &str, cat: MediaCategory, items: &mu
             sync_status: SyncStatus::default(),
         });
     }
-}
-
-fn detect_seasons(dir_path: &Path, remote_base: &str, is_local: bool) -> Vec<MediaSeason> {
-    let mut seasons = Vec::new();
-    let Ok(entries) = fs::read_dir(dir_path) else {
-        return seasons;
-    };
-
-    let mut subdirs = Vec::new();
-    for entry in entries.flatten() {
-        let p = entry.path();
-        if p.is_dir() {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if !name.starts_with('.') {
-                subdirs.push((name, p));
-            }
-        }
-    }
-
-    subdirs.sort_by_key(|(name, _)| name.to_lowercase());
-
-    for (name, path) in subdirs {
-        let files = collect_dir_files(&path, "");
-        let size: u64 = files.iter().map(|f| f.size_bytes).sum();
-        let remote_path = format!("{remote_base}/{name}");
-        seasons.push(MediaSeason {
-            title: name,
-            size_bytes: size,
-            local_path: if is_local { Some(path) } else { None },
-            remote_path,
-            is_selected: false,
-            files,
-            sync_status: SyncStatus::default(),
-        });
-    }
-
-    seasons
 }
 
 fn scan_remote_via_rclone(

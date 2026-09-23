@@ -266,6 +266,10 @@ fn handle_main_key(code: KeyCode, state: &mut AppState) -> Option<bool> {
             state.warning_msg = None;
             None
         }
+        KeyCode::Char('r' | 'R') => {
+            state.reload_libraries();
+            None
+        }
         KeyCode::Char('q') | KeyCode::Esc => Some(false),
         _ => None,
     }

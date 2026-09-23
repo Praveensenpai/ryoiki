@@ -1,12 +1,14 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::{MediaCategory, MediaItem, MediaSeason};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaFile {
     pub name: String,
     pub rel_path: String,
     pub size_bytes: u64,
+    #[serde(default)]
     pub exists_in_other: bool,
 }
 

@@ -96,23 +96,24 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: Deploys `ryoiki-strip-retry.{service,timer}` under `~/.config/systemd/user/`; fires `ryoiki audio retry` every hour; status exposed in `ryoiki storage`.
 - **Public Functions**: `pub fn deploy_retry_timer(home: &str) -> Result<()>`, `pub fn is_timer_active() -> bool`.
 
-#### `src/modules/media/transfer.rs` & `transfer/*.rs` (Role: Library Sync & Archive Transfer, Lines: ~850 total)
-- **Responsibility**: Manages bi-directional migration (push to cold archive, pull from archive) with sync status cross-referencing and delta calculation.
-- **Sub-modules**: `scan.rs` (dual-threaded file inventory & size collector), `sync_status.rs` (cross-references local SSD and remote archive items/seasons at the file level), `execute.rs` (rclone transfer orchestration with missing file delta summaries).
+#### `src/modules/media/transfer.rs` & `transfer/*.rs` (Role: Library Sync & Archive Transfer, Lines: ~1100 total)
+- **Responsibility**: Manages bi-directional migration (push to cold archive, pull from archive) with sync status cross-referencing, delta calculation, and persistent mtime scan caching.
+- **Sub-modules**: `scan.rs` (dual-threaded file inventory & size collector), `cache.rs` (hierarchical mtime cache at `~/.cache/ryoiki/media_cache.json`), `sync_status.rs` (cross-references local SSD and remote archive items/seasons at the file level), `execute.rs` (rclone transfer orchestration with missing file delta summaries).
 - **Types**:
-  - `MediaFile`: `{ name: String, size_bytes: u64, exists_in_target: bool }`
-  - `SyncStatus`: `CloudOnly`, `OnLocalDisk`, `InCloudArchive`, `LocalDiskOnly`, `PartiallyInCloud { present_files, total_files, missing_bytes }`, `PartiallyOnLocalDisk { present_files, total_files, missing_bytes }`
+  - `MediaFile`: `{ name: String, rel_path: String, size_bytes: u64, exists_in_other: bool }`
+  - `SyncStatus`: `total_files`, `other_files`, `total_bytes`, `missing_bytes`.
+  - `MediaScanCache`: `{ version: u32, local_items: HashMap<String, CachedItem>, remote_items: HashMap<String, CachedItem> }`
 - **Public Functions**:
+  - `pub fn scan_libraries(home: &Path) -> Result<(Vec<MediaItem>, Vec<MediaItem>)>`
+  - `pub fn rescan_libraries(home: &Path) -> Result<(Vec<MediaItem>, Vec<MediaItem>)>`
   - `pub fn cross_reference_libraries(local: &mut [MediaItem], remote: &mut [MediaItem])`
-  - `pub fn scan_local_library(root: &Path) -> Result<Vec<MediaItem>>`
-  - `pub fn scan_remote_archive(root: &Path) -> Result<Vec<MediaItem>>`
 
 #### `src/modules/media/pruner.rs`, `pruner/scan.rs`, `pruner/execute.rs` & `prune_timer.rs` (Role: Retention Janitor, Lines: ~195 / ~87 / ~198 / ~95)
 - **Responsibility**: Automated disk cleanup rules evicting cold/watched media to Google Drive cold storage (`gdrive:ryoiki-archive/media/`) on 1h timer or 80% watermark; failure detection and Telegram alert reporting.
 - **Public Functions**: `pub fn run_prune(opts: PruneOptions) -> Result<()>`, `pub fn handle_bot_prune() -> Result<String>`, `pub fn is_timer_active() -> bool`.
 
 #### `src/modules/media/interactive/` (Role: Media TUI Reviewer & Drilldown, Lines: ~1500 total)
-- **Responsibility**: Interactive terminal review and transfer selector (`events.rs`, `ui/main_view.rs`, `ui/sub_view.rs`, `ui/files_view.rs`). Shows bidirectional sync badges, calculates exact delta download bytes, and supports drill-down file inspections.
+- **Responsibility**: Interactive terminal review and transfer selector (`events.rs`, `selection.rs`, `ui/main_view.rs`, `ui/sub_view.rs`, `ui/files_view.rs`). Shows bidirectional sync badges, calculates exact delta download bytes, supports drill-down file inspections, and interactive `[r]` rescan.
 - **View Modes**: `MainView`, `SubView { item_idx, cursor }`, `FilesView { item_idx, season_idx, cursor }`.
 - **Public Functions**: `pub fn run_interactive_transfer(direction: TransferDirection, target_root: &Path, remote_root: &Path, local_items: Vec<MediaItem>, remote_items: Vec<MediaItem>) -> Result<()>`.
 
@@ -178,6 +179,7 @@ cargo fmt --check
 ```
 
 ## 6. Recent Iteration Changes
+- **2026-09-23**: Added hierarchical mtime-based media scan caching (`src/modules/media/transfer/cache.rs`) persisted at `~/.cache/ryoiki/media_cache.json` for both local SSD and Google Drive archive. Bypasses recursive filesystem and FUSE directory traversals by comparing item/season folder modification timestamps; extracted `src/modules/media/interactive/selection.rs` to maintain strict `<400 lines/file` modular limits; added interactive `[r] Refresh` key in TUI to force cache invalidation. Bumped version to `v0.1.61`.
 - **2026-09-23**: Added bidirectional library presence cross-referencing and partial folder sync indicators between local library (`~/jellyfin/media`) and remote cloud archive (`~/gdrive/media`). Populated file-level inventory during library scanning; introduced `SyncStatus` with file-count and missing-byte tracking; added interactive drill-down file viewer (`FilesView`) in TUI (`Enter` / `v`); upgraded pull mode storage calculation to only count delta missing bytes. Bumped version to `v0.1.60`.
 - **2026-09-23**: Synchronized dubstrip origin confidence handling and Telegram alerts. Added `sync_filename_after_strip` in `src/modules/media/audio.rs` to dynamically update `[Multi]` filename tags to `[<Language>]` (e.g. `[Tamil]`) when dubstrip successfully isolates the native track, while preserving `[Multi]` if dubstrip keeps multi-audio due to uncertain/low origin confidence (<80%). Updated `src/notify/system.rs` (`send_audio_strip_notification`) to format cards as `AUDIO PRESERVED AS MULTI` with confidence ratings when multi-audio is kept, and `AUDIO DUB TRACKS STRIPPED` when dubs are removed. Bumped version to `v0.1.59`.
 - **2026-09-23**: Added persistent dubstrip retry queue (`audio/strip_queue.rs`: JSON queue at `~/.local/share/ryoiki/pending_strips.json`, max 24 attempts) and hourly systemd user timer (`audio/retry_timer.rs`: `ryoiki-strip-retry.{service,timer}`). `strip_audio_auto` enqueues on failure instead of silently logging. `AudioSubcommand::Retry` processes queue non-interactively (invoked by timer). Timer deployed in `dubstrip.rs::setup`. `retry_timer::is_timer_active()` wired into `status.rs::print_automation_status()` — visible as `Strip Retry` row under `ryoiki storage`.

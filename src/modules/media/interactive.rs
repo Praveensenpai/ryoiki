@@ -1,4 +1,5 @@
 pub mod events;
+pub mod selection;
 pub mod ui;
 
 use anyhow::Result;
@@ -9,8 +10,9 @@ use crossterm::{
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::io;
+use std::path::{Path, PathBuf};
 
-use super::disk::{self, DiskUsage};
+use super::disk::DiskUsage;
 use super::transfer::{MediaCategory, MediaItem, TransferDirection};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,6 +63,7 @@ pub enum ViewMode {
 }
 
 pub struct AppState {
+    pub home_path: PathBuf,
     pub direction: TransferDirection,
     pub local_items: Vec<MediaItem>,
     pub remote_items: Vec<MediaItem>,
@@ -79,10 +82,12 @@ impl AppState {
         remote: Vec<MediaItem>,
         dir: TransferDirection,
         local_disk: Option<DiskUsage>,
+        home_path: PathBuf,
     ) -> Self {
         let local_len = local.len();
         let remote_len = remote.len();
         Self {
+            home_path,
             direction: dir,
             local_items: local,
             remote_items: remote,
@@ -182,138 +187,25 @@ impl AppState {
         }
     }
 
+    pub fn reload_libraries(&mut self) {
+        if let Ok((local, remote)) = super::transfer::rescan_libraries(&self.home_path) {
+            let local_len = local.len();
+            let remote_len = remote.len();
+            self.local_items = local;
+            self.remote_items = remote;
+            self.local_selected = vec![false; local_len];
+            self.remote_selected = vec![false; remote_len];
+            self.cursor = 0;
+            self.warning_msg = Some("✨ Cache refreshed from disk and cloud".to_string());
+        }
+    }
+
     pub fn toggle_main_item(&mut self, real_idx: usize) {
-        let has_seasons = self
-            .current_items()
-            .get(real_idx)
-            .is_some_and(MediaItem::has_seasons);
-
-        if has_seasons {
-            self.toggle_show_seasons(real_idx);
-        } else {
-            self.toggle_single_item(real_idx);
-        }
-    }
-
-    fn toggle_show_seasons(&mut self, real_idx: usize) {
-        let (all_sel, needed) = {
-            let Some(item) = self.current_items().get(real_idx) else {
-                return;
-            };
-            let all = item.are_all_seasons_selected();
-            let n: u64 = if self.direction == TransferDirection::Pull {
-                item.seasons
-                    .iter()
-                    .filter(|s| !s.is_selected)
-                    .map(|s| s.sync_status.missing_bytes)
-                    .sum()
-            } else {
-                item.seasons
-                    .iter()
-                    .filter(|s| !s.is_selected)
-                    .map(|s| s.size_bytes)
-                    .sum()
-            };
-            (all, n)
-        };
-
-        if all_sel {
-            if let Some(item) = self.current_items_mut().get_mut(real_idx) {
-                for s in &mut item.seasons {
-                    s.is_selected = false;
-                }
-            }
-            self.warning_msg = None;
-            return;
-        }
-
-        if !self.can_add_bytes(needed) {
-            let free = self.remaining_free_bytes().unwrap_or(0);
-            self.warning_msg = Some(format!(
-                "⚠️ Show exceeds free space (free: {}, need: {})",
-                disk::format_bytes(free),
-                disk::format_bytes(needed)
-            ));
-            return;
-        }
-
-        if let Some(item) = self.current_items_mut().get_mut(real_idx) {
-            for s in &mut item.seasons {
-                s.is_selected = true;
-            }
-        }
-        self.warning_msg = None;
-    }
-
-    fn toggle_single_item(&mut self, real_idx: usize) {
-        let item_needed = if self.direction == TransferDirection::Pull {
-            self.current_items()
-                .get(real_idx)
-                .map_or(0, |it| it.sync_status.missing_bytes)
-        } else {
-            self.current_items()
-                .get(real_idx)
-                .map_or(0, |it| it.size_bytes)
-        };
-        let is_sel = self
-            .current_selected()
-            .get(real_idx)
-            .copied()
-            .unwrap_or(false);
-
-        if is_sel {
-            if let Some(val) = self.current_selected().get_mut(real_idx) {
-                *val = false;
-            }
-            self.warning_msg = None;
-            return;
-        }
-
-        if !self.can_add_bytes(item_needed) {
-            let free = self.remaining_free_bytes().unwrap_or(0);
-            self.warning_msg = Some(format!(
-                "⚠️ Exceeds free storage (free: {}, need: {})",
-                disk::format_bytes(free),
-                disk::format_bytes(item_needed)
-            ));
-            return;
-        }
-
-        if let Some(val) = self.current_selected().get_mut(real_idx) {
-            *val = true;
-        }
-        self.warning_msg = None;
+        selection::toggle_main_item(self, real_idx);
     }
 
     pub fn collect_transfer_items(&self) -> Vec<MediaItem> {
-        let mut result = Vec::new();
-        let (items, selected_mask) = match self.direction {
-            TransferDirection::Push => (&self.local_items, &self.local_selected),
-            TransferDirection::Pull => (&self.remote_items, &self.remote_selected),
-        };
-
-        for (idx, item) in items.iter().enumerate() {
-            if item.has_seasons() {
-                for season in &item.seasons {
-                    if season.is_selected {
-                        result.push(MediaItem {
-                            title: format!("{} - {}", item.title, season.title),
-                            category: item.category,
-                            size_bytes: season.size_bytes,
-                            is_watched: false,
-                            local_path: season.local_path.clone(),
-                            remote_path: season.remote_path.clone(),
-                            seasons: Vec::new(),
-                            files: season.files.clone(),
-                            sync_status: season.sync_status,
-                        });
-                    }
-                }
-            } else if selected_mask.get(idx).copied().unwrap_or(false) {
-                result.push(item.clone());
-            }
-        }
-        result
+        selection::collect_transfer_items(self)
     }
 }
 
@@ -322,6 +214,7 @@ pub fn run_interactive_tui(
     remote: Vec<MediaItem>,
     dir: TransferDirection,
     local_disk: Option<DiskUsage>,
+    home_path: &Path,
 ) -> Result<Option<(TransferDirection, Vec<MediaItem>)>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -329,7 +222,7 @@ pub fn run_interactive_tui(
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut state = AppState::new(local, remote, dir, local_disk);
+    let mut state = AppState::new(local, remote, dir, local_disk, home_path.to_path_buf());
     let confirmed = run_event_loop(&mut terminal, &mut state)?;
 
     disable_raw_mode()?;

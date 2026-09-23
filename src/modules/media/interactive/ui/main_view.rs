@@ -375,8 +375,9 @@ fn render_main_footer(f: &mut Frame, area: Rect) {
     let shortcuts = [
         ("[Space]", "Toggle"),
         ("[Enter]", "Open"),
-        ("[v]", "View Files"),
-        ("[p]", "Proceed Transfer"),
+        ("[v]", "Files"),
+        ("[r]", "Refresh"),
+        ("[p]", "Transfer"),
         ("[Tab]", "Mode"),
         ("[f]", "Filter"),
         ("[q]", "Quit"),

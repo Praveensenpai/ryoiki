@@ -1,12 +1,14 @@
+pub mod cache;
 pub mod execute;
 pub mod notify;
 pub mod scan;
 pub mod sync_status;
 
 pub use execute::{confirm_transfer, execute_transfer};
-pub use scan::{scan_local_media, scan_remote_media};
+pub use scan::{rescan_libraries, scan_libraries};
 pub use sync_status::{cross_reference_libraries, MediaFile, SyncStatus};
 
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,7 +17,7 @@ pub enum TransferDirection {
     Pull,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MediaCategory {
     Movie,
     Show,
