@@ -66,7 +66,13 @@ fn print_automation_status() {
     } else {
         "✖ inactive".dimmed()
     };
+    let retry_st = if super::audio::retry_timer::is_timer_active() {
+        "✔ active (every 1h)".green()
+    } else {
+        "✖ inactive".dimmed()
+    };
     println!("  • Automation Timers:");
     println!("    Daily Media Sync: {sync_st}");
-    println!("    Storage Pruner:   {prune_st}\n");
+    println!("    Storage Pruner:   {prune_st}");
+    println!("    Strip Retry:      {retry_st}\n");
 }

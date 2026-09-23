@@ -1,3 +1,6 @@
+pub mod retry_timer;
+pub mod strip_queue;
+
 use anyhow::{Context, Result};
 use clap::Subcommand;
 use colored::Colorize;
@@ -39,6 +42,8 @@ pub enum AudioSubcommand {
         #[arg(long)]
         force: bool,
     },
+    /// Process the pending strip retry queue (runs hourly via systemd)
+    Retry,
 }
 
 /// Locates the installed `dubstrip` binary in PATH or user's local bin.
@@ -64,6 +69,13 @@ pub fn find_dubstrip_bin() -> Option<PathBuf> {
 
 /// Dispatches CLI subcommands to the standalone `dubstrip` engine.
 pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
+    match sub {
+        AudioSubcommand::Retry => return handle_retry(),
+        AudioSubcommand::Inspect { .. }
+        | AudioSubcommand::Strip { .. }
+        | AudioSubcommand::Sweep { .. } => {}
+    }
+
     let Some(bin) = find_dubstrip_bin() else {
         println!(
             "\n  {} dubstrip utility not found in PATH or ~/.local/bin/dubstrip",
@@ -98,6 +110,7 @@ pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
             append_flags(&mut cmd, auto, dry_run, force);
             cmd.arg(path);
         }
+        AudioSubcommand::Retry => unreachable!(),
     }
 
     let status = cmd.status().context("Failed to invoke dubstrip process")?;
@@ -105,6 +118,17 @@ pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
         anyhow::bail!("dubstrip exited with status: {status}");
     }
     Ok(())
+}
+
+fn handle_retry() -> Result<()> {
+    let Some(bin) = find_dubstrip_bin() else {
+        println!(
+            "  {} dubstrip not found — skipping retry queue",
+            "•".dimmed()
+        );
+        return Ok(());
+    };
+    strip_queue::process_queue(&bin)
 }
 
 fn append_flags(cmd: &mut Command, auto: bool, dry_run: bool, force: bool) {
@@ -120,6 +144,7 @@ fn append_flags(cmd: &mut Command, auto: bool, dry_run: bool, force: bool) {
 }
 
 /// Automatically strips redundant dub tracks from an organized media file.
+/// On failure, enqueues the path for hourly retry (up to 24 attempts).
 pub fn strip_audio_auto(path: &Path) {
     let Some(bin) = find_dubstrip_bin() else {
         return;
@@ -129,26 +154,21 @@ pub fn strip_audio_auto(path: &Path) {
         "  {} Verifying native audio tracks via dubstrip...",
         "🗡️".cyan()
     );
-    match Command::new(bin)
+
+    let succeeded = Command::new(&bin)
         .args(["strip", "--auto", "--force"])
         .arg(path)
         .status()
-    {
-        Ok(status) if status.success() => {
-            println!(
-                "  {} Audio stream optimization complete",
-                "✔".green().bold()
-            );
-        }
-        Ok(status) => {
-            println!(
-                "  {} dubstrip completed with status: {status}",
-                "ℹ".dimmed()
-            );
-        }
-        Err(err) => {
-            eprintln!("  ⚠️ dubstrip execution error: {err}");
-        }
+        .is_ok_and(|s| s.success());
+
+    if succeeded {
+        println!(
+            "  {} Audio stream optimization complete",
+            "✔".green().bold()
+        );
+    } else {
+        eprintln!("  ⚠️ dubstrip failed — enqueueing for hourly retry");
+        strip_queue::enqueue(path);
     }
 }
 

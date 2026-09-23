@@ -18,6 +18,9 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
         prompt_gemini_key_if_missing()?;
     }
 
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    crate::modules::media::audio::retry_timer::deploy_retry_timer(&home)?;
+
     Ok(())
 }
 

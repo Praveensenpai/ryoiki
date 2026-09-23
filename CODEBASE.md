@@ -82,8 +82,19 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 #### `src/modules/media/probe.rs` (Role: FFprobe Inspector, Lines: ~250)
 - **Responsibility**: Inspects video files for container codecs, audio stream count (bypassing single-audio streams), audio tracks, and subtitle tracks via `ffprobe`.
 
-#### `src/modules/media/audio.rs` (Role: Dubstrip Audio Transcoder, Lines: ~210)
-- **Responsibility**: Strips unwanted foreign audio tracks or retains specified languages via `ffmpeg`.
+#### `src/modules/media/audio.rs` (Role: Dubstrip Audio Dispatcher, Lines: ~185)
+- **Responsibility**: CLI dispatch for `dubstrip` binary; auto-strip on organize with enqueue-on-failure.
+- **Sub-modules**: `strip_queue`, `retry_timer`.
+- **Public Functions**: `pub fn handle_cli(sub: AudioSubcommand) -> Result<()>`, `pub fn strip_audio_auto(path: &Path)`, `pub fn find_dubstrip_bin() -> Option<PathBuf>`.
+- **Subcommand enum**: `AudioSubcommand` — `Inspect`, `Strip`, `Sweep`, `Retry`.
+
+#### `src/modules/media/audio/strip_queue.rs` (Role: Persistent Retry Queue, Lines: ~119)
+- **Responsibility**: JSON queue at `~/.local/share/ryoiki/pending_strips.json`; stores `{ path, attempts, enqueued_secs }`; max 24 attempts per entry.
+- **Public Functions**: `pub fn enqueue(path: &Path)`, `pub fn process_queue(dubstrip_bin: &Path) -> Result<()>`.
+
+#### `src/modules/media/audio/retry_timer.rs` (Role: Systemd Hourly Timer, Lines: ~88)
+- **Responsibility**: Deploys `ryoiki-strip-retry.{service,timer}` under `~/.config/systemd/user/`; fires `ryoiki audio retry` every hour; status exposed in `ryoiki storage`.
+- **Public Functions**: `pub fn deploy_retry_timer(home: &str) -> Result<()>`, `pub fn is_timer_active() -> bool`.
 
 #### `src/modules/media/transfer.rs` & `transfer/*.rs` (Role: File Migration, Lines: ~340 total)
 - **Responsibility**: Safely moves/hardlinks processed media into organized destination library paths with atomic renaming.
@@ -157,6 +168,7 @@ cargo fmt --check
 ```
 
 ## 6. Recent Iteration Changes
+- **2026-09-23**: Added persistent dubstrip retry queue (`audio/strip_queue.rs`: JSON queue at `~/.local/share/ryoiki/pending_strips.json`, max 24 attempts) and hourly systemd user timer (`audio/retry_timer.rs`: `ryoiki-strip-retry.{service,timer}`). `strip_audio_auto` enqueues on failure instead of silently logging. `AudioSubcommand::Retry` processes queue non-interactively (invoked by timer). Timer deployed in `dubstrip.rs::setup`. `retry_timer::is_timer_active()` wired into `status.rs::print_automation_status()` — visible as `Strip Retry` row under `ryoiki storage`.
 - **2026-09-20**: Resolved multi-season anime directory fragmentation (e.g. Non Non Biyori sequels). Implemented franchise prefix directory resolution and destination filename canonicalization in `src/modules/media/organizer/pathing.rs`. Enhanced Gemini AI prompt in `src/modules/media/ai/prompt.rs` to enforce canonical base franchise titles across multi-season batches and sequels. Bumped version to `v0.1.57`.
 - **2026-09-18**: Added system and container timezone auto-detection and custom configuration module (`src/modules/timezone.rs`). Supports querying IP geolocation providers (`ip-api.com`, `ipapi.co`, `ipinfo.io`) with automatic fallback, interactive prompt selection, custom IANA override, and dynamic `TZ` environment injection into the qBittorrent container. Added `ryoiki timezone` CLI command (`--auto`, `--status`, `--provider <PROVIDER>`). Bumped version to `v0.1.53`.
 - **2026-09-18**: Fixed qBittorrent torrents JSON deserialization error on `metaDL` downloads by updating `TorrentInfo::total_size` from `u64` to signed `i64` and safely formatting negative sizes as `"Unknown"` in status and notification reports. Added pathing safeguards in `organizer.rs` for empty `content_path`. Bumped version to `v0.1.52`.
