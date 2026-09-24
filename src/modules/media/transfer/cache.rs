@@ -99,7 +99,7 @@ impl MediaScanCache {
         };
 
         if let Some(cached) = cache_map.get(&key) {
-            if cached.mtime_secs == mtime && mtime > 0 {
+            if cached.mtime_secs == mtime && mtime > 0 && !cached.files.is_empty() {
                 return (cached.files.clone(), cached.size_bytes);
             }
         }
@@ -143,6 +143,9 @@ impl MediaScanCache {
             }
         }
         subdirs.sort_by_key(|(name, _)| name.to_lowercase());
+        if subdirs.is_empty() {
+            return Vec::new();
+        }
 
         let item_key = format!("{}/{}", cat.as_str(), show_title);
         let cache_map = if is_local {
@@ -285,6 +288,28 @@ mod tests {
             cache.get_or_scan_movie(&temp_dir, "Test Movie", MediaCategory::Movie, true);
         assert_eq!(files2.len(), 1);
         assert_eq!(size2, 12);
+
+        let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_or_scan_seasons_empty_for_flat_folder() -> Result<()> {
+        let temp_dir = std::env::temp_dir().join("test_flat_anime_dir");
+        let _ = fs::create_dir_all(&temp_dir);
+        let movie_file = temp_dir.join("movie.mkv");
+        fs::write(&movie_file, b"sample bytes")?;
+
+        let mut cache = MediaScanCache::default();
+        let seasons = cache.get_or_scan_seasons(
+            &temp_dir,
+            "media/anime/Test",
+            true,
+            MediaCategory::Anime,
+            "Test",
+        );
+        assert!(seasons.is_empty());
+        assert!(!cache.local_items.contains_key("Anime/Test"));
 
         let _ = fs::remove_dir_all(&temp_dir);
         Ok(())

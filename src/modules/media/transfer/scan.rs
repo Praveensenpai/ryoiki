@@ -135,8 +135,13 @@ fn scan_local_category(
             (Vec::new(), f, s)
         } else {
             let ssn = cache.get_or_scan_seasons(&path, &remote_rel, true, cat, &name);
-            let s: u64 = ssn.iter().map(|s| s.size_bytes).sum();
-            (ssn, Vec::new(), s)
+            if ssn.is_empty() {
+                let (f, s) = cache.get_or_scan_movie(&path, &name, cat, true);
+                (Vec::new(), f, s)
+            } else {
+                let s: u64 = ssn.iter().map(|s| s.size_bytes).sum();
+                (ssn, Vec::new(), s)
+            }
         };
 
         items.push(MediaItem {
@@ -228,8 +233,13 @@ fn scan_remote_mounted(
             (Vec::new(), f, s)
         } else {
             let ssn = cache.get_or_scan_seasons(&entry.path(), &remote_path, false, cat, &name);
-            let s: u64 = ssn.iter().map(|s| s.size_bytes).sum();
-            (ssn, Vec::new(), s)
+            if ssn.is_empty() {
+                let (f, s) = cache.get_or_scan_movie(&entry.path(), &name, cat, false);
+                (Vec::new(), f, s)
+            } else {
+                let s: u64 = ssn.iter().map(|s| s.size_bytes).sum();
+                (ssn, Vec::new(), s)
+            }
         };
 
         items.push(MediaItem {
@@ -312,5 +322,44 @@ fn tag_watched_local(items: &mut [MediaItem]) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scan_local_category_flat_anime() -> Result<()> {
+        let temp_dir = std::env::temp_dir().join("test_scan_flat_anime");
+        let anime_dir = temp_dir.join("anime").join("Kimetsu no Yaiba (2025)");
+        fs::create_dir_all(&anime_dir)?;
+        let file_path = anime_dir.join("Kimetsu no Yaiba (2025) [1080p].mkv");
+        fs::write(&file_path, b"1234567890")?;
+
+        let mut items = Vec::new();
+        let mut found_keys = HashSet::new();
+        let mut cache = MediaScanCache::default();
+
+        scan_local_category(
+            &temp_dir,
+            "anime",
+            MediaCategory::Anime,
+            &mut items,
+            &mut found_keys,
+            &mut cache,
+        );
+
+        assert_eq!(items.len(), 1);
+        let item = &items[0];
+        assert_eq!(item.title, "Kimetsu no Yaiba (2025)");
+        assert_eq!(item.category, MediaCategory::Anime);
+        assert_eq!(item.size_bytes, 10);
+        assert!(item.seasons.is_empty());
+        assert_eq!(item.files.len(), 1);
+        assert_eq!(item.files[0].name, "Kimetsu no Yaiba (2025) [1080p].mkv");
+
+        let _ = fs::remove_dir_all(&temp_dir);
+        Ok(())
     }
 }
