@@ -138,26 +138,28 @@ fn render_files_body(
     cursor: usize,
     dir: TransferDirection,
 ) {
-    let inner_height = area.height.saturating_sub(2) as usize;
+    let inner_height = area.height.saturating_sub(3) as usize;
     let scroll_offset = if cursor >= inner_height {
         cursor - inner_height + 1
     } else {
         0
     };
 
+    let mut lines = Vec::new();
+    lines.push(build_file_header_line());
+
     let visible = files
         .iter()
         .enumerate()
         .skip(scroll_offset)
         .take(inner_height);
-    let mut lines = Vec::new();
 
     for (vis_idx, (abs_idx, file)) in visible.enumerate() {
         let is_cursor = (scroll_offset + vis_idx) == cursor;
         lines.push(build_file_line(file, is_cursor, abs_idx + 1, dir));
     }
 
-    if lines.is_empty() {
+    if lines.len() == 1 {
         lines.push(Line::from(vec![Span::styled(
             "   (No media files found in this folder)",
             Style::default().fg(Color::DarkGray),
@@ -172,6 +174,15 @@ fn render_files_body(
 
     let body = Paragraph::new(lines).block(block);
     f.render_widget(body, area);
+}
+
+fn build_file_header_line() -> Line<'static> {
+    Line::from(vec![Span::styled(
+        "       Filename                                     Size      Presence Status",
+        Style::default()
+            .fg(Color::DarkGray)
+            .add_modifier(Modifier::BOLD),
+    )])
 }
 
 fn build_file_line(file: &MediaFile, cursor: bool, num: usize, dir: TransferDirection) -> Line<'_> {

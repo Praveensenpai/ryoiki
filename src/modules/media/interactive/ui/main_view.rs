@@ -171,15 +171,17 @@ fn render_main_body(f: &mut Frame, area: Rect, state: &AppState) {
         disk::format_bytes(total_selected_bytes)
     );
 
-    let inner_height = area.height.saturating_sub(2) as usize;
+    let inner_height = area.height.saturating_sub(3) as usize;
     let scroll_offset = if state.cursor >= inner_height {
         state.cursor - inner_height + 1
     } else {
         0
     };
 
-    let visible_indices = indices.iter().skip(scroll_offset).take(inner_height);
     let mut lines = Vec::new();
+    lines.push(build_main_header_line());
+
+    let visible_indices = indices.iter().skip(scroll_offset).take(inner_height);
     for (vis_pos, &idx) in visible_indices.enumerate() {
         let abs_pos = scroll_offset + vis_pos;
         let is_cursor = abs_pos == state.cursor;
@@ -189,7 +191,7 @@ fn render_main_body(f: &mut Frame, area: Rect, state: &AppState) {
         }
     }
 
-    if lines.is_empty() {
+    if lines.len() == 1 {
         lines.push(Line::from(vec![Span::styled(
             "   (No media items found matching current filter)",
             Style::default().fg(Color::DarkGray),
@@ -204,6 +206,15 @@ fn render_main_body(f: &mut Frame, area: Rect, state: &AppState) {
 
     let body = Paragraph::new(lines).block(block);
     f.render_widget(body, area);
+}
+
+fn build_main_header_line() -> Line<'static> {
+    Line::from(vec![Span::styled(
+        "       Type    Title                        Seasons      Size      Sync Status     Status",
+        Style::default()
+            .fg(Color::DarkGray)
+            .add_modifier(Modifier::BOLD),
+    )])
 }
 
 fn build_main_item_line<'a>(
@@ -280,51 +291,36 @@ fn build_main_item_line<'a>(
 }
 
 fn build_main_sync_badge(item: &MediaItem, dir: TransferDirection) -> Span<'static> {
-    match dir {
-        TransferDirection::Push => {
-            if item.sync_status.is_all_in_other() {
-                Span::styled("[☁️ In Cloud] ", Style::default().fg(Color::Green))
-            } else if item.sync_status.is_partial() {
-                let badge = if item.has_seasons() {
-                    let total = item.seasons.len();
-                    let syn = item
-                        .seasons
-                        .iter()
-                        .filter(|s| s.sync_status.is_all_in_other())
-                        .count();
-                    format!("[☁️ Part {syn}/{total}s] ")
-                } else {
-                    let f = item.sync_status.other_files;
-                    let t = item.sync_status.total_files;
-                    format!("[☁️ Part {f}/{t}f] ")
-                };
-                Span::styled(badge, Style::default().fg(Color::Yellow))
-            } else {
-                Span::styled("[💾 SSD Only] ", Style::default().fg(Color::Cyan))
-            }
-        }
-        TransferDirection::Pull => {
-            if item.sync_status.is_all_in_other() {
-                Span::styled("[💾 On SSD]   ", Style::default().fg(Color::Green))
-            } else if item.sync_status.is_partial() {
-                let badge = if item.has_seasons() {
-                    let total = item.seasons.len();
-                    let syn = item
-                        .seasons
-                        .iter()
-                        .filter(|s| s.sync_status.is_all_in_other())
-                        .count();
-                    format!("[💾 Part {syn}/{total}s] ")
-                } else {
-                    let f = item.sync_status.other_files;
-                    let t = item.sync_status.total_files;
-                    format!("[💾 Part {f}/{t}f] ")
-                };
-                Span::styled(badge, Style::default().fg(Color::Yellow))
-            } else {
-                Span::styled("[☁️ Cloud Only] ", Style::default().fg(Color::DarkGray))
-            }
-        }
+    let (all_badge, none_badge, is_push) = match dir {
+        TransferDirection::Push => ("[☁️ In Cloud] ", "[💾 SSD Only] ", true),
+        TransferDirection::Pull => ("[💾 On SSD]   ", "[☁️ Cloud Only] ", false),
+    };
+
+    if item.sync_status.is_all_in_other() {
+        Span::styled(all_badge, Style::default().fg(Color::Green))
+    } else if item.sync_status.is_partial() {
+        let icon = if is_push { "☁️" } else { "💾" };
+        let badge = if item.has_seasons() {
+            let total = item.seasons.len();
+            let syn = item
+                .seasons
+                .iter()
+                .filter(|s| s.sync_status.is_all_in_other())
+                .count();
+            format!("[{icon} Part {syn}/{total}s] ")
+        } else {
+            let f = item.sync_status.other_files;
+            let t = item.sync_status.total_files;
+            format!("[{icon} Part {f}/{t}f] ")
+        };
+        Span::styled(badge, Style::default().fg(Color::Yellow))
+    } else {
+        let col = if is_push {
+            Color::Cyan
+        } else {
+            Color::DarkGray
+        };
+        Span::styled(none_badge, Style::default().fg(col))
     }
 }
 

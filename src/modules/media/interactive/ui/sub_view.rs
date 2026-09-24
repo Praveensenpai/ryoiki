@@ -160,12 +160,15 @@ fn render_subview_body(
         disk::format_bytes(sel_bytes)
     );
 
-    let inner_height = area.height.saturating_sub(2) as usize;
+    let inner_height = area.height.saturating_sub(3) as usize;
     let scroll_offset = if cursor >= inner_height {
         cursor - inner_height + 1
     } else {
         0
     };
+
+    let mut lines = Vec::new();
+    lines.push(build_season_header_line());
 
     let visible = item
         .seasons
@@ -174,10 +177,16 @@ fn render_subview_body(
         .skip(scroll_offset)
         .take(inner_height);
 
-    let mut lines = Vec::new();
     for (vis_idx, (abs_idx, season)) in visible.enumerate() {
         let is_cursor = (scroll_offset + vis_idx) == cursor;
         lines.push(build_season_line(season, is_cursor, abs_idx + 1, state));
+    }
+
+    if lines.len() == 1 {
+        lines.push(Line::from(vec![Span::styled(
+            "   (No seasons found in this item)",
+            Style::default().fg(Color::DarkGray),
+        )]));
     }
 
     let block = Block::default()
@@ -188,6 +197,15 @@ fn render_subview_body(
 
     let body = Paragraph::new(lines).block(block);
     f.render_widget(body, area);
+}
+
+fn build_season_header_line() -> Line<'static> {
+    Line::from(vec![Span::styled(
+        "       Season Title                           Size      Sync Status     Transfer Need",
+        Style::default()
+            .fg(Color::DarkGray)
+            .add_modifier(Modifier::BOLD),
+    )])
 }
 
 fn build_season_line<'a>(
