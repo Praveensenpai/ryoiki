@@ -357,8 +357,7 @@ fn build_shutdown_card(config: &TelegramConfig) -> String {
 /// Detects the most likely cause of the shutdown from sysfs + systemd state.
 /// Priority: battery-critical → reboot → power-off/halt.
 fn detect_shutdown_cause() -> &'static str {
-    let is_battery_critical = super::power::read_battery_percent()
-        .is_some_and(|p| p <= 5)
+    let is_battery_critical = super::power::read_battery_percent().is_some_and(|p| p <= 5)
         && super::power::read_battery_status()
             .as_deref()
             .is_some_and(|s| s.eq_ignore_ascii_case("discharging"));
