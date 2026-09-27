@@ -4,6 +4,7 @@ pub mod hooks;
 pub mod power;
 pub mod server;
 pub mod session;
+pub mod shutdown;
 pub mod system;
 
 use anyhow::Result;
@@ -167,7 +168,7 @@ pub fn handle_cli(cmd: NotifySubcommand) -> Result<()> {
             power::run_battery_watch(&config)?;
         }
         NotifySubcommand::Shutdown => {
-            system::send_shutdown_notification(&config)?;
+            shutdown::send_shutdown_notification(&config)?;
             println!(
                 "  {} Shutdown notification sent to Telegram",
                 "✔".green().bold()
