@@ -199,7 +199,7 @@ fn is_ac_online() -> bool {
 }
 
 /// Read battery percentage from the first battery found in `/sys/class/power_supply`/.
-fn read_battery_percent() -> Option<u8> {
+pub(super) fn read_battery_percent() -> Option<u8> {
     let base = "/sys/class/power_supply";
     for entry in fs::read_dir(base).ok()?.flatten() {
         let path = entry.path();
@@ -219,7 +219,7 @@ fn read_battery_percent() -> Option<u8> {
 }
 
 /// Read battery charge status ("Charging", "Discharging", "Full", …).
-fn read_battery_status() -> Option<String> {
+pub(super) fn read_battery_status() -> Option<String> {
     let base = "/sys/class/power_supply";
     for entry in fs::read_dir(base).ok()?.flatten() {
         let path = entry.path();

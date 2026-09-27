@@ -139,7 +139,8 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: Local background daemon listening on Unix domain socket for system events and hooks.
 
 #### `src/notify/power.rs` & `system.rs` (Role: Hardware Monitors, Lines: ~230 total)
-- **Responsibility**: Detects AC connect/disconnect, battery thresholds, high temperatures, and high memory usage.
+- **Responsibility**: Detects AC connect/disconnect, battery thresholds, high temperatures, high memory usage, and system shutdown events.
+- **`read_battery_percent() -> Option<u8>`** and **`read_battery_status() -> Option<String>`** are `pub(super)` — shared by `system.rs` shutdown card.
 
 ### Hardware & Battery Management (`src/charge_limit/`)
 
@@ -179,6 +180,7 @@ cargo fmt --check
 ```
 
 ## 6. Recent Iteration Changes
+- **2026-09-27**: Added system shutdown Telegram notification (`src/notify/system.rs`: `send_shutdown_notification`, `build_shutdown_card`, `detect_shutdown_cause`). Cause is auto-detected from sysfs + systemd: battery ≤ 5% + Discharging → `🪫 Battery Critical`; `reboot.target` active → `🔄 Reboot`; otherwise → `⏻ Power Off`. Battery readers in `power.rs` promoted to `pub(super)` to share with `system.rs`. New `NotifySubcommand::Shutdown` variant added to `notify.rs`. `hooks.rs` installs `ryoiki-shutdown-notify.service` with `DefaultDependencies=no` + `Before=poweroff.target reboot.target halt.target` — fires on manual poweroff, reboot, halt, and UPower-triggered critical battery shutdown. Bumped version to `v0.1.64`.
 - **2026-09-24**: Resolved `0 B` file size display bug for standalone anime movies and flat series lacking `Season XX` subdirectories (e.g. *Demon Slayer Kimetsu no Yaiba Infinity Castle*, *Paprika*, *Non Non Biyori Vacation*). Updated `src/modules/media/transfer/scan.rs` (`scan_local_category` & `scan_remote_mounted`) to fall back to direct file scanning when no season subfolders exist; hardened `src/modules/media/transfer/cache.rs` to prevent caching empty 0-byte items when subdirectories are absent. Bumped version to `v0.1.63`.
 - **2026-09-24**: Added aligned column header rows across interactive media TUI views (`src/modules/media/interactive/ui/main_view.rs`, `sub_view.rs`, and `files_view.rs`) clearly demarcating `Type`, `Title`, `Seasons`, `Size`, `Sync Status`, and `Status` columns; condensed badge layouts to preserve compact single-line rendering under 120-column viewports while staying strictly under `<400 lines/file` limits. Bumped version to `v0.1.62`.
 - **2026-09-23**: Added hierarchical mtime-based media scan caching (`src/modules/media/transfer/cache.rs`) persisted at `~/.cache/ryoiki/media_cache.json` for both local SSD and Google Drive archive. Bypasses recursive filesystem and FUSE directory traversals by comparing item/season folder modification timestamps; extracted `src/modules/media/interactive/selection.rs` to maintain strict `<400 lines/file` modular limits; added interactive `[r] Refresh` key in TUI to force cache invalidation. Bumped version to `v0.1.61`.

@@ -62,6 +62,8 @@ pub enum NotifySubcommand {
     },
     /// Start battery watch daemon — fires Telegram alert at each low-battery threshold
     BatteryWatch,
+    /// Send system shutdown / poweroff notification (called by systemd shutdown service)
+    Shutdown,
     /// Install systemd boot service and PAM/profile login hooks
     InstallHooks,
     /// Send audio dub stripping event notification (called by dubstrip)
@@ -163,6 +165,13 @@ pub fn handle_cli(cmd: NotifySubcommand) -> Result<()> {
         NotifySubcommand::BatteryWatch => {
             println!("  {} Starting battery watcher…", "▶".cyan().bold());
             power::run_battery_watch(&config)?;
+        }
+        NotifySubcommand::Shutdown => {
+            system::send_shutdown_notification(&config)?;
+            println!(
+                "  {} Shutdown notification sent to Telegram",
+                "✔".green().bold()
+            );
         }
         NotifySubcommand::AudioStrip(args) => {
             system::send_audio_strip_notification(&config, &args)?;

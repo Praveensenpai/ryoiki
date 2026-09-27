@@ -8,6 +8,7 @@ pub fn install_hooks(bin_path: &Path) {
     install_pam_hook(bin_path);
     install_profile_hook(bin_path);
     install_power_hooks(bin_path);
+    install_shutdown_service(bin_path);
 }
 
 fn render_system_unit(bin: &str) -> String {
@@ -228,6 +229,53 @@ fn install_user_battery_watch_service(unit: &str) {
     }
 }
 
+fn render_shutdown_service(bin: &str) -> String {
+    format!(
+        "[Unit]\n\
+        Description=Ryoiki Shutdown Telegram Notification\n\
+        DefaultDependencies=no\n\
+        Before=poweroff.target reboot.target halt.target shutdown.target\n\
+        After=network.target\n\n\
+        [Service]\n\
+        Type=oneshot\n\
+        ExecStart={bin} notify shutdown\n\
+        TimeoutStartSec=15\n\
+        RemainAfterExit=yes\n\n\
+        [Install]\n\
+        WantedBy=poweroff.target reboot.target halt.target\n"
+    )
+}
+
+fn install_shutdown_service(bin_path: &Path) {
+    let bin = bin_path.display().to_string();
+    let unit = render_shutdown_service(&bin);
+    let sys_path = Path::new("/etc/systemd/system/ryoiki-shutdown-notify.service");
+    if fs::write(sys_path, &unit).is_ok() {
+        let _ = Command::new("systemctl").args(["daemon-reload"]).output();
+        let _ = Command::new("systemctl")
+            .args(["enable", "ryoiki-shutdown-notify.service"])
+            .output();
+        println!("  ✔ Installed and enabled system ryoiki-shutdown-notify.service");
+        return;
+    }
+    install_user_shutdown_service(&unit);
+}
+
+fn install_user_shutdown_service(unit: &str) {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let user_dir = Path::new(&home).join(".config/systemd/user");
+    let user_path = user_dir.join("ryoiki-shutdown-notify.service");
+    if fs::create_dir_all(&user_dir).is_ok() && fs::write(&user_path, unit).is_ok() {
+        let _ = Command::new("systemctl")
+            .args(["--user", "daemon-reload"])
+            .output();
+        let _ = Command::new("systemctl")
+            .args(["--user", "enable", "ryoiki-shutdown-notify.service"])
+            .output();
+        println!("  ✔ Installed and enabled user ryoiki-shutdown-notify.service");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,5 +315,14 @@ mod tests {
         let unit = render_battery_watch_service("/usr/local/bin/ryoiki");
         assert!(unit.contains("ExecStart=/usr/local/bin/ryoiki notify battery-watch"));
         assert!(unit.contains("WantedBy=default.target"));
+    }
+
+    #[test]
+    fn test_render_shutdown_service() {
+        let unit = render_shutdown_service("/usr/local/bin/ryoiki");
+        assert!(unit.contains("ExecStart=/usr/local/bin/ryoiki notify shutdown"));
+        assert!(unit.contains("DefaultDependencies=no"));
+        assert!(unit.contains("Before=poweroff.target reboot.target halt.target"));
+        assert!(unit.contains("WantedBy=poweroff.target reboot.target halt.target"));
     }
 }
