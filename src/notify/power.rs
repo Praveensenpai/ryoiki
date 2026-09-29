@@ -1,11 +1,14 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use std::fs;
+use std::io::Write;
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
 
 use super::client::{format_card, send_alert};
 use super::config::TelegramConfig;
+
+const PID_FILE: &str = "/run/ryoiki-battery-watch.pid";
 
 /// Battery thresholds that trigger a low-battery alert (descending order).
 const LOW_BATTERY_THRESHOLDS: &[u8] = &[50, 40, 30, 25, 15, 5, 1];
@@ -26,7 +29,12 @@ pub fn send_power_event(config: &TelegramConfig, status: &str) -> Result<()> {
 /// - When on HP ACPI hardware, actively regulates charging to keep battery at target limit.
 /// - When charging on AC without ACPI hooks, fires an alert when target limit is reached.
 /// - When on battery, fires a Telegram alert at each low-battery threshold.
+///
+/// Acquires an exclusive PID lock file on startup. A second instance will detect the lock
+/// and exit cleanly, preventing duplicate Telegram notifications.
 pub fn run_battery_watch(config: &TelegramConfig) -> Result<()> {
+    let _pid_guard = acquire_pid_lock()?;
+
     let mut fired_low: Vec<u8> = Vec::new();
     let mut fired_high = false;
     let mut last_hp_mode: Option<crate::charge_limit::hp_acpi::HpChargeMode> = None;
@@ -68,6 +76,39 @@ pub fn run_battery_watch(config: &TelegramConfig) -> Result<()> {
             }
         }
         thread::sleep(Duration::from_secs(POLL_INTERVAL_SECS));
+    }
+}
+
+/// Atomically creates the PID lock file. Returns a guard that removes the file on drop.
+/// Bails with an error if another instance already holds the lock.
+fn acquire_pid_lock() -> Result<PidGuard> {
+    let pid_path = Path::new(PID_FILE);
+
+    // Attempt atomic exclusive creation (O_CREAT | O_EXCL semantics).
+    let Ok(mut file) = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(pid_path)
+    else {
+        bail!("Another battery-watch instance is already running (lock: {PID_FILE}). Exiting.");
+    };
+
+    let pid = std::process::id();
+    let _ = writeln!(file, "{pid}");
+
+    Ok(PidGuard {
+        path: pid_path.to_path_buf(),
+    })
+}
+
+/// RAII guard: removes the PID file when dropped so the next start can acquire the lock.
+struct PidGuard {
+    path: std::path::PathBuf,
+}
+
+impl Drop for PidGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
     }
 }
 
