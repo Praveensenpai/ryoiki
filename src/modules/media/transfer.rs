@@ -32,14 +32,6 @@ impl MediaCategory {
             Self::Anime => "Anime",
         }
     }
-
-    pub fn remote_folder(self) -> &'static str {
-        match self {
-            Self::Movie => "movie",
-            Self::Show => "shows",
-            Self::Anime => "anime",
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -119,9 +111,8 @@ mod tests {
     #[test]
     fn test_media_category_mappings() {
         assert_eq!(MediaCategory::Movie.as_str(), "Movie");
-        assert_eq!(MediaCategory::Movie.remote_folder(), "movie");
-        assert_eq!(MediaCategory::Show.remote_folder(), "shows");
-        assert_eq!(MediaCategory::Anime.remote_folder(), "anime");
+        assert_eq!(MediaCategory::Show.as_str(), "Show");
+        assert_eq!(MediaCategory::Anime.as_str(), "Anime");
     }
 
     #[test]
