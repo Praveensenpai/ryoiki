@@ -85,9 +85,9 @@ fn classify_video_files(
 }
 
 fn adjust_media_info_post_classify(info: &mut super::MediaInfo, probe: Option<&MediaProbe>) {
-    if info.language.is_none() {
-        if let Some(p) = probe {
-            if let Some(primary) = &p.primary_language {
+    if let Some(p) = probe {
+        if let Some(primary) = &p.primary_language {
+            if primary != "Multi" || info.language.is_none() {
                 info.language = Some(primary.clone());
                 info.clean_name =
                     super::ai::ensure_language_in_clean_name(&info.clean_name, primary);

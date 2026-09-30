@@ -158,6 +158,16 @@ pub fn ensure_language_in_clean_name(name: &str, language: &str) -> String {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("mkv");
     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(name);
 
+    for &known in crate::modules::media::probe::KNOWN_LANGUAGES {
+        let old_tag = format!("[{known}]");
+        if stem.contains(&old_tag) {
+            return name.replace(&old_tag, &lang_bracket);
+        }
+    }
+    if stem.contains("[Multi]") {
+        return name.replace("[Multi]", &lang_bracket);
+    }
+
     if let Some(bracket_idx) = stem.find('[') {
         let prefix = stem[..bracket_idx].trim_end();
         let suffix = &stem[bracket_idx..];

@@ -94,31 +94,50 @@ fn extract_extra_desc(input: &str) -> Option<String> {
     }
 }
 
+fn is_tracker_prefix(prefix: &str) -> bool {
+    prefix.contains('.')
+        || prefix.starts_with("www.")
+        || prefix.contains("tamilmv")
+        || prefix.contains("tamilblasters")
+        || prefix.contains("tamilrockers")
+        || prefix.contains("cinevood")
+        || prefix.contains("moviesmod")
+        || prefix.contains("vegamovies")
+        || prefix.contains("bolly4u")
+        || prefix.contains("extramovies")
+        || prefix.contains("worldfree4u")
+        || prefix.contains("1tamil")
+}
+
 fn strip_tracker_prefixes(input: &str) -> String {
     let mut s = input.trim();
     if let Some(pos) = s.find(" - ") {
         let prefix = s[..pos].to_ascii_lowercase();
-        if [".com", ".org", ".center", ".cc", "www."]
-            .iter()
-            .any(|d| prefix.contains(d))
-        {
+        if is_tracker_prefix(&prefix) {
             s = &s[pos + 3..];
+        }
+    } else if let Some(pos) = s.find(" — ") {
+        let prefix = s[..pos].to_ascii_lowercase();
+        if is_tracker_prefix(&prefix) {
+            s = &s[pos + 4..];
         }
     }
 
-    let trimmed = s.trim();
-    if trimmed.starts_with('[') {
+    let mut trimmed = s.trim();
+    while trimmed.starts_with('[') {
         if let Some(end) = trimmed.find(']') {
             let b = &trimmed[1..end].to_ascii_lowercase();
-            if !["1080p", "720p", "2160p", "4k", "sp"]
+            if !["1080p", "720p", "2160p", "4k", "sp", "remux"]
                 .iter()
                 .any(|q| b.contains(q))
             {
-                return trimmed[end + 1..].trim().to_string();
+                trimmed = trimmed[end + 1..].trim();
+                continue;
             }
         }
+        break;
     }
-    s.to_string()
+    trimmed.to_string()
 }
 
 fn extract_resolution(input: &str) -> Option<String> {
@@ -224,19 +243,6 @@ const TITLE_CUT_TAGS: &[&str] = &[
     "japanese",
 ];
 
-const KNOWN_LANGUAGES: &[&str] = &[
-    "Malayalam",
-    "Tamil",
-    "Telugu",
-    "Kannada",
-    "Hindi",
-    "English",
-    "Korean",
-    "Japanese",
-    "Spanish",
-    "French",
-];
-
 fn extract_title(
     input: &str,
     year: Option<u32>,
@@ -285,11 +291,36 @@ fn extract_title(
 }
 
 fn extract_language(input: &str) -> Option<String> {
-    let lower = input.to_ascii_lowercase();
-    KNOWN_LANGUAGES
-        .iter()
-        .find(|l| lower.contains(&l.to_ascii_lowercase()))
-        .map(|l| (*l).to_string())
+    let tokens: Vec<&str> = input
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let mut found = Vec::new();
+    for token in tokens {
+        let lower = token.to_ascii_lowercase();
+        if lower == "multi" {
+            return Some("Multi".to_string());
+        }
+        for &lang in super::probe::KNOWN_LANGUAGES {
+            if lower == lang.to_ascii_lowercase() && !found.contains(&lang) {
+                found.push(lang);
+            }
+        }
+    }
+
+    match found.len().cmp(&1) {
+        std::cmp::Ordering::Equal => Some(found[0].to_string()),
+        std::cmp::Ordering::Greater => {
+            let non_english: Vec<&&str> = found.iter().filter(|&&l| l != "English").collect();
+            if non_english.len() == 1 {
+                Some((*non_english[0]).to_string())
+            } else {
+                Some("Multi".to_string())
+            }
+        }
+        std::cmp::Ordering::Less => None,
+    }
 }
 
 struct CleanNameOptions<'a> {
@@ -344,6 +375,21 @@ mod tests {
         assert_eq!(
             info.clean_name,
             "Love Mocktail 3 (2026) [Kannada] [1080p].mkv"
+        );
+    }
+
+    #[test]
+    fn test_heuristic_tamilmv_prefix_with_kannada_language() {
+        let raw = "www.1TamilMV.cards - The Rise of Ashoka (2026) Kannada TRUE WEB-DL - 1080p - AVC - (DD_5.1 - 192Kbps _ AAC 2.0) - 2GB - ESub.mkv";
+        let info = classify_media_heuristic(raw);
+        assert_eq!(info.media_type, MediaType::Movie);
+        assert_eq!(info.title, "The Rise of Ashoka");
+        assert_eq!(info.year, Some(2026));
+        assert_eq!(info.language.as_deref(), Some("Kannada"));
+        assert_eq!(info.resolution.as_deref(), Some("1080p"));
+        assert_eq!(
+            info.clean_name,
+            "The Rise of Ashoka (2026) [Kannada] [1080p].mkv"
         );
     }
 

@@ -143,7 +143,7 @@ fn append_flags(cmd: &mut Command, auto: bool, dry_run: bool, force: bool) {
     }
 }
 
-/// Automatically strips redundant dub tracks from an organized media file.
+/// Automatically strips redundant dub tracks from an organized media file with safety backup.
 /// On failure, enqueues the path for hourly retry (up to 24 attempts).
 pub fn strip_audio_auto(path: &Path) {
     let Some(bin) = find_dubstrip_bin() else {
@@ -155,6 +155,15 @@ pub fn strip_audio_auto(path: &Path) {
         "🗡️".cyan()
     );
 
+    let initial_probe = super::probe::probe_media_file(path);
+    let orig_stream_count = initial_probe.as_ref().map_or(0, |p| p.audio_stream_count);
+
+    let backup_path = if orig_stream_count > 1 {
+        create_safety_backup(path)
+    } else {
+        None
+    };
+
     let succeeded = Command::new(&bin)
         .args(["strip", "--auto", "--force"])
         .arg(path)
@@ -162,22 +171,52 @@ pub fn strip_audio_auto(path: &Path) {
         .is_ok_and(|s| s.success());
 
     if succeeded {
-        println!(
-            "  {} Audio stream optimization complete",
-            "✔".green().bold()
-        );
-        sync_filename_after_strip(path);
+        let post_probe = super::probe::probe_media_file(path);
+        let post_stream_count = post_probe.as_ref().map_or(0, |p| p.audio_stream_count);
+
+        if post_stream_count < orig_stream_count && post_stream_count > 0 {
+            println!(
+                "  {} Audio stream optimization complete",
+                "✔".green().bold()
+            );
+            if let Some(ref bk) = backup_path {
+                println!(
+                    "  {} Safety backup preserved: {}",
+                    "🛡️".cyan(),
+                    bk.display()
+                );
+            }
+            sync_filename_after_strip(path);
+        } else if let Some(ref bk) = backup_path {
+            let _ = std::fs::remove_file(bk);
+        }
     } else {
+        if let Some(ref bk) = backup_path {
+            let _ = std::fs::remove_file(bk);
+        }
         eprintln!("  ⚠️ dubstrip failed — enqueueing for hourly retry");
         strip_queue::enqueue(path);
     }
 }
 
-/// If the file was named [Multi] and was stripped down to a single native language,
-/// updates the file tag from [Multi] to [<Language>].
+fn create_safety_backup(path: &Path) -> Option<PathBuf> {
+    let backup_base = crate::modules::media::organizer::pathing::get_jellyfin_backup_multi_dir();
+    let parent_name = path.parent().and_then(|p| p.file_name())?;
+    let file_name = path.file_name()?;
+    let target_dir = backup_base.join(parent_name);
+    let target_file = target_dir.join(file_name);
+
+    if std::fs::create_dir_all(&target_dir).is_ok() && std::fs::copy(path, &target_file).is_ok() {
+        Some(target_file)
+    } else {
+        None
+    }
+}
+
+/// Synchronizes the file's language tag with the probed native audio language after stripping.
 pub fn sync_filename_after_strip(path: &Path) {
     let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    if !filename.contains("[Multi]") {
+    if filename.is_empty() {
         return;
     }
 
@@ -185,16 +224,23 @@ pub fn sync_filename_after_strip(path: &Path) {
         return;
     };
 
-    if let Some(ref primary) = probe.primary_language {
-        if primary != "Multi" && !primary.is_empty() {
-            let new_filename = filename.replace("[Multi]", &format!("[{primary}]"));
-            let new_path = path.with_file_name(&new_filename);
-            if let Ok(()) = std::fs::rename(path, &new_path) {
-                println!(
-                    "  {} Updated media tag: [Multi] -> [{primary}]",
-                    "✔".green().bold()
-                );
-            }
+    let Some(ref primary) = probe.primary_language else {
+        return;
+    };
+
+    if primary.is_empty() {
+        return;
+    }
+
+    let new_filename = crate::modules::media::ai::ensure_language_in_clean_name(filename, primary);
+    if new_filename != filename {
+        let new_path = path.with_file_name(&new_filename);
+        if let Ok(()) = std::fs::rename(path, &new_path) {
+            println!(
+                "  {} Updated media tag: {} -> [{primary}]",
+                "✔".green().bold(),
+                filename
+            );
         }
     }
 }

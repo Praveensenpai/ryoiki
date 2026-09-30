@@ -135,6 +135,25 @@ fn height_to_resolution(height: u32) -> Option<String> {
     }
 }
 
+pub const KNOWN_LANGUAGES: &[&str] = &[
+    "Malayalam",
+    "Tamil",
+    "Telugu",
+    "Kannada",
+    "Hindi",
+    "English",
+    "Korean",
+    "Japanese",
+    "Spanish",
+    "French",
+    "Bengali",
+    "Marathi",
+    "Punjabi",
+    "German",
+    "Italian",
+    "Chinese",
+];
+
 #[must_use]
 pub fn map_language_code(code: &str) -> String {
     let lower = code.trim().to_ascii_lowercase();

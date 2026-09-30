@@ -9,31 +9,46 @@ pub fn scan_media_candidates(base: &Path) -> Result<Vec<PruneCandidate>> {
     let mut list = Vec::new();
     let video_exts = ["mkv", "mp4", "avi", "mov", "m4v", "ts"];
 
+    let backup_dir = crate::modules::media::organizer::pathing::get_jellyfin_backup_multi_dir();
+    if backup_dir.exists() {
+        collect_dir_candidates(&backup_dir, &video_exts, true, &mut list)?;
+    }
+
     for category in &["movies", "shows"] {
         let cat_dir = base.join(category);
         if !cat_dir.exists() {
             continue;
         }
-        collect_dir_candidates(&cat_dir, &video_exts, &mut list)?;
+        collect_dir_candidates(&cat_dir, &video_exts, false, &mut list)?;
     }
     Ok(list)
 }
 
-fn collect_dir_candidates(dir: &Path, exts: &[&str], list: &mut Vec<PruneCandidate>) -> Result<()> {
+fn collect_dir_candidates(
+    dir: &Path,
+    exts: &[&str],
+    is_backup: bool,
+    list: &mut Vec<PruneCandidate>,
+) -> Result<()> {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                collect_dir_candidates(&path, exts, list)?;
+                collect_dir_candidates(&path, exts, is_backup, list)?;
             } else if path.is_file() {
-                check_and_add_candidate(&path, exts, list);
+                check_and_add_candidate(&path, exts, is_backup, list);
             }
         }
     }
     Ok(())
 }
 
-fn check_and_add_candidate(path: &Path, exts: &[&str], list: &mut Vec<PruneCandidate>) {
+fn check_and_add_candidate(
+    path: &Path,
+    exts: &[&str],
+    is_backup: bool,
+    list: &mut Vec<PruneCandidate>,
+) {
     let matches_ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -56,6 +71,7 @@ fn check_and_add_candidate(path: &Path, exts: &[&str], list: &mut Vec<PruneCandi
             size_bytes,
             modified,
             is_watched: false,
+            is_backup,
         });
     }
 }

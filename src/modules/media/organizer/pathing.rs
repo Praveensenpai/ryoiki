@@ -21,6 +21,11 @@ pub fn get_jellyfin_media_dir() -> PathBuf {
     Path::new(&home).join("jellyfin/media")
 }
 
+pub fn get_jellyfin_backup_multi_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    Path::new(&home).join("jellyfin/backup_multi")
+}
+
 pub fn calculate_dest_dir(info: &MediaInfo) -> PathBuf {
     let base = get_jellyfin_media_dir();
     match info.media_type {
