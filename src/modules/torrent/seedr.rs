@@ -3,7 +3,7 @@
 use anyhow::{Context, Result};
 use reqwest::blocking::Client;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use super::api;
@@ -37,6 +37,19 @@ pub fn spawn_seedr_download(magnet: &str, api_port: u16) -> Result<()> {
         .unwrap_or_default();
     let callback_url = format!("http://127.0.0.1:{api_port}/seedr-webhook{hash_param}");
     let torrents_dir = Path::new(&home).join("torrents");
+    let log_dir = Path::new(&home).join(".cache/seedr-dl/logs");
+    let _ = std::fs::create_dir_all(&log_dir);
+    let log_path = log_dir.join("seedr-daemon.log");
+    let log_out = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .map_or_else(|_| Stdio::null(), Stdio::from);
+    let log_err = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)
+        .map_or_else(|_| Stdio::null(), Stdio::from);
 
     Command::new(exe)
         .args([
@@ -49,11 +62,15 @@ pub fn spawn_seedr_download(magnet: &str, api_port: u16) -> Result<()> {
             "-o",
             &torrents_dir.to_string_lossy(),
         ])
+        .stdin(Stdio::null())
+        .stdout(log_out)
+        .stderr(log_err)
         .spawn()
         .context("Failed to spawn seedr-dl background worker")?;
 
     Ok(())
 }
+
 
 /// Handles a successful Seedr download notification by cleaning up from qBittorrent and alerting.
 ///
