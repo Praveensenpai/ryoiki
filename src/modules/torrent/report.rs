@@ -5,11 +5,23 @@ use super::api::TorrentInfo;
 use super::notify::format_size;
 
 pub fn format_status_report(torrents: &[TorrentInfo]) -> String {
-    if torrents.is_empty() {
+    let seedr_tasks = super::seedr::get_active_seedr_tasks();
+    let seedr_sec = super::seedr::format_seedr_tasks_section(&seedr_tasks);
+
+    if torrents.is_empty() && seedr_tasks.is_empty() {
         return "🌊 <b>領域 RYOIKI • Torrents</b>\n━━━━━━━━━━━━━━━━━━━━━━━\nNo active or completed torrents found.".to_string();
     }
 
     let mut lines = vec!["🌊 <b>領域 RYOIKI • Torrents</b>\n━━━━━━━━━━━━━━━━━━━━━━━".to_string()];
+    if !seedr_sec.is_empty() {
+        lines.push(seedr_sec);
+        lines.push(String::new());
+    }
+
+    if !torrents.is_empty() && !seedr_tasks.is_empty() {
+        lines.push("📦 <b>qBittorrent Torrents:</b>".to_string());
+    }
+
     for t in torrents.iter().take(5) {
         let pct = (t.progress * 100.0).clamp(0.0, 100.0);
         let blocks = format!("{:.0}", pct / 10.0)

@@ -120,9 +120,15 @@ fn handle_incoming_message(client: &Client, config: &TelegramConfig, msg: Messag
 }
 
 fn handle_seedr_cmd(client: &Client, config: &TelegramConfig, target: &str) {
-    if target.is_empty() {
-        let msg = "🌱 <b>Usage:</b> <code>/seedr &lt;magnet-or-folder-id&gt;</code>";
-        let _ = reply(client, config, msg);
+    if target.is_empty() || target == "status" {
+        let tasks = super::seedr::get_active_seedr_tasks();
+        let sec = super::seedr::format_seedr_tasks_section(&tasks);
+        let msg = if sec.is_empty() {
+            "🌱 <b>Seedr Cloud:</b> No active downloads.\nTip: <code>/seedr &lt;magnet&gt;</code>".to_string()
+        } else {
+            format!("🌊 <b>領域 RYOIKI • Seedr</b>\n━━━━━━━━━━━━━━━━━━━━━━━\n{sec}")
+        };
+        let _ = reply(client, config, &msg);
         return;
     }
     match super::seedr::spawn_seedr_download(target, config.api_port) {

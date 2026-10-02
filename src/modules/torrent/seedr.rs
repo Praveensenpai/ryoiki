@@ -130,6 +130,76 @@ pub fn handle_seedr_failure(
     Ok(())
 }
 
+use serde::Deserialize;
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct SeedrTaskState {
+    pub file_name: String,
+    pub downloaded_bytes: u64,
+    pub total_bytes: u64,
+    pub speed_bps: u64,
+    pub eta_seconds: u64,
+    pub status: String,
+}
+
+#[must_use]
+pub fn get_active_seedr_tasks() -> Vec<SeedrTaskState> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let tasks_dir = Path::new(&home).join(".cache/seedr-dl/tasks");
+    let Ok(entries) = std::fs::read_dir(tasks_dir) else {
+        return Vec::new();
+    };
+
+    let mut tasks = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().is_some_and(|ext| ext == "json") {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                if let Ok(task) = serde_json::from_str::<SeedrTaskState>(&content) {
+                    tasks.push(task);
+                }
+            }
+        }
+    }
+    tasks
+}
+
+#[must_use]
+pub fn format_seedr_tasks_section(tasks: &[SeedrTaskState]) -> String {
+    if tasks.is_empty() {
+        return String::new();
+    }
+
+    let mut lines = vec!["🌱 <b>Seedr Cloud Downloads:</b>".to_string()];
+    for t in tasks {
+        #[allow(clippy::cast_precision_loss)]
+        let pct = if t.total_bytes > 0 {
+            (t.downloaded_bytes as f64 / t.total_bytes as f64) * 100.0
+        } else {
+            0.0
+        };
+        let blocks = format!("{:.0}", pct / 10.0)
+            .parse::<usize>()
+            .unwrap_or(0)
+            .min(10);
+        let bar = format!(
+            "[{}{}] {pct:.1}%",
+            "█".repeat(blocks),
+            "░".repeat(10 - blocks)
+        );
+        let dl_mb = t.downloaded_bytes / 1_048_576;
+        let tot_mb = t.total_bytes / 1_048_576;
+        #[allow(clippy::cast_precision_loss)]
+        let spd = t.speed_bps as f64 / 1_048_576.0;
+        let clean_name = crate::notify::client::escape_html(&t.file_name);
+        lines.push(format!(
+            "📦 <b>{clean_name}</b>\n<code>{bar}</code> • <b>{}</b>\nSize: {dl_mb}/{tot_mb} MB | DL: {spd:.2} MB/s | ETA: {}s\n",
+            t.status, t.eta_seconds
+        ));
+    }
+    lines.join("\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
