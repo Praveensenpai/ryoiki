@@ -9,6 +9,7 @@ pub mod api;
 pub mod bot;
 pub mod notify;
 pub mod report;
+pub mod seedr;
 pub mod telegram;
 
 /// Sets up qBittorrent server directly with Docker without compose files.

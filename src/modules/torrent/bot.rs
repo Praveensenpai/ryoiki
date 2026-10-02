@@ -102,6 +102,9 @@ fn handle_incoming_message(client: &Client, config: &TelegramConfig, msg: Messag
         let trimmed = text.trim();
         if trimmed.starts_with("magnet:?xt=urn:") {
             let _ = handle_magnet(client, config, trimmed);
+        } else if trimmed.starts_with("/seedr") {
+            let arg = trimmed.strip_prefix("/seedr").unwrap_or("").trim();
+            handle_seedr_cmd(client, config, arg);
         } else if trimmed.starts_with('/') {
             let full_cmd = trimmed.split_whitespace().next().unwrap_or("");
             let cmd = full_cmd.split('@').next().unwrap_or(full_cmd);
@@ -116,16 +119,37 @@ fn handle_incoming_message(client: &Client, config: &TelegramConfig, msg: Messag
     }
 }
 
-fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> Result<()> {
-    match api::add_magnet(client, &config.qbittorrent_url, magnet) {
+fn handle_seedr_cmd(client: &Client, config: &TelegramConfig, target: &str) {
+    if target.is_empty() {
+        let msg = "🌱 <b>Usage:</b> <code>/seedr &lt;magnet-or-folder-id&gt;</code>";
+        let _ = reply(client, config, msg);
+        return;
+    }
+    match super::seedr::spawn_seedr_download(target, config.api_port) {
         Ok(()) => {
-            let msg = "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET LINK QUEUED</b>\n\nqBittorrent is fetching torrent metadata...";
-            reply(client, config, msg)?;
+            let msg = "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>SEEDR DOWNLOAD QUEUED</b>\n\nSeedr.cc cloud caching initiated!";
+            let _ = reply(client, config, msg);
         }
         Err(e) => {
-            let err_msg = format!("❌ <b>Failed to add magnet:</b>\n<code>{e}</code>");
-            reply(client, config, &err_msg)?;
+            let msg = format!("❌ <b>Failed to spawn Seedr download:</b>\n<code>{e}</code>");
+            let _ = reply(client, config, &msg);
         }
+    }
+}
+
+fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> Result<()> {
+    let qb_res = api::add_magnet(client, &config.qbittorrent_url, magnet);
+    let seedr_res = super::seedr::spawn_seedr_download(magnet, config.api_port);
+
+    if qb_res.is_ok() && seedr_res.is_ok() {
+        let msg = "🌊 <b>領域 RYOIKI</b> • <i>Dual Pipeline</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED (qBittorrent & Seedr)</b>\n\nFast cloud download attempted via <b>Seedr.cc</b>.\nIf successful, qBittorrent duplicate will be cleaned up automatically.";
+        reply(client, config, msg)?;
+    } else if let Ok(()) = qb_res {
+        reply(client, config, "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED IN QBITTORRENT</b>")?;
+    } else if let Ok(()) = seedr_res {
+        reply(client, config, "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED IN SEEDR</b>")?;
+    } else {
+        reply(client, config, "❌ <b>Failed to queue magnet in both qBittorrent and Seedr</b>")?;
     }
     Ok(())
 }
@@ -199,6 +223,7 @@ fn handle_command(client: &Client, config: &TelegramConfig, cmd: &str) -> Result
         "/help" | "/start" => {
             let help_text = "🌊 <b>領域 RYOIKI • Command Center</b>\n━━━━━━━━━━━━━━━━━━━━━━━\n\
                 🧲 <i>Paste magnet or .torrent to download</i>\n\
+                🌱 /seedr &lt;target&gt; — Download via Seedr.cc cloud\n\
                 📊 /status — Live progress, speeds, & ETAs\n\
                 💾 /storage — Free NVMe/SSD storage space\n\
                 🧹 /prune — Evict watched media to Google Drive\n\

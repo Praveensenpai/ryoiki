@@ -73,6 +73,16 @@ fn handle_client(mut stream: TcpStream, config: &TelegramConfig) -> Result<()> {
         );
     }
 
+    if method == "POST" && path.starts_with("/seedr-webhook") {
+        return handle_seedr_webhook(
+            &mut stream,
+            &mut reader,
+            content_length,
+            path,
+            config,
+        );
+    }
+
     write_response(&mut stream, 404, r#"{"error":"Not Found"}"#)
 }
 
@@ -168,3 +178,71 @@ fn write_response(stream: &mut TcpStream, status_code: u16, json_body: &str) -> 
     stream.flush()?;
     Ok(())
 }
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "event", rename_all = "snake_case")]
+enum SeedrEvent {
+    Completed {
+        file_name: String,
+        destination_path: Option<String>,
+        total_bytes: u64,
+    },
+    Failed {
+        error: String,
+    },
+    #[serde(other)]
+    Ignored,
+}
+
+fn handle_seedr_webhook(
+    stream: &mut TcpStream,
+    reader: &mut BufReader<TcpStream>,
+    content_length: usize,
+    path: &str,
+    config: &TelegramConfig,
+) -> Result<()> {
+    let mut body_bytes = vec![0u8; content_length.min(65536)];
+    reader.read_exact(&mut body_bytes)?;
+    let body = String::from_utf8_lossy(&body_bytes);
+
+    let hash = path.split('?').nth(1).and_then(|q| {
+        q.split('&').find_map(|pair| {
+            let mut kv = pair.split('=');
+            if kv.next()? == "hash" {
+                kv.next()
+            } else {
+                None
+            }
+        })
+    });
+
+    if let Ok(event) = serde_json::from_str::<SeedrEvent>(&body) {
+        match event {
+            SeedrEvent::Completed {
+                file_name,
+                destination_path,
+                total_bytes,
+                ..
+            } => {
+                let _ = crate::modules::torrent::seedr::handle_seedr_completion(
+                    hash,
+                    &file_name,
+                    total_bytes,
+                    destination_path.as_deref(),
+                    config,
+                );
+            }
+            SeedrEvent::Failed { error, .. } => {
+                let _ = crate::modules::torrent::seedr::handle_seedr_failure(
+                    hash,
+                    &error,
+                    config,
+                );
+            }
+            SeedrEvent::Ignored => {}
+        }
+    }
+
+    write_response(stream, 200, r#"{"status":"received"}"#)
+}
+

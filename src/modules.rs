@@ -9,6 +9,7 @@ pub mod media;
 pub mod prompt;
 pub mod rclone;
 pub mod security;
+pub mod seedr;
 pub mod tailscale;
 pub mod timezone;
 pub mod torrent;
@@ -164,6 +165,13 @@ fn environment_modules() -> Vec<Module> {
             deps: &[],
         },
         Module {
+            id: "seedr",
+            title: "Seedr Cloud Downloader",
+            description: "High-speed multi-threaded Seedr.cc CLI (Praveensenpai/seedr-dl)",
+            default_enabled: true,
+            deps: &[],
+        },
+        Module {
             id: "tailscale",
             title: "Tailscale Mesh VPN",
             description: "WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH",
@@ -239,6 +247,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "prompt" => prompt::setup(runner),
         "trash" => trash::setup(runner),
         "dubstrip" => dubstrip::setup(runner, non_interactive),
+        "seedr" => seedr::setup(runner, non_interactive),
         "tailscale" => tailscale::setup(runner, non_interactive),
         "dotfiles" => deploy_dotfiles_module(runner),
         "timezone" => timezone::setup(runner, non_interactive),
@@ -287,6 +296,7 @@ pub fn run_system_check() {
         ("fastfetch", "Fastfetch system stats"),
         ("toss", "toss-rs trash manager"),
         ("dubstrip", "DubStrip Audio Preserver"),
+        ("seedr-dl", "Seedr.cc Cloud Downloader"),
         ("tailscale", "Tailscale Mesh VPN"),
         ("rclone", "Rclone Cloud Sync & Mount"),
     ];

@@ -119,9 +119,15 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 
 ### Torrent Management Subsystem (`src/modules/torrent/`)
 
-#### `src/modules/torrent.rs` (Role: Torrent Orchestrator, Lines: ~380)
+#### `src/modules/torrent.rs` (Role: Torrent Orchestrator, Lines: ~389)
 - **Responsibility**: qBittorrent container lifecycle manager (384MB RAM cap, 64MB disk cache, 256MB working set limit), client API integration, and watcher.
-- **Sub-modules**: `api`, `bot`, `notify`, `report`, `telegram`.
+- **Sub-modules**: `api`, `bot`, `notify`, `report`, `seedr`, `telegram`.
+
+#### `src/modules/torrent/seedr.rs` (Role: Seedr Cloud Dual-Pipeline, Lines: ~128)
+- **Responsibility**: Manages dual-pipeline magnet ingestion (Seedr.cc cloud + qBittorrent parallel queues), BTIH hash extraction, automated duplicate cleanup in qBittorrent on Seedr success, and Telegram lifecycle card alerts.
+
+#### `src/modules/seedr.rs` (Role: Seedr CLI Setup Module, Lines: ~45)
+- **Responsibility**: Provisions `seedr-dl` CLI utility, verifies installation path, and handles credential authentication.
 
 #### `src/modules/torrent/api.rs` (Role: qBittorrent WebAPI Client, Lines: ~275)
 - **Responsibility**: Authenticates and interfaces with qBittorrent API (torrents list, pause/stop, resume/start, delete) with v5.x endpoint support and v4.x fallback.
