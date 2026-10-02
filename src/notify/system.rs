@@ -147,7 +147,7 @@ fn resolve_ip(arg: Option<&str>) -> String {
     "Local Console".to_string()
 }
 
-fn get_hostname(config: &TelegramConfig) -> String {
+pub fn get_hostname(config: &TelegramConfig) -> String {
     if let Some(name) = &config.server_name {
         return name.clone();
     }
@@ -164,7 +164,7 @@ fn get_hostname(config: &TelegramConfig) -> String {
     )
 }
 
-fn get_public_ip() -> String {
+pub fn get_public_ip() -> String {
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(2))
         .build();
@@ -181,7 +181,7 @@ fn get_public_ip() -> String {
     "unavailable".to_string()
 }
 
-fn get_tailscale_ip() -> String {
+pub fn get_tailscale_ip() -> String {
     Command::new("tailscale")
         .args(["ip", "-4"])
         .output()
@@ -191,12 +191,12 @@ fn get_tailscale_ip() -> String {
         )
 }
 
-fn get_kernel() -> String {
+pub fn get_kernel() -> String {
     fs::read_to_string("/proc/sys/kernel/osrelease")
         .map_or_else(|_| "Linux".to_string(), |s| s.trim().to_string())
 }
 
-fn get_uptime() -> String {
+pub fn get_uptime() -> String {
     if let Ok(content) = fs::read_to_string("/proc/uptime") {
         if let Some(sec_str) = content.split_whitespace().next() {
             let int_part = sec_str.split('.').next().unwrap_or(sec_str);
@@ -217,7 +217,7 @@ fn get_uptime() -> String {
     "unknown".to_string()
 }
 
-fn get_memory_stats() -> Option<(u64, u64)> {
+pub fn get_memory_stats() -> Option<(u64, u64)> {
     let content = fs::read_to_string("/proc/meminfo").ok()?;
     let mut total_kb: Option<u64> = None;
     let mut avail_kb: Option<u64> = None;
@@ -234,7 +234,7 @@ fn get_memory_stats() -> Option<(u64, u64)> {
     Some((used, total))
 }
 
-fn get_disk_stats() -> Option<(u64, u64)> {
+pub fn get_disk_stats() -> Option<(u64, u64)> {
     let mut stat = MaybeUninit::<libc::statvfs>::uninit();
     let path = std::ffi::CString::new("/").ok()?;
     let res = unsafe { libc::statvfs(path.as_ptr(), stat.as_mut_ptr()) };
@@ -248,7 +248,7 @@ fn get_disk_stats() -> Option<(u64, u64)> {
     Some((used, total))
 }
 
-fn format_usage(used: u64, total: u64) -> String {
+pub fn format_usage(used: u64, total: u64) -> String {
     if total == 0 {
         return "N/A".to_string();
     }

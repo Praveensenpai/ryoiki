@@ -5,9 +5,10 @@
 ## 1. System Topology & Data Flow
 ```text
 CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
+   ├──> Server Command Center & Bot (bot.rs: router, callbacks, system, services, torrents, maintenance, actions, ui, keyboards)
    ├──> Modules Engine (modules.rs: docker, tailscale, rclone, git_ssh, dev_runtimes, security)
    ├──> Media Pipeline (modules/media.rs: scan -> ai/heuristic -> probe -> audio -> transfer -> sync -> pruner)
-   ├──> Torrent Engine (modules/torrent.rs: api -> bot -> report -> telegram)
+   ├──> Torrent Engine (modules/torrent.rs: api -> notify -> report -> seedr -> telegram)
    ├──> Jellyfin Hub (modules/jellyfin.rs: api -> backup -> timer)
    ├──> Notification Server/Client (notify.rs: hooks, power, session, system)
    └──> Battery Subsystem (charge_limit.rs: sysfs, tlp, hp_acpi)
@@ -117,11 +118,38 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **View Modes**: `MainView`, `SubView { item_idx, cursor }`, `FilesView { item_idx, season_idx, cursor }`.
 - **Public Functions**: `pub fn run_interactive_transfer(direction: TransferDirection, target_root: &Path, remote_root: &Path, local_items: Vec<MediaItem>, remote_items: Vec<MediaItem>) -> Result<()>`.
 
+### Server Command Center & Bot Subsystem (`src/bot.rs` & `src/bot/`)
+
+#### `src/bot.rs` (Role: Server Command Center Daemon, Lines: ~50)
+- **Responsibility**: Orchestrates Telegram long-polling event loop, background Unix socket server, and background torrent lifecycle monitor.
+- **Public Functions**: `pub fn run_bot() -> Result<()>`.
+- **Sub-modules**: `actions`, `callbacks`, `client`, `keyboards`, `maintenance`, `router`, `services`, `system`, `torrents`, `types`, `ui`.
+
+#### `src/bot/router.rs` & `callbacks.rs` (Role: Command & Interactive Callback Dispatchers, Lines: ~265 / ~225)
+- **Responsibility**: Parses incoming slash commands (`/status`, `/system`, `/storage`, `/docker`, `/services`, `/torrent`, `/seedr`, `/pause`, `/resume`, `/organize`, `/prune`, `/sync`, `/audio`, `/charge`, `/check`, `/reboot`, `/poweroff`, `/update`) and dispatches inline keyboard callbacks (`cb:*`). Gated by sender ID authentication against `TelegramConfig::chat_id`.
+
+#### `src/bot/system.rs` (Role: Hardware Telemetry Engine, Lines: ~265)
+- **Responsibility**: Instantaneous CPU utilization, load averages, memory & swap breakdown, thermal sensors, AC/battery status, network IPs (Tailscale, LAN, public), and multi-mount filesystem auditing via `libc::statvfs`.
+- **Types**: `SystemMetrics`, `DiskMount`.
+
+#### `src/bot/services.rs` (Role: Docker & Systemd Unit Orchestrator, Lines: ~220)
+- **Responsibility**: Queries Docker container states, restarts containers, streams logs, and manages Ryoiki background systemd user/system services.
+- **Types**: `ContainerInfo`, `ServiceInfo`.
+
+#### `src/bot/torrents.rs` (Role: qBittorrent & Seedr Telegram Bridge, Lines: ~150)
+- **Responsibility**: qBittorrent API delegation, torrent report formatting, pause/resume, magnet/file ingestion, and background completion detection.
+
+#### `src/bot/actions.rs` & `maintenance.rs` (Role: Administrative & Pipeline Execution, Lines: ~110 / ~180)
+- **Responsibility**: Dynamic battery charge limit adjustment (`apply_limit_programmatic`), graceful reboot/poweroff execution with confirmation guards, self-update checking, media organizing, cloud pruning, Jellyfin sync, and tool audits.
+
+#### `src/bot/ui.rs` & `keyboards.rs` (Role: HTML Templates & Telegram Inline Keyboards, Lines: ~365 / ~110)
+- **Responsibility**: Formats aesthetic Telegram HTML cards, dynamic ASCII/block progress bars, and Telegram Inline Keyboards (`reply_markup`).
+
 ### Torrent Management Subsystem (`src/modules/torrent/`)
 
-#### `src/modules/torrent.rs` (Role: Torrent Orchestrator, Lines: ~389)
+#### `src/modules/torrent.rs` (Role: Torrent Orchestrator, Lines: ~385)
 - **Responsibility**: qBittorrent container lifecycle manager (384MB RAM cap, 64MB disk cache, 256MB working set limit), client API integration, and watcher.
-- **Sub-modules**: `api`, `bot`, `notify`, `report`, `seedr`, `telegram`.
+- **Sub-modules**: `api`, `notify`, `report`, `seedr`, `telegram`.
 
 #### `src/modules/torrent/seedr.rs` (Role: Seedr Cloud Offloader & Fallback Bridge, Lines: ~350)
 - **Responsibility**: Manages Seedr-first torrent offloading with automatic fallback to qBittorrent on initial or cloud failures, pending magnet persistence at ~/.cache/seedr-dl/magnets/, task inspection from ~/.cache/seedr-dl/tasks/*.json with fallback to `seedr-dl list --json`, live cloud caching progress bar formatting, and Telegram lifecycle card alerts.
@@ -133,8 +161,8 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: Authenticates and interfaces with qBittorrent API (torrents list, pause/stop, resume/start, delete) with v5.x endpoint support and v4.x fallback.
 - **Types**: `TorrentInfo` (`is_completed(&self) -> bool` checks `progress >= 1.0` or seeding/uploading states; `total_size: i64` handles `-1` on `metaDL`).
 
-#### `src/modules/torrent/telegram.rs` & `bot.rs` (Role: Telegram Bot Integration, Lines: ~500 total)
-- **Responsibility**: Dispatches completion alerts, auto-organizes completed downloads with error logging, and handles remote commands (`/status`, `/pause`, `/resume`, `/storage`, `/prune`, `/organize`, `/sync`) with bot mention stripping (`@...`), HTML escaping, and interactive error feedback.
+#### `src/modules/torrent/telegram.rs` (Role: Telegram Setup & Service Installer, Lines: ~130)
+- **Responsibility**: Interactive prompt for Telegram bot token, chat ID, and Gemini API key; deploys `ryoiki-bot.service` systemd user unit.
 
 ### System Notification Daemon (`src/notify/`)
 
@@ -186,6 +214,7 @@ cargo fmt --check
 ```
 
 ## 6. Recent Iteration Changes
+- **2026-10-02**: Expanded Telegram bot into a full Server Operations Center (`src/bot.rs` & `src/bot/`). Decoupled legacy torrent-only bot into modular domain (`router`, `callbacks`, `system`, `services`, `torrents`, `maintenance`, `actions`, `ui`, `keyboards`). Replaced narrow `/status` with a unified operational card displaying real-time CPU %, RAM %, thermals, power/battery metrics, multi-mount storage (NVMe, home, torrents, Jellyfin, Google Drive), and running container counts with interactive inline keyboard buttons (`[System]`, `[Torrents]`, `[Docker]`, `[Storage]`, `[Services]`, `[Maintenance]`). Added Docker container management (`/docker`, `/docker restart`), systemd service inspection/restarts (`/services`, `/service restart`), dynamic battery charge limit tuning (`/charge`), confirmation-guarded `/reboot` and `/poweroff`, and remote pipeline executions (`/organize`, `/prune`, `/sync`, `/audio`, `/check`). Bumped version to `v0.1.73`.
 - **2026-09-30**: Ungrouped nested anime movies in `media/anime/movie/` and `media/anime/movies/`. Updated `scan.rs` (`scan_local_category`, `scan_local_media`, `scan_remote_media`) to skip dummy folder names `movie`/`movies` when traversing `anime/`, and directly scan nested anime movie directories into individual `MediaItem`s under `MediaCategory::Anime` so titles like *Koe no Katachi (2016)* are directly visible in the main list. Removed dead `MediaCategory::remote_folder` method. Bumped version to `v0.1.67`.
 - **2026-09-30**: Added 7-day retention expiration for multi-audio safety backups (`backup_multi/`). Implemented `cleanup_expired_backups` in `pruner/execute.rs` called by `run_prune`: deletes files older than 7 days from `~/jellyfin/backup_multi/` locally and executes `rclone delete gdrive:ryoiki-archive/backup_multi/ --min-age 7d --drive-use-trash=true` with `rmdirs` remotely to safely recycle expired cloud backups into Google Drive Trash. Bumped version to `v0.1.66`.
 - **2026-09-30**: Added multi-audio safety backup and pruner prioritization. When multi-audio media is stripped, `audio.rs::strip_audio_auto` copies the untouched original container to `~/jellyfin/backup_multi/` before running `dubstrip`. If stripping succeeds, the safety backup is preserved while the active file is updated with its native language tag (e.g. `[Tamil]`); if stripping is skipped (uncertain confidence), the backup is cleaned up to save space. Updated `pruner/scan.rs` and `pruner.rs` (`sort_candidates`) to prioritize evicting `backup_multi/` files to `gdrive:ryoiki-archive/backup_multi/` (Tier 1) before touching active watched or cold media.

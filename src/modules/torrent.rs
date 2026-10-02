@@ -6,7 +6,6 @@ use std::io::{self, BufRead, Write};
 use std::path::Path;
 
 pub mod api;
-pub mod bot;
 pub mod notify;
 pub mod report;
 pub mod seedr;

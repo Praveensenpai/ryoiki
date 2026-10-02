@@ -1,3 +1,4 @@
+mod bot;
 mod charge_limit;
 mod configs;
 mod modules;
@@ -210,7 +211,7 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
             updater::run_self_update(env!("CARGO_PKG_VERSION"))?;
         }
         Commands::Bot => {
-            modules::torrent::bot::run_bot()?;
+            bot::run_bot()?;
         }
         Commands::ChargeLimit => {
             charge_limit::run(yes)?;

@@ -94,6 +94,35 @@ pub fn run(yes: bool) -> Result<()> {
     Ok(())
 }
 
+pub fn apply_limit_programmatic(limit: u8) -> Result<String> {
+    if !(MIN_LIMIT..=MAX_LIMIT).contains(&limit) {
+        bail!("Limit must be between {MIN_LIMIT}% and {MAX_LIMIT}%.");
+    }
+    let backend = detect_backend()?;
+    match backend {
+        Backend::Sysfs(battery) => {
+            sysfs::apply_sysfs_limit(&battery, limit)?;
+            sysfs::persist_udev_rule(&battery, limit)?;
+            sysfs::persist_systemd_service(&battery, limit)?;
+            Ok(format!("Battery charge limit set to {limit}% via sysfs."))
+        }
+        Backend::HpAcpi => {
+            apply_hp_acpi_limit(limit)?;
+            Ok(format!("Battery charge limit set to {limit}% via HP ACPI."))
+        }
+        Backend::Tlp => {
+            tlp::apply_tlp_limit(limit)?;
+            Ok(format!("Battery charge limit set to {limit}% via TLP."))
+        }
+        Backend::Unsupported { vendor, model } => {
+            guide::save_charge_limit_config(limit)?;
+            Ok(format!(
+                "Hardware unsupported ({vendor} {model}). Saved {limit}% target."
+            ))
+        }
+    }
+}
+
 fn apply_hp_acpi_limit(limit: u8) -> Result<()> {
     let _ = guide::save_charge_limit_config(limit);
     let _ =

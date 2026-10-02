@@ -223,7 +223,7 @@ fn build_hp_acpi_card(
 
 // ── System readers ────────────────────────────────────────────────────────────
 
-fn is_ac_online() -> bool {
+pub fn is_ac_online() -> bool {
     let base = Path::new("/sys/class/power_supply");
     let Ok(entries) = fs::read_dir(base) else {
         return true;
@@ -240,7 +240,7 @@ fn is_ac_online() -> bool {
 }
 
 /// Read battery percentage from the first battery found in `/sys/class/power_supply`/.
-pub(super) fn read_battery_percent() -> Option<u8> {
+pub fn read_battery_percent() -> Option<u8> {
     let base = "/sys/class/power_supply";
     for entry in fs::read_dir(base).ok()?.flatten() {
         let path = entry.path();
@@ -260,7 +260,7 @@ pub(super) fn read_battery_percent() -> Option<u8> {
 }
 
 /// Read battery charge status ("Charging", "Discharging", "Full", …).
-pub(super) fn read_battery_status() -> Option<String> {
+pub fn read_battery_status() -> Option<String> {
     let base = "/sys/class/power_supply";
     for entry in fs::read_dir(base).ok()?.flatten() {
         let path = entry.path();
@@ -280,7 +280,7 @@ pub(super) fn read_battery_status() -> Option<String> {
 }
 
 /// Read CPU temperature from hwmon or `thermal_zone` sysfs.
-fn read_cpu_temp() -> Option<f64> {
+pub fn read_cpu_temp() -> Option<f64> {
     // Try hwmon first (more accurate on most systems)
     if let Some(t) = read_hwmon_temp() {
         return Some(t);
@@ -317,7 +317,7 @@ fn read_hwmon_temp() -> Option<f64> {
 }
 
 /// Read instantaneous CPU usage by sampling /proc/stat twice with a 200 ms gap.
-fn read_cpu_usage() -> Option<f64> {
+pub fn read_cpu_usage() -> Option<f64> {
     let (idle1, total1) = parse_cpu_stat()?;
     thread::sleep(Duration::from_millis(200));
     let (idle2, total2) = parse_cpu_stat()?;
