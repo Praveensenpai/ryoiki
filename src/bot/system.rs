@@ -260,6 +260,6 @@ mod tests {
     #[test]
     fn test_get_local_ip_non_empty() {
         let ip = get_local_ip();
-        assert!(!ip.is_empty());
+        assert_ne!(ip, "");
     }
 }
