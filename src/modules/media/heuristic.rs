@@ -96,17 +96,20 @@ fn extract_extra_desc(input: &str) -> Option<String> {
 
 fn is_tracker_prefix(prefix: &str) -> bool {
     prefix.contains('.')
-        || prefix.starts_with("www.")
-        || prefix.contains("tamilmv")
-        || prefix.contains("tamilblasters")
-        || prefix.contains("tamilrockers")
-        || prefix.contains("cinevood")
-        || prefix.contains("moviesmod")
-        || prefix.contains("vegamovies")
-        || prefix.contains("bolly4u")
-        || prefix.contains("extramovies")
-        || prefix.contains("worldfree4u")
-        || prefix.contains("1tamil")
+        || [
+            "tamilmv",
+            "tamilblasters",
+            "tamilrockers",
+            "cinevood",
+            "moviesmod",
+            "vegamovies",
+            "bolly4u",
+            "extramovies",
+            "worldfree4u",
+            "1tamil",
+        ]
+        .iter()
+        .any(|p| prefix.contains(p))
 }
 
 fn strip_tracker_prefixes(input: &str) -> String {
@@ -360,84 +363,4 @@ fn format_clean_name(opts: &CleanNameOptions<'_>) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_heuristic_movie_cleaning() {
-        let raw = "www.1TamilMV.center - Love Mocktail 3 (2026) Kannada TRUE WEB-DL - 1080p - AVC - (DD_5.1 - 192Kbps _ AAC 2.0) - 2GB - ESub.mkv";
-        let info = classify_media_heuristic(raw);
-        assert_eq!(info.media_type, MediaType::Movie);
-        assert_eq!(info.title, "Love Mocktail 3");
-        assert_eq!(info.year, Some(2026));
-        assert_eq!(info.language.as_deref(), Some("Kannada"));
-        assert_eq!(info.resolution.as_deref(), Some("1080p"));
-        assert_eq!(
-            info.clean_name,
-            "Love Mocktail 3 (2026) [Kannada] [1080p].mkv"
-        );
-    }
-
-    #[test]
-    fn test_heuristic_tamilmv_prefix_with_kannada_language() {
-        let raw = "www.1TamilMV.cards - The Rise of Ashoka (2026) Kannada TRUE WEB-DL - 1080p - AVC - (DD_5.1 - 192Kbps _ AAC 2.0) - 2GB - ESub.mkv";
-        let info = classify_media_heuristic(raw);
-        assert_eq!(info.media_type, MediaType::Movie);
-        assert_eq!(info.title, "The Rise of Ashoka");
-        assert_eq!(info.year, Some(2026));
-        assert_eq!(info.language.as_deref(), Some("Kannada"));
-        assert_eq!(info.resolution.as_deref(), Some("1080p"));
-        assert_eq!(
-            info.clean_name,
-            "The Rise of Ashoka (2026) [Kannada] [1080p].mkv"
-        );
-    }
-
-    #[test]
-    fn test_heuristic_show_cleaning() {
-        let raw = "House.of.the.Dragon.S02E04.1080p.WEB.H264-SUCCESS.mkv";
-        let info = classify_media_heuristic(raw);
-        assert_eq!(info.media_type, MediaType::Show);
-        assert_eq!(info.title, "House of the Dragon");
-        assert_eq!(info.season, Some(2));
-        assert_eq!(info.episode, Some(4));
-        assert_eq!(info.clean_name, "House of the Dragon - S02E04 [1080p].mkv");
-    }
-
-    #[test]
-    fn test_heuristic_anime_cleaning() {
-        let raw = "[Moozzi2] Yuru Camp S3 - 01 (BD 1920x1080 x265-10Bit Flac).mkv";
-        let info = classify_media_heuristic(raw);
-        assert_eq!(info.media_type, MediaType::Anime);
-        assert_eq!(info.title, "Yuru Camp");
-        assert_eq!(info.season, Some(3));
-        assert_eq!(info.episode, Some(1));
-        assert_eq!(info.resolution.as_deref(), Some("1080p"));
-        assert_eq!(info.clean_name, "Yuru Camp - S03E01 [1080p].mkv");
-        assert!(!info.is_extra);
-    }
-
-    #[test]
-    fn test_heuristic_anime_specials() {
-        let s2_raw = "[Moozzi2] Yuru Camp S2 [SP01] NCOP (BD 1920x1080 x265-10Bit Flac).mkv";
-        let info2 = classify_media_heuristic(s2_raw);
-        assert_eq!(info2.title, "Yuru Camp");
-        assert_eq!(info2.season, Some(2));
-        assert!(info2.is_extra);
-        assert_eq!(info2.clean_name, "Yuru Camp - S02 [SP01] NCOP [1080p].mkv");
-
-        let s3_raw = "[Moozzi2] Yuru Camp S3 [SP01] NCED (BD 1920x1080 x265-10Bit Flac).mkv";
-        let info3 = classify_media_heuristic(s3_raw);
-        assert_eq!(info3.title, "Yuru Camp");
-        assert_eq!(info3.season, Some(3));
-        assert!(info3.is_extra);
-        assert_eq!(info3.clean_name, "Yuru Camp - S03 [SP01] NCED [1080p].mkv");
-
-        let menu = "[Moozzi2] Yuru Camp S3 [SP00] Menu - 01 (BD 1920x1080 x265-10Bit Flac).mkv";
-        let info_menu = classify_media_heuristic(menu);
-        assert_eq!(
-            info_menu.clean_name,
-            "Yuru Camp - S03 [SP00] Menu - 01 [1080p].mkv"
-        );
-    }
-}
+mod tests;

@@ -122,7 +122,6 @@ enum Commands {
     },
 }
 
-
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let mut runner = Runner::new(cli.dry_run, cli.verbose)?;
@@ -304,7 +303,6 @@ fn handle_seedr_cli(target: &str) -> Result<()> {
     );
     Ok(())
 }
-
 
 fn resolve_selected_modules(cli: &Cli) -> Result<Option<Vec<String>>> {
     let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();

@@ -74,13 +74,7 @@ fn handle_client(mut stream: TcpStream, config: &TelegramConfig) -> Result<()> {
     }
 
     if method == "POST" && path.starts_with("/seedr-webhook") {
-        return handle_seedr_webhook(
-            &mut stream,
-            &mut reader,
-            content_length,
-            path,
-            config,
-        );
+        return handle_seedr_webhook(&mut stream, &mut reader, content_length, path, config);
     }
 
     write_response(&mut stream, 404, r#"{"error":"Not Found"}"#)
@@ -233,11 +227,7 @@ fn handle_seedr_webhook(
                 );
             }
             SeedrEvent::Failed { error, .. } => {
-                let _ = crate::modules::torrent::seedr::handle_seedr_failure(
-                    hash,
-                    &error,
-                    config,
-                );
+                let _ = crate::modules::torrent::seedr::handle_seedr_failure(hash, &error, config);
             }
             SeedrEvent::Ignored => {}
         }
@@ -245,4 +235,3 @@ fn handle_seedr_webhook(
 
     write_response(stream, 200, r#"{"status":"received"}"#)
 }
-

@@ -71,7 +71,6 @@ pub fn spawn_seedr_download(magnet: &str, api_port: u16) -> Result<()> {
     Ok(())
 }
 
-
 /// Handles a successful Seedr download notification by cleaning up from qBittorrent and alerting.
 ///
 /// # Errors
@@ -92,11 +91,18 @@ pub fn handle_seedr_completion(
 
     let sz_mb = total_bytes / 1_048_576;
     let path_display = dest_path.unwrap_or("torrents/");
+    let display_name = if file_name.starts_with("folder-") {
+        dest_path
+            .and_then(|p| Path::new(p).file_name()?.to_str())
+            .unwrap_or(file_name)
+    } else {
+        file_name
+    };
     let card = crate::notify::client::format_card(
         "Seedr",
         "✅ <b>SEEDR DOWNLOAD COMPLETE</b>",
         &[
-            ("File:", file_name),
+            ("File:", display_name),
             ("Size:", &format!("{sz_mb} MB")),
             ("Path:", path_display),
             ("Status:", "Cleaned up from Seedr & qBittorrent"),
@@ -115,9 +121,8 @@ fn cleanup_qbittorrent(client: &Client, qb_url: &str, hash: Option<&str>, file_n
 
     if let Ok(torrents) = api::get_torrents(client, qb_url, None) {
         for t in torrents {
-            let matches_name = t.name == file_name
-                || file_name.contains(&t.name)
-                || t.name.contains(file_name);
+            let matches_name =
+                t.name == file_name || file_name.contains(&t.name) || t.name.contains(file_name);
             if matches_name {
                 let _ = api::delete_torrent(client, qb_url, &t.hash, true);
             }

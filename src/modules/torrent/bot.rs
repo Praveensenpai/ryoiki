@@ -124,7 +124,8 @@ fn handle_seedr_cmd(client: &Client, config: &TelegramConfig, target: &str) {
         let tasks = super::seedr::get_active_seedr_tasks();
         let sec = super::seedr::format_seedr_tasks_section(&tasks);
         let msg = if sec.is_empty() {
-            "🌱 <b>Seedr Cloud:</b> No active downloads.\nTip: <code>/seedr &lt;magnet&gt;</code>".to_string()
+            "🌱 <b>Seedr Cloud:</b> No active downloads.\nTip: <code>/seedr &lt;magnet&gt;</code>"
+                .to_string()
         } else {
             format!("🌊 <b>領域 RYOIKI • Seedr</b>\n━━━━━━━━━━━━━━━━━━━━━━━\n{sec}")
         };
@@ -147,16 +148,13 @@ fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> Resu
     let qb_res = api::add_magnet(client, &config.qbittorrent_url, magnet);
     let seedr_res = super::seedr::spawn_seedr_download(magnet, config.api_port);
 
-    if qb_res.is_ok() && seedr_res.is_ok() {
-        let msg = "🌊 <b>領域 RYOIKI</b> • <i>Dual Pipeline</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED (qBittorrent & Seedr)</b>\n\nFast cloud download attempted via <b>Seedr.cc</b>.\nIf successful, qBittorrent duplicate will be cleaned up automatically.";
-        reply(client, config, msg)?;
-    } else if let Ok(()) = qb_res {
-        reply(client, config, "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED IN QBITTORRENT</b>")?;
-    } else if let Ok(()) = seedr_res {
-        reply(client, config, "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED IN SEEDR</b>")?;
-    } else {
-        reply(client, config, "❌ <b>Failed to queue magnet in both qBittorrent and Seedr</b>")?;
-    }
+    let msg = match (qb_res.is_ok(), seedr_res.is_ok()) {
+        (true, true) => "🌊 <b>領域 RYOIKI</b> • <i>Dual Pipeline</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED (qBittorrent & Seedr)</b>\n\nFast cloud download attempted via <b>Seedr.cc</b>.\nIf successful, qBittorrent duplicate will be cleaned up automatically.",
+        (true, false) => "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED IN QBITTORRENT</b>",
+        (false, true) => "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED IN SEEDR</b>",
+        (false, false) => "❌ <b>Failed to queue magnet in both qBittorrent and Seedr</b>",
+    };
+    reply(client, config, msg)?;
     Ok(())
 }
 

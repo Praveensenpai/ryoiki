@@ -155,6 +155,10 @@ ryoiki notify power unplugged
 
 # Start battery watch daemon — fires Telegram alert at 50%, 40%, 30%, 25%, 15%, 5%, 1%
 ryoiki notify battery-watch
+
+# Seedr.cc Cloud Downloads & Live Pipeline Status
+ryoiki seedr status                      # Inspect active Seedr cloud caching & disk download progress
+ryoiki seedr "magnet:?xt=urn:btih:..."   # Offload torrent to Seedr cloud with auto-cleanup of qBittorrent duplicates
 ```
 
 ---

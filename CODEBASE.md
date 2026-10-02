@@ -76,8 +76,8 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
   - `pub fn classify_media_ai(client: &Client, api_key: &str, raw_name: &str, probe: Option<&MediaProbe>) -> Result<MediaInfo>`
   - `pub fn classify_media_batch(client: &Client, api_key: &str, items: &[(&str, Option<&MediaProbe>)]) -> Result<HashMap<String, MediaInfo>>`
 
-#### `src/modules/media/heuristic.rs` (Role: Offline Regex Classifier, Lines: ~240)
-- **Responsibility**: High-performance regex fallback parser for anime and TV show filenames when offline or unconfigured.
+#### `src/modules/media/heuristic.rs` & `heuristic/tests.rs` (Role: Offline Regex Classifier, Lines: ~365 / ~115)
+- **Responsibility**: High-performance regex fallback parser for anime and TV show filenames when offline or unconfigured. Dedicated unit tests in `heuristic/tests.rs`.
 
 #### `src/modules/media/probe.rs` (Role: FFprobe Inspector, Lines: ~250)
 - **Responsibility**: Inspects video files for container codecs, audio stream count (bypassing single-audio streams), audio tracks, and subtitle tracks via `ffprobe`.
