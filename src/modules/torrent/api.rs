@@ -265,9 +265,9 @@ mod tests {
             .unwrap_or_else(|_| Client::new());
         if let Ok(torrents) = get_torrents(&client, "http://localhost:6881", None) {
             println!("Fetched {} live torrents successfully!", torrents.len());
-            assert!(!torrents.is_empty());
+            assert_ne!(torrents.len(), 0);
             for t in &torrents {
-                assert!(!t.name.is_empty());
+                assert_ne!(t.name, "");
             }
         }
     }

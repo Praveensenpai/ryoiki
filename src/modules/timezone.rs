@@ -309,6 +309,6 @@ mod tests {
     #[test]
     fn test_get_current_timezone_non_empty() {
         let tz = get_current_timezone();
-        assert!(!tz.is_empty());
+        assert_ne!(tz, "");
     }
 }
