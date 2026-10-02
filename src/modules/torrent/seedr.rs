@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use reqwest::blocking::Client;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
@@ -19,6 +19,30 @@ pub fn extract_btih_hash(magnet: &str) -> Option<String> {
     Some(sub[..end].to_lowercase())
 }
 
+fn get_magnets_dir() -> PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    Path::new(&home).join(".cache/seedr-dl/magnets")
+}
+
+pub fn save_pending_magnet(hash: &str, magnet: &str) {
+    let dir = get_magnets_dir();
+    if std::fs::create_dir_all(&dir).is_ok() {
+        let _ = std::fs::write(dir.join(format!("{hash}.magnet")), magnet);
+    }
+}
+
+pub fn load_pending_magnet(hash: &str) -> Option<String> {
+    let path = get_magnets_dir().join(format!("{hash}.magnet"));
+    std::fs::read_to_string(path)
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+}
+
+pub fn remove_pending_magnet(hash: &str) {
+    let path = get_magnets_dir().join(format!("{hash}.magnet"));
+    let _ = std::fs::remove_file(path);
+}
+
 /// Spawns a background seedr-dl process configured with the webhook callback.
 ///
 /// # Errors
@@ -32,9 +56,12 @@ pub fn spawn_seedr_download(magnet: &str, api_port: u16) -> Result<()> {
         "seedr-dl".to_string()
     };
 
-    let hash_param = extract_btih_hash(magnet)
-        .map(|h| format!("?hash={h}"))
-        .unwrap_or_default();
+    let hash_opt = extract_btih_hash(magnet);
+    if let Some(ref h) = hash_opt {
+        save_pending_magnet(h, magnet);
+    }
+
+    let hash_param = hash_opt.map(|h| format!("?hash={h}")).unwrap_or_default();
     let callback_url = format!("http://127.0.0.1:{api_port}/seedr-webhook{hash_param}");
     let torrents_dir = Path::new(&home).join("torrents");
     let log_dir = Path::new(&home).join(".cache/seedr-dl/logs");
@@ -109,6 +136,10 @@ pub fn handle_seedr_completion(
         ],
     );
 
+    if let Some(h) = hash {
+        remove_pending_magnet(h);
+    }
+
     crate::notify::client::send_alert(&config.bot_token, &config.chat_id, &card)?;
     let _ = crate::modules::jellyfin::api::refresh_library_auto();
     Ok(())
@@ -130,22 +161,39 @@ fn cleanup_qbittorrent(client: &Client, qb_url: &str, hash: Option<&str>, file_n
     }
 }
 
-/// Handles a failed Seedr download notification by alerting that qBittorrent remains active.
+/// Handles a failed Seedr download notification by automatically queueing into qBittorrent.
 ///
 /// # Errors
 /// Returns an error if Telegram alerting fails.
 pub fn handle_seedr_failure(
-    _hash: Option<&str>,
+    hash: Option<&str>,
     error: &str,
     config: &TelegramConfig,
 ) -> Result<()> {
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .context("Failed to build HTTP client for qBittorrent fallback")?;
+
+    let fallback_ok = if let Some(h) = hash {
+        let magnet = load_pending_magnet(h).unwrap_or_else(|| format!("magnet:?xt=urn:btih:{h}"));
+        let res = api::add_magnet(&client, &config.qbittorrent_url, &magnet);
+        remove_pending_magnet(h);
+        res.is_ok()
+    } else {
+        false
+    };
+
+    let action_msg = if fallback_ok {
+        "Forwarded to qBittorrent for local download"
+    } else {
+        "Failed to forward to qBittorrent"
+    };
+
     let card = crate::notify::client::format_card(
         "Seedr",
-        "⚠️ <b>SEEDR CLOUD FAILED</b>",
-        &[
-            ("Reason:", error),
-            ("Action:", "qBittorrent is continuing download as fallback"),
-        ],
+        "⚠️ <b>SEEDR CLOUD FAILED — FALLBACK ACTIVATED</b>",
+        &[("Reason:", error), ("Fallback:", action_msg)],
     );
 
     crate::notify::client::send_alert(&config.bot_token, &config.chat_id, &card)?;

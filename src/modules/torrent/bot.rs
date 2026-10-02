@@ -145,17 +145,17 @@ fn handle_seedr_cmd(client: &Client, config: &TelegramConfig, target: &str) {
 }
 
 fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> Result<()> {
-    let qb_res = api::add_magnet(client, &config.qbittorrent_url, magnet);
-    let seedr_res = super::seedr::spawn_seedr_download(magnet, config.api_port);
-
-    let msg = match (qb_res.is_ok(), seedr_res.is_ok()) {
-        (true, true) => "🌊 <b>領域 RYOIKI</b> • <i>Dual Pipeline</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED (qBittorrent & Seedr)</b>\n\nFast cloud download attempted via <b>Seedr.cc</b>.\nIf successful, qBittorrent duplicate will be cleaned up automatically.",
-        (true, false) => "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED IN QBITTORRENT</b>",
-        (false, true) => "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED IN SEEDR</b>",
-        (false, false) => "❌ <b>Failed to queue magnet in both qBittorrent and Seedr</b>",
-    };
-    reply(client, config, msg)?;
-    Ok(())
+    if let Err(e) = super::seedr::spawn_seedr_download(magnet, config.api_port) {
+        let qb_ok = api::add_magnet(client, &config.qbittorrent_url, magnet).is_ok();
+        let msg = if qb_ok {
+            format!("🌊 <b>領域 RYOIKI</b> • <i>qBittorrent Fallback</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n<i>Seedr unavailable ({e}) — forwarded to qBittorrent.</i>")
+        } else {
+            format!("❌ <b>Failed to queue magnet in Seedr & qBittorrent:</b> {e}")
+        };
+        return reply(client, config, &msg);
+    }
+    let msg = "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n📥 <b>MAGNET QUEUED IN SEEDR</b>\n\nOffloading to Seedr cloud.\n<i>If Seedr fails, qBittorrent will automatically take over.</i>";
+    reply(client, config, msg)
 }
 
 fn handle_document(client: &Client, config: &TelegramConfig, doc: Document) -> Result<()> {

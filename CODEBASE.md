@@ -123,8 +123,8 @@ CLI / TUI (main.rs, tui.rs) ──> State & Config (state.rs, configs.rs)
 - **Responsibility**: qBittorrent container lifecycle manager (384MB RAM cap, 64MB disk cache, 256MB working set limit), client API integration, and watcher.
 - **Sub-modules**: `api`, `bot`, `notify`, `report`, `seedr`, `telegram`.
 
-#### `src/modules/torrent/seedr.rs` (Role: Seedr Cloud Dual-Pipeline & Live Task Inspector, Lines: ~297)
-- **Responsibility**: Manages dual-pipeline magnet ingestion (Seedr.cc cloud + qBittorrent parallel queues), BTIH hash extraction, automated duplicate cleanup in qBittorrent on Seedr success, task inspection from ~/.cache/seedr-dl/tasks/*.json with fallback to `seedr-dl list --json`, live cloud caching progress bar formatting, and Telegram lifecycle card alerts.
+#### `src/modules/torrent/seedr.rs` (Role: Seedr Cloud Offloader & Fallback Bridge, Lines: ~350)
+- **Responsibility**: Manages Seedr-first torrent offloading with automatic fallback to qBittorrent on initial or cloud failures, pending magnet persistence at ~/.cache/seedr-dl/magnets/, task inspection from ~/.cache/seedr-dl/tasks/*.json with fallback to `seedr-dl list --json`, live cloud caching progress bar formatting, and Telegram lifecycle card alerts.
 
 #### `src/modules/seedr.rs` (Role: Seedr CLI Setup Module, Lines: ~45)
 - **Responsibility**: Provisions `seedr-dl` CLI utility, verifies installation path, and handles credential authentication.
