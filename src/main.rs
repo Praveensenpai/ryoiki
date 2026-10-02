@@ -114,7 +114,14 @@ enum Commands {
     Audio(modules::media::audio::AudioSubcommand),
     /// Configure system timezone (auto-detect via IP provider or set custom)
     Timezone(modules::timezone::TimezoneArgs),
+    /// Queue magnet to dual-pipeline (Seedr.cc cloud + qBittorrent) or inspect status
+    Seedr {
+        /// Magnet link, cloud folder ID, or "status"
+        #[arg(default_value = "status")]
+        target: String,
+    },
 }
+
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -267,9 +274,37 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
             }
             modules::timezone::handle_cli(args, runner)?;
         }
+        Commands::Seedr { target } => {
+            handle_seedr_cli(&target)?;
+        }
     }
     Ok(())
 }
+
+fn handle_seedr_cli(target: &str) -> Result<()> {
+    let config = notify::TelegramConfig::load()?;
+    if target.is_empty() || target == "status" {
+        let tasks = modules::torrent::seedr::get_active_seedr_tasks();
+        let sec = modules::torrent::seedr::format_seedr_tasks_section(&tasks);
+        if sec.is_empty() {
+            println!("  🌱 No active Seedr downloads.");
+        } else {
+            println!("{sec}");
+        }
+        return Ok(());
+    }
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let _ = modules::torrent::api::add_magnet(&client, &config.qbittorrent_url, target);
+    modules::torrent::seedr::spawn_seedr_download(target, config.api_port)?;
+    println!(
+        "  {} Queued magnet into qBittorrent and Seedr dual-pipeline.",
+        "✔".green().bold()
+    );
+    Ok(())
+}
+
 
 fn resolve_selected_modules(cli: &Cli) -> Result<Option<Vec<String>>> {
     let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();
