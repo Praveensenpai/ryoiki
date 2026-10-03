@@ -45,18 +45,25 @@ pub fn handle_bot_organize(config: &TelegramConfig) -> Result<String> {
         results.extend(res);
     }
 
+    Ok(format_organize_report(&results, cleared))
+}
+
+fn format_organize_report(
+    results: &[crate::modules::media::OrganizeResult],
+    cleared: usize,
+) -> String {
     if results.is_empty() {
         if cleared > 0 {
-            return Ok(format!(
+            return format!(
                 "🌊 <b>領域 RYOIKI • Media Organizer</b>\n\
                 ━━━━━━━━━━━━━━━━━━━━━━━\n\
                 🗑 <b>Cleaned {cleared} torrent(s) from qBittorrent history.</b>"
-            ));
+            );
         }
-        return Ok("🌊 <b>領域 RYOIKI • Media Organizer</b>\n\
+        return "🌊 <b>領域 RYOIKI • Media Organizer</b>\n\
             ━━━━━━━━━━━━━━━━━━━━━━━\n\
             No new video files found to organize."
-            .to_string());
+            .to_string();
     }
 
     let mut lines = vec![
@@ -87,7 +94,7 @@ pub fn handle_bot_organize(config: &TelegramConfig) -> Result<String> {
     }
 
     lines.push("━━━━━━━━━━━━━━━━━━━━━━━".to_string());
-    Ok(lines.join("\n"))
+    lines.join("\n")
 }
 
 pub fn handle_bot_prune() -> Result<String> {
@@ -180,4 +187,26 @@ pub fn handle_bot_check() -> String {
 
     lines.push("━━━━━━━━━━━━━━━━━━━━━━━".to_string());
     lines.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_handle_bot_check_contains_core_tools() {
+        let text = handle_bot_check();
+        assert!(text.contains("System Tool Audit"));
+        assert!(text.contains("git"));
+        assert!(text.contains("docker"));
+    }
+
+    #[test]
+    fn test_handle_bot_audio_status() {
+        let res = handle_bot_audio("");
+        assert!(res.is_ok());
+        let text = res.unwrap_or_default();
+        assert!(text.contains("DubStrip"));
+        assert!(text.contains("Retry Timer:"));
+    }
 }

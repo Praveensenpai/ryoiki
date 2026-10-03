@@ -101,6 +101,11 @@ pub fn get_docker_logs(name: &str, tail: usize) -> Result<String> {
         .output()
         .context("Failed to execute docker logs")?;
 
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr);
+        bail!("Failed to get logs for {name}: {}", err.trim());
+    }
+
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
     let mut combined = if stdout.is_empty() {
@@ -141,19 +146,38 @@ pub fn get_managed_services() -> Vec<ServiceInfo> {
     services
 }
 
-pub fn restart_managed_service(name: &str) -> Result<String> {
-    let is_user = MANAGED_USER_SERVICES.iter().any(|(u, _)| *u == name);
-    let is_system = MANAGED_SYSTEM_SERVICES.iter().any(|(u, _)| *u == name);
-
-    if !is_user && !is_system {
-        bail!("Service '{name}' is not in the managed services whitelist.");
+pub fn resolve_managed_unit(name: &str) -> Option<(&'static str, bool)> {
+    let resolved_user = MANAGED_USER_SERVICES.iter().find(|(u, _)| {
+        *u == name
+            || u.strip_suffix(".service").is_some_and(|base| base == name)
+            || u.strip_suffix(".timer").is_some_and(|base| base == name)
+    });
+    if let Some((u, _)) = resolved_user {
+        return Some((*u, true));
     }
+
+    let resolved_system = MANAGED_SYSTEM_SERVICES.iter().find(|(u, _)| {
+        *u == name
+            || u.strip_suffix(".service").is_some_and(|base| base == name)
+            || u.strip_suffix(".timer").is_some_and(|base| base == name)
+    });
+    if let Some((u, _)) = resolved_system {
+        return Some((*u, false));
+    }
+
+    None
+}
+
+pub fn restart_managed_service(name: &str) -> Result<String> {
+    let Some((unit, is_user)) = resolve_managed_unit(name) else {
+        bail!("Service '{name}' is not in the managed services whitelist.");
+    };
 
     let mut cmd = Command::new("systemctl");
     if is_user {
-        cmd.args(["--user", "restart", name]);
+        cmd.args(["--user", "restart", unit]);
     } else {
-        cmd.args(["restart", name]);
+        cmd.args(["restart", unit]);
     }
 
     let out = cmd
@@ -161,11 +185,11 @@ pub fn restart_managed_service(name: &str) -> Result<String> {
         .context("Failed to execute systemctl restart")?;
     if out.status.success() {
         Ok(format!(
-            "Service <code>{name}</code> restarted successfully."
+            "Service <code>{unit}</code> restarted successfully."
         ))
     } else {
         let err = String::from_utf8_lossy(&out.stderr);
-        bail!("Failed to restart {name}: {}", err.trim())
+        bail!("Failed to restart {unit}: {}", err.trim())
     }
 }
 
@@ -215,5 +239,38 @@ mod tests {
         assert!(!is_valid_name("../../etc/shadow"));
         assert!(!is_valid_name("foo bar"));
         assert!(!is_valid_name("test$(whoami)"));
+    }
+
+    #[test]
+    fn test_resolve_managed_unit() {
+        assert_eq!(
+            resolve_managed_unit("ryoiki-bot.service"),
+            Some(("ryoiki-bot.service", true))
+        );
+        assert_eq!(
+            resolve_managed_unit("ryoiki-bot"),
+            Some(("ryoiki-bot.service", true))
+        );
+        assert_eq!(
+            resolve_managed_unit("ryoiki-media-sync"),
+            Some(("ryoiki-media-sync.timer", true))
+        );
+        assert_eq!(
+            resolve_managed_unit("docker"),
+            Some(("docker.service", false))
+        );
+        assert_eq!(
+            resolve_managed_unit("docker.service"),
+            Some(("docker.service", false))
+        );
+        assert_eq!(resolve_managed_unit("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_get_managed_services_populates_items() {
+        let services = get_managed_services();
+        assert!(!services.is_empty());
+        assert!(services.iter().any(|s| s.name == "ryoiki-bot.service"));
+        assert!(services.iter().any(|s| s.name == "docker.service"));
     }
 }

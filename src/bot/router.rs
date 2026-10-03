@@ -33,45 +33,44 @@ pub fn route_message(client: &Client, config: &TelegramConfig, msg: Message) {
     }
 
     if let Some(doc) = msg.document {
-        let fname = doc
-            .file_name
-            .unwrap_or_else(|| "download.torrent".to_string());
-        if fname.ends_with(".torrent") {
-            let res = download_telegram_file(client, &config.bot_token, &doc.file_id)
-                .and_then(|(_, bytes)| handle_torrent_file(client, config, &fname, bytes));
-            match res {
-                Ok(text) => {
-                    let _ = reply(client, &config.bot_token, &config.chat_id, &text);
-                }
-                Err(e) => {
-                    let _ = reply(
-                        client,
-                        &config.bot_token,
-                        &config.chat_id,
-                        &format!("❌ <b>Failed to add torrent:</b> {e}"),
-                    );
-                }
-            }
-        }
+        handle_torrent_document(client, config, &doc);
         return;
     }
 
-    if let Some(text) = msg.text {
-        let trimmed = text.trim();
-        if trimmed.starts_with("magnet:?xt=urn:") {
-            let res = handle_magnet(client, config, trimmed);
-            let _ = reply(client, &config.bot_token, &config.chat_id, &res);
-        } else if trimmed.starts_with('/') {
-            let full_cmd = trimmed.split_whitespace().next().unwrap_or("");
-            let cmd = full_cmd.split('@').next().unwrap_or(full_cmd);
-            if let Err(e) = dispatch_command(client, config, cmd, trimmed) {
-                let clean_err = escape_html(&e.to_string());
-                let err_msg =
-                    format!("❌ <b>Command Failed ({cmd}):</b>\n<code>{clean_err}</code>");
-                let _ = reply(client, &config.bot_token, &config.chat_id, &err_msg);
-            }
+    let Some(text) = msg.text else {
+        return;
+    };
+    let trimmed = text.trim();
+    if trimmed.starts_with("magnet:?xt=urn:") {
+        let res = handle_magnet(client, config, trimmed);
+        let _ = reply(client, &config.bot_token, &config.chat_id, &res);
+        return;
+    }
+
+    if let Some((cmd, full_text)) = extract_command(trimmed) {
+        if let Err(e) = dispatch_command(client, config, cmd, full_text) {
+            let clean_err = escape_html(&e.to_string());
+            let err_msg = format!("❌ <b>Command Failed ({cmd}):</b>\n<code>{clean_err}</code>");
+            let _ = reply(client, &config.bot_token, &config.chat_id, &err_msg);
         }
     }
+}
+
+fn handle_torrent_document(client: &Client, config: &TelegramConfig, doc: &super::types::Document) {
+    let fname = doc
+        .file_name
+        .clone()
+        .unwrap_or_else(|| "download.torrent".to_string());
+    if !fname.ends_with(".torrent") {
+        return;
+    }
+    let res = download_telegram_file(client, &config.bot_token, &doc.file_id)
+        .and_then(|(_, bytes)| handle_torrent_file(client, config, &fname, bytes));
+    let msg = match res {
+        Ok(text) => text,
+        Err(e) => format!("❌ <b>Failed to add torrent:</b> {e}"),
+    };
+    let _ = reply(client, &config.bot_token, &config.chat_id, &msg);
 }
 
 pub fn route_callback(client: &Client, config: &TelegramConfig, cb: CallbackQuery) {
@@ -95,34 +94,45 @@ pub fn route_callback(client: &Client, config: &TelegramConfig, cb: CallbackQuer
     }
 }
 
-fn dispatch_command(
-    client: &Client,
-    config: &TelegramConfig,
-    cmd: &str,
-    full_text: &str,
-) -> Result<()> {
+fn dispatch_telemetry(client: &Client, config: &TelegramConfig, cmd: &str) -> Result<bool> {
     match cmd {
-        "/status" => send_status_dashboard(client, config)?,
+        "/status" => {
+            send_status_dashboard(client, config)?;
+            Ok(true)
+        }
         "/system" | "/sys" => {
             let sys = collect_system_metrics(config);
             let (text, kb) = render_system_view(&sys);
             reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)?;
+            Ok(true)
         }
         "/storage" | "/disk" => {
             let sys = collect_system_metrics(config);
             let (text, kb) = render_storage_view(&sys.disks, sys.gdrive_info.as_deref());
             reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)?;
+            Ok(true)
         }
-        "/docker" | "/ps" => handle_docker_cmd(client, config, full_text)?,
-        "/services" => handle_services_cmd(client, config, full_text)?,
+        _ => Ok(false),
+    }
+}
+
+fn dispatch_media(
+    client: &Client,
+    config: &TelegramConfig,
+    cmd: &str,
+    full_text: &str,
+) -> Result<bool> {
+    match cmd {
+        "/docker" | "/ps" => handle_docker_cmd(client, config, full_text).map(|()| true),
+        "/services" | "/service" => handle_services_cmd(client, config, full_text).map(|()| true),
         "/torrent" | "/torrents" => {
             let text = render_torrent_report(client, &config.qbittorrent_url)?;
-            reply(client, &config.bot_token, &config.chat_id, &text)?;
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/seedr" => {
             let arg = full_text.strip_prefix("/seedr").unwrap_or("").trim();
             let text = handle_seedr_cmd(arg, config.api_port);
-            reply(client, &config.bot_token, &config.chat_id, &text)?;
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/pause" => {
             pause_all(client, &config.qbittorrent_url)?;
@@ -131,7 +141,8 @@ fn dispatch_command(
                 &config.bot_token,
                 &config.chat_id,
                 "⏸ <b>All torrents paused</b>",
-            )?;
+            )
+            .map(|()| true)
         }
         "/resume" => {
             resume_all(client, &config.qbittorrent_url)?;
@@ -140,57 +151,84 @@ fn dispatch_command(
                 &config.bot_token,
                 &config.chat_id,
                 "▶️ <b>All torrents resumed</b>",
-            )?;
+            )
+            .map(|()| true)
         }
         "/organize" | "/organise" => {
             let text = handle_bot_organize(config)?;
-            reply(client, &config.bot_token, &config.chat_id, &text)?;
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/prune" => {
             let text = handle_bot_prune()?;
-            reply(client, &config.bot_token, &config.chat_id, &text)?;
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/sync" | "/refresh" => {
             let text = handle_bot_sync();
-            reply(client, &config.bot_token, &config.chat_id, &text)?;
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/audio" => {
             let arg = full_text.strip_prefix("/audio").unwrap_or("").trim();
             let text = handle_bot_audio(arg)?;
-            reply(client, &config.bot_token, &config.chat_id, &text)?;
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
+        _ => Ok(false),
+    }
+}
+
+fn dispatch_control(
+    client: &Client,
+    config: &TelegramConfig,
+    cmd: &str,
+    full_text: &str,
+) -> Result<bool> {
+    match cmd {
         "/charge" => {
             let arg = full_text.strip_prefix("/charge").unwrap_or("").trim();
             let text = handle_charge_limit(arg);
-            reply(client, &config.bot_token, &config.chat_id, &text)?;
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/check" => {
             let text = handle_bot_check();
-            reply(client, &config.bot_token, &config.chat_id, &text)?;
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/reboot" => {
             let (text, kb) = render_reboot_confirm();
-            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)?;
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/poweroff" => {
             let (text, kb) = render_poweroff_confirm();
-            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)?;
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/update" => {
             let text = handle_self_update();
-            reply(client, &config.bot_token, &config.chat_id, &text)?;
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
-        "/help" | "/start" => send_help(client, config)?,
-        _ => {
-            reply(
-                client,
-                &config.bot_token,
-                &config.chat_id,
-                "❓ <b>Unknown command.</b> Send /help to view command list.",
-            )?;
-        }
+        "/help" | "/start" => send_help(client, config).map(|()| true),
+        _ => Ok(false),
     }
-    Ok(())
+}
+
+fn dispatch_command(
+    client: &Client,
+    config: &TelegramConfig,
+    cmd: &str,
+    full_text: &str,
+) -> Result<()> {
+    if dispatch_telemetry(client, config, cmd)?
+        || dispatch_media(client, config, cmd, full_text)?
+        || dispatch_control(client, config, cmd, full_text)?
+    {
+        return Ok(());
+    }
+
+    reply(
+        client,
+        &config.bot_token,
+        &config.chat_id,
+        "❓ <b>Unknown command.</b> Send /help to view command list.",
+    )
 }
 
 fn send_status_dashboard(client: &Client, config: &TelegramConfig) -> Result<()> {
@@ -262,4 +300,51 @@ fn send_help(client: &Client, config: &TelegramConfig) -> Result<()> {
         /update — Update ryoiki to latest release\n\
         ━━━━━━━━━━━━━━━━━━━━━━━";
     reply(client, &config.bot_token, &config.chat_id, help_text)
+}
+
+pub fn extract_command(text: &str) -> Option<(&str, &str)> {
+    let trimmed = text.trim();
+    if !trimmed.starts_with('/') {
+        return None;
+    }
+    let full_cmd = trimmed.split_whitespace().next()?;
+    let cmd = full_cmd.split('@').next().unwrap_or(full_cmd);
+    Some((cmd, trimmed))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_command_standard() {
+        assert_eq!(extract_command("/status"), Some(("/status", "/status")));
+        assert_eq!(
+            extract_command("/system --verbose"),
+            Some(("/system", "/system --verbose"))
+        );
+        assert_eq!(
+            extract_command("  /docker ps  "),
+            Some(("/docker", "/docker ps"))
+        );
+    }
+
+    #[test]
+    fn test_extract_command_with_bot_username() {
+        assert_eq!(
+            extract_command("/status@ryoiki_bot"),
+            Some(("/status", "/status@ryoiki_bot"))
+        );
+        assert_eq!(
+            extract_command("/service@ryoiki_bot restart docker"),
+            Some(("/service", "/service@ryoiki_bot restart docker"))
+        );
+    }
+
+    #[test]
+    fn test_extract_command_non_command() {
+        assert_eq!(extract_command("hello world"), None);
+        assert_eq!(extract_command("magnet:?xt=urn:btih:..."), None);
+        assert_eq!(extract_command(""), None);
+    }
 }

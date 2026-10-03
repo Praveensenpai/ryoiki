@@ -10,6 +10,9 @@ pub mod torrents;
 pub mod types;
 pub mod ui;
 
+#[cfg(test)]
+mod smoke_tests;
+
 use anyhow::{Context, Result};
 use reqwest::blocking::Client;
 use std::time::Duration;

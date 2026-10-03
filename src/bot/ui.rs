@@ -20,19 +20,7 @@ pub fn render_unified_status(
     let temp_str = sys
         .cpu_temp
         .map_or_else(|| "N/A".to_string(), |t| format!("{t:.1}°C"));
-
-    let power_icon = if sys.ac_online {
-        "🔌 AC"
-    } else {
-        "🔋 Battery"
-    };
-    let batt_str = sys
-        .battery_pct
-        .map_or_else(|| "None".to_string(), |p| format!("{p}%"));
-    let charge_cap_str = sys
-        .charge_limit
-        .map_or_else(String::new, |c| format!(" (⚡ {c}% Cap)"));
-
+    let power_summary = format_unified_power_status(sys);
     let disk_summary = format_disk_summary(&sys.disks);
     let tailscale_display = if sys.tailscale_ip.is_empty() {
         "none"
@@ -48,7 +36,7 @@ pub fn render_unified_status(
         📊 <b>System Load:</b>\n\
         CPU:  {} (Load: {:.2}, {:.2}, {:.2})\n\
         RAM:  <code>{}</code> {}% ({} / {})\n\
-        Temp: {} • Power: {} [{}]{}\n\n\
+        Temp: {} • Power: {}\n\n\
         💾 <b>Storage:</b>\n\
         {}\n\n\
         🐳 <b>Containers & Services:</b>\n\
@@ -69,9 +57,7 @@ pub fn render_unified_status(
         mem_used_str,
         mem_total_str,
         temp_str,
-        power_icon,
-        batt_str,
-        charge_cap_str,
+        power_summary,
         disk_summary,
         active_containers,
         torrent_count,
@@ -80,7 +66,59 @@ pub fn render_unified_status(
     (text, status_keyboard())
 }
 
+fn format_unified_power_status(sys: &SystemMetrics) -> String {
+    let power_icon = if sys.ac_online {
+        "🔌 AC"
+    } else {
+        "🔋 Battery"
+    };
+    let batt_str = sys
+        .battery_pct
+        .map_or_else(|| "None".to_string(), |p| format!("{p}%"));
+    let charge_cap_str = sys
+        .charge_limit
+        .map_or_else(String::new, |c| format!(" (⚡ {c}% Cap)"));
+    format!("{power_icon} [{batt_str}]{charge_cap_str}")
+}
+
 pub fn render_system_view(sys: &SystemMetrics) -> (String, InlineKeyboardMarkup) {
+    let cpu_mem_block = format_system_cpu_mem(sys);
+    let power_block = format_system_power(sys);
+    let tailscale_display = if sys.tailscale_ip.is_empty() {
+        "none"
+    } else {
+        &sys.tailscale_ip
+    };
+
+    let text = format!(
+        "📊 <b>領域 RYOIKI • Host Telemetry</b>\n\
+        ━━━━━━━━━━━━━━━━━━━━━━━\n\
+        🖥 <b>Hostname:</b> {}\n\
+        🐧 <b>Kernel:</b>   {}\n\
+        ⏱ <b>Uptime:</b>   {}\n\n\
+        ⚙️ <b>CPU & Memory:</b>\n\
+        {}\n\n\
+        🔋 <b>Power & Battery:</b>\n\
+        {}\n\n\
+        🌐 <b>Networking:</b>\n\
+        • Tailscale IPv4:  <code>{}</code>\n\
+        • Local LAN IP:    <code>{}</code>\n\
+        • Public IP:       <code>{}</code>\n\
+        ━━━━━━━━━━━━━━━━━━━━━━━",
+        sys.host,
+        sys.kernel,
+        sys.uptime,
+        cpu_mem_block,
+        power_block,
+        tailscale_display,
+        sys.local_ip,
+        sys.public_ip,
+    );
+
+    (text, system_keyboard())
+}
+
+fn format_system_cpu_mem(sys: &SystemMetrics) -> String {
     let cpu_str = sys
         .cpu_usage
         .map_or_else(|| "N/A".to_string(), |u| format!("{u:.1}%"));
@@ -92,7 +130,17 @@ pub fn render_system_view(sys: &SystemMetrics) -> (String, InlineKeyboardMarkup)
     let temp_str = sys
         .cpu_temp
         .map_or_else(|| "N/A".to_string(), |t| format!("{t:.1} °C"));
+    format!(
+        "• CPU Utilization: <b>{cpu_str}</b>\n\
+        • Load Average:    <b>{l1:.2}, {l5:.2}, {l15:.2}</b>\n\
+        • CPU Temperature: <b>{temp_str}</b>\n\
+        • Physical RAM:    <b>{mem_used_str} / {mem_total_str}</b> ({}%)\n\
+        • Swap Space:      <b>{swap_used_str} / {swap_total_str}</b>",
+        sys.mem_pct
+    )
+}
 
+fn format_system_power(sys: &SystemMetrics) -> String {
     let batt_pct_str = sys
         .battery_pct
         .map_or_else(|| "N/A".to_string(), |p| format!("{p}%"));
@@ -100,59 +148,16 @@ pub fn render_system_view(sys: &SystemMetrics) -> (String, InlineKeyboardMarkup)
     let limit_str = sys
         .charge_limit
         .map_or_else(|| "None".to_string(), |c| format!("{c}%"));
-
-    let text = format!(
-        "📊 <b>領域 RYOIKI • Host Telemetry</b>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        🖥 <b>Hostname:</b> {}\n\
-        🐧 <b>Kernel:</b>   {}\n\
-        ⏱ <b>Uptime:</b>   {}\n\n\
-        ⚙️ <b>CPU & Memory:</b>\n\
-        • CPU Utilization: <b>{}</b>\n\
-        • Load Average:    <b>{:.2}, {:.2}, {:.2}</b>\n\
-        • CPU Temperature: <b>{}</b>\n\
-        • Physical RAM:    <b>{} / {}</b> ({}%)\n\
-        • Swap Space:      <b>{} / {}</b>\n\n\
-        🔋 <b>Power & Battery:</b>\n\
-        • AC Power:        <b>{}</b>\n\
-        • Charge Level:    <b>{}</b> ({})\n\
-        • Active Limit:    <b>{}</b>\n\n\
-        🌐 <b>Networking:</b>\n\
-        • Tailscale IPv4:  <code>{}</code>\n\
-        • Local LAN IP:    <code>{}</code>\n\
-        • Public IP:       <code>{}</code>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━",
-        sys.host,
-        sys.kernel,
-        sys.uptime,
-        cpu_str,
-        l1,
-        l5,
-        l15,
-        temp_str,
-        mem_used_str,
-        mem_total_str,
-        sys.mem_pct,
-        swap_used_str,
-        swap_total_str,
-        if sys.ac_online {
-            "Online (Plugged)"
-        } else {
-            "Offline (Discharging)"
-        },
-        batt_pct_str,
-        batt_st,
-        limit_str,
-        if sys.tailscale_ip.is_empty() {
-            "none"
-        } else {
-            &sys.tailscale_ip
-        },
-        sys.local_ip,
-        sys.public_ip,
-    );
-
-    (text, system_keyboard())
+    let ac_str = if sys.ac_online {
+        "Online (Plugged)"
+    } else {
+        "Offline (Discharging)"
+    };
+    format!(
+        "• AC Power:        <b>{ac_str}</b>\n\
+        • Charge Level:    <b>{batt_pct_str}</b> ({batt_st})\n\
+        • Active Limit:    <b>{limit_str}</b>"
+    )
 }
 
 pub fn render_storage_view(
