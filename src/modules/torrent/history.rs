@@ -140,7 +140,7 @@ mod tests {
         fs::write(&sample_file, &sample_data)?;
 
         let sig = compute_file_signature(&sample_file)?;
-        assert!(!sig.is_empty());
+        assert_ne!(sig, "");
 
         let tracked = create_tracked_file(sample_file.clone(), "original");
         assert_eq!(tracked.size, 200_000);
