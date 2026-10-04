@@ -103,7 +103,9 @@ pub fn get_deepseek_model() -> String {
 /// Resolves the `DeepSeek` API key (defaults to dseeker).
 #[must_use]
 pub fn get_deepseek_api_key() -> String {
-    if let Ok(key) = std::env::var("DEEPSEEK_API_KEY").or_else(|_| std::env::var("DEEPSEEKER_API_KEY")) {
+    if let Ok(key) =
+        std::env::var("DEEPSEEK_API_KEY").or_else(|_| std::env::var("DEEPSEEKER_API_KEY"))
+    {
         let trimmed = key.trim();
         if !trimmed.is_empty() {
             return trimmed.to_string();
@@ -137,4 +139,3 @@ pub fn get_gemini_model() -> String {
 pub fn is_ai_enabled() -> bool {
     is_deepseek_enabled() || get_or_prompt_gemini_key(false).is_some()
 }
-

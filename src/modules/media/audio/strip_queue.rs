@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use colored::Colorize;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::{fs, time};
 
 const MAX_ATTEMPTS: u8 = 24;
@@ -78,27 +77,10 @@ pub fn process_queue(dubstrip_bin: &Path) -> Result<()> {
         entries.len()
     );
 
-    let mut remaining = Vec::new();
-    for mut entry in entries.drain(..) {
-        entry.attempts += 1;
-        if try_strip(dubstrip_bin, &entry.path) {
-            println!(
-                "  {} Strip succeeded after {} attempt(s): {}",
-                "✔".green().bold(),
-                entry.attempts,
-                entry.path.display()
-            );
-            super::sync_filename_after_strip(&entry.path);
-        } else if entry.attempts >= MAX_ATTEMPTS {
-            println!(
-                "  {} Giving up after {MAX_ATTEMPTS} attempts: {}",
-                "✖".red(),
-                entry.path.display()
-            );
-        } else {
-            remaining.push(entry);
-        }
-    }
+    let remaining: Vec<QueueEntry> = entries
+        .drain(..)
+        .filter_map(|e| process_single_entry(dubstrip_bin, e))
+        .collect();
 
     save(&remaining)?;
     println!(
@@ -109,10 +91,47 @@ pub fn process_queue(dubstrip_bin: &Path) -> Result<()> {
     Ok(())
 }
 
-fn try_strip(bin: &Path, path: &Path) -> bool {
-    Command::new(bin)
-        .args(["strip", "--auto", "--force"])
-        .arg(path)
-        .status()
-        .is_ok_and(|s| s.success())
+fn process_single_entry(dubstrip_bin: &Path, mut entry: QueueEntry) -> Option<QueueEntry> {
+    entry.attempts += 1;
+    match super::strip_and_preserve(dubstrip_bin, &entry.path) {
+        super::StripOutcome::Stripped {
+            primary_lang,
+            original_path,
+            multi_path,
+        } => {
+            println!(
+                "  {} Strip succeeded after {} attempt(s):",
+                "✔".green().bold(),
+                entry.attempts
+            );
+            if let Some(orig) = original_path.file_name().and_then(|n| n.to_str()) {
+                println!("    • Original [{primary_lang}]: {}", orig.cyan());
+            }
+            if let Some(multi) = multi_path.file_name().and_then(|n| n.to_str()) {
+                println!("    • Multi Audio: {}", multi.cyan());
+            }
+            None
+        }
+        super::StripOutcome::Preserved => {
+            println!(
+                "  {} Audio preserved after {} attempt(s): {}",
+                "✔".green().bold(),
+                entry.attempts,
+                entry.path.display()
+            );
+            None
+        }
+        super::StripOutcome::Failed => {
+            if entry.attempts >= MAX_ATTEMPTS {
+                println!(
+                    "  {} Giving up after {MAX_ATTEMPTS} attempts: {}",
+                    "✖".red(),
+                    entry.path.display()
+                );
+                None
+            } else {
+                Some(entry)
+            }
+        }
+    }
 }

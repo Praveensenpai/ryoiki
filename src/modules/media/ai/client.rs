@@ -116,7 +116,8 @@ fn send_gemini_prompt_inner(client: &Client, api_key: &str, prompt: &str) -> Res
                 Ok(json_text) => return Ok(clean_json_text(&json_text)),
                 Err((status, e)) => {
                     last_err = format!("{model}: {e}");
-                    if status.is_client_error() && status != reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if status.is_client_error() && status != reqwest::StatusCode::TOO_MANY_REQUESTS
+                    {
                         break;
                     }
                 }
@@ -216,7 +217,10 @@ mod tests {
 
     #[test]
     fn test_clean_json_text() {
-        assert_eq!(clean_json_text("```json\n{\"test\": 1}\n```"), "{\"test\": 1}");
+        assert_eq!(
+            clean_json_text("```json\n{\"test\": 1}\n```"),
+            "{\"test\": 1}"
+        );
         assert_eq!(clean_json_text("```\n{\"test\": 2}\n```"), "{\"test\": 2}");
         assert_eq!(clean_json_text("{\"test\": 3}"), "{\"test\": 3}");
     }

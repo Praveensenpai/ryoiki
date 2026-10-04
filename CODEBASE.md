@@ -102,7 +102,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn restart_managed_service (name : & str) -> Result < String >
   ```
 
-### `src/bot/smoke_tests.rs` (Role: general, Lines: 169)
+### `src/bot/smoke_tests.rs` (Role: general, Lines: 174)
 - **Responsibility**: Core general logic in src/bot/smoke_tests.rs
 - **Imports**: use super :: actions :: handle_charge_limit , use super :: maintenance :: { handle_bot_audio , handle_bot_check } , use super :: router :: extract_command , use super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , resolve_managed_unit , } , use super :: system :: collect_system_metrics , use super :: torrents :: handle_seedr_cmd , use super :: ui :: { render_docker_view , render_maintenance_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , } , use crate :: notify :: config :: TelegramConfig 
 
@@ -357,18 +357,21 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/ai/batch.rs` (Role: general, Lines: 48)
 - **Responsibility**: Core general logic in src/modules/media/ai/batch.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use super :: super :: probe :: MediaProbe , use super :: super :: MediaInfo , use super :: client :: send_gemini_prompt , use super :: prompt :: build_batch_prompt , use super :: schema :: parse_batch_ai_json 
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use super :: super :: probe :: MediaProbe , use super :: super :: MediaInfo , use super :: client :: send_ai_prompt , use super :: prompt :: build_batch_prompt , use super :: schema :: parse_batch_ai_json 
 - **Public Functions & Signatures**:
   ```rust
-  fn classify_media_batch (client : & Client , api_key : & str , items : & [(& str , Option < & MediaProbe >)] ,) -> Result < HashMap < String , MediaInfo > >
+  fn classify_media_batch (client : & Client , api_key : Option < & str > , items : & [(& str , Option < & MediaProbe >)] ,) -> Result < HashMap < String , MediaInfo > >
   fn apply_probe_fallback (info : & mut MediaInfo , probe : Option < & MediaProbe >)
   ```
 
-### `src/modules/media/ai/client.rs` (Role: cli, Lines: 118)
+### `src/modules/media/ai/client.rs` (Role: cli, Lines: 227)
 - **Responsibility**: Core cli logic in src/modules/media/ai/client.rs
 - **Imports**: use anyhow :: { bail , Context , Result } , use reqwest :: blocking :: Client , use serde :: Deserialize , use serde_json :: json , use std :: thread :: sleep , use std :: time :: Duration 
 - **Public Functions & Signatures**:
   ```rust
+  fn clean_json_text (text : & str) -> String
+  fn send_ai_prompt (client : & Client , gemini_api_key : Option < & str > , prompt : & str ,) -> Result < String >
+  fn send_deepseek_prompt (client : & Client , prompt : & str) -> Result < String >
   fn send_gemini_prompt (client : & Client , api_key : & str , prompt : & str) -> Result < String >
   ```
 
@@ -382,7 +385,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_probe_context (probe : Option < & MediaProbe >) -> String
   ```
 
-### `src/modules/media/ai/schema.rs` (Role: general, Lines: 242)
+### `src/modules/media/ai/schema.rs` (Role: general, Lines: 255)
 - **Responsibility**: Core general logic in src/modules/media/ai/schema.rs
 - **Imports**: use anyhow :: { Context , Result } , use serde :: Deserialize , use std :: path :: Path , use super :: super :: { ClassificationEngine , MediaInfo , MediaType } 
 - **Types & Enums**:
@@ -398,12 +401,12 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn ensure_language_in_clean_name (name : & str , language : & str) -> String
   ```
 
-### `src/modules/media/ai.rs` (Role: general, Lines: 29)
+### `src/modules/media/ai.rs` (Role: general, Lines: 30)
 - **Responsibility**: Core general logic in src/modules/media/ai.rs
-- **Imports**: pub use batch :: classify_media_batch , pub use schema :: ensure_language_in_clean_name , use anyhow :: Result , use reqwest :: blocking :: Client , use super :: probe :: MediaProbe , use super :: MediaInfo , use client :: send_gemini_prompt , use prompt :: build_single_prompt , use schema :: parse_ai_json 
+- **Imports**: pub use batch :: classify_media_batch , # [allow (unused_imports)] pub use client :: { clean_json_text , send_ai_prompt , send_deepseek_prompt , send_gemini_prompt } , pub use schema :: ensure_language_in_clean_name , use anyhow :: Result , use reqwest :: blocking :: Client , use super :: probe :: MediaProbe , use super :: MediaInfo , use prompt :: build_single_prompt , use schema :: parse_ai_json 
 - **Public Functions & Signatures**:
   ```rust
-  fn classify_media_ai (client : & Client , api_key : & str , raw_name : & str , probe : Option < & MediaProbe > ,) -> Result < MediaInfo >
+  fn classify_media_ai (client : & Client , api_key : Option < & str > , raw_name : & str , probe : Option < & MediaProbe > ,) -> Result < MediaInfo >
   ```
 
 ### `src/modules/media/audio/retry_timer.rs` (Role: general, Lines: 87)
@@ -415,9 +418,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_timer_active () -> bool
   ```
 
-### `src/modules/media/audio/strip_queue.rs` (Role: general, Lines: 118)
+### `src/modules/media/audio/strip_queue.rs` (Role: general, Lines: 137)
 - **Responsibility**: Core general logic in src/modules/media/audio/strip_queue.rs
-- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use std :: { fs , time } 
+- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: path :: { Path , PathBuf } , use std :: { fs , time } 
 - **Types & Enums**:
   ```rust
   pub struct QueueEntry
@@ -428,27 +431,35 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn process_queue (dubstrip_bin : & Path) -> Result < () >
   ```
 
-### `src/modules/media/audio.rs` (Role: general, Lines: 256)
+### `src/modules/media/audio.rs` (Role: general, Lines: 371)
 - **Responsibility**: Core general logic in src/modules/media/audio.rs
 - **Imports**: use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: process :: Command 
 - **Types & Enums**:
   ```rust
   pub enum AudioSubcommand
+  pub enum StripOutcome
   ```
 - **Public Functions & Signatures**:
   ```rust
   fn find_dubstrip_bin () -> Option < PathBuf >
   fn handle_cli (sub : AudioSubcommand) -> Result < () >
   fn strip_audio_auto (path : & Path)
+  fn strip_and_preserve (bin : & Path , path : & Path) -> StripOutcome
   fn sync_filename_after_strip (path : & Path)
   ```
 
-### `src/modules/media/config.rs` (Role: general, Lines: 56)
+### `src/modules/media/config.rs` (Role: general, Lines: 141)
 - **Responsibility**: Core general logic in src/modules/media/config.rs
 - **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write } , use crate :: notify :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn get_or_prompt_gemini_key (interactive : bool) -> Option < String >
+  fn is_deepseek_enabled () -> bool
+  fn get_deepseek_url () -> String
+  fn get_deepseek_model () -> String
+  fn get_deepseek_api_key () -> String
+  fn get_gemini_model () -> String
+  fn is_ai_enabled () -> bool
   ```
 
 ### `src/modules/media/disk.rs` (Role: general, Lines: 95)
@@ -590,7 +601,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn perform_move (src : & Path , dst : & Path) -> Result < () >
   ```
 
-### `src/modules/media/organizer.rs` (Role: general, Lines: 257)
+### `src/modules/media/organizer.rs` (Role: general, Lines: 255)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
 - **Imports**: pub use cli :: { run_organize_cli , setup } , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: HashMap 
 - **Public Functions & Signatures**:
@@ -941,7 +952,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_seedr_tasks_section (tasks : & [SeedrTaskState]) -> String
   ```
 
-### `src/modules/torrent/telegram.rs` (Role: general, Lines: 130)
+### `src/modules/torrent/telegram.rs` (Role: general, Lines: 135)
 - **Responsibility**: Core general logic in src/modules/torrent/telegram.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , pub use crate :: notify :: TelegramConfig , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
@@ -994,7 +1005,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_card (category : & str , badge : & str , fields : & [(& str , & str)]) -> String
   ```
 
-### `src/notify/config.rs` (Role: general, Lines: 129)
+### `src/notify/config.rs` (Role: general, Lines: 139)
 - **Responsibility**: Core general logic in src/notify/config.rs
 - **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:

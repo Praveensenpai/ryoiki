@@ -143,7 +143,18 @@ fn append_flags(cmd: &mut Command, auto: bool, dry_run: bool, force: bool) {
     }
 }
 
-/// Automatically strips redundant dub tracks from an organized media file with safety backup.
+#[derive(Debug)]
+pub enum StripOutcome {
+    Stripped {
+        primary_lang: String,
+        original_path: PathBuf,
+        multi_path: PathBuf,
+    },
+    Preserved,
+    Failed,
+}
+
+/// Automatically strips redundant dub tracks from an organized media file while preserving a [Multi] version next to it.
 /// On failure, enqueues the path for hourly retry (up to 24 attempts).
 pub fn strip_audio_auto(path: &Path) {
     let Some(bin) = find_dubstrip_bin() else {
@@ -155,60 +166,125 @@ pub fn strip_audio_auto(path: &Path) {
         "🗡️".cyan()
     );
 
+    match strip_and_preserve(&bin, path) {
+        StripOutcome::Stripped {
+            primary_lang,
+            original_path,
+            multi_path,
+        } => {
+            println!(
+                "  {} Audio stream optimization complete",
+                "✔".green().bold()
+            );
+            if let Some(orig_name) = original_path.file_name().and_then(|n| n.to_str()) {
+                println!("  {} Original [{primary_lang}]: {}", "🎬".cyan(), orig_name);
+            }
+            if let Some(multi_name) = multi_path.file_name().and_then(|n| n.to_str()) {
+                println!("  {} Multi Audio: {}", "🎧".cyan(), multi_name);
+            }
+        }
+        StripOutcome::Preserved => {
+            println!(
+                "  {} Audio preserved (single track or preserved multi)",
+                "•".dimmed()
+            );
+        }
+        StripOutcome::Failed => {
+            eprintln!("  ⚠️ dubstrip failed — enqueueing for hourly retry");
+            strip_queue::enqueue(path);
+        }
+    }
+}
+
+/// Attempts to strip unwanted dubs from media while preserving the full multi-audio version side-by-side.
+pub fn strip_and_preserve(bin: &Path, path: &Path) -> StripOutcome {
     let initial_probe = super::probe::probe_media_file(path);
     let orig_stream_count = initial_probe.as_ref().map_or(0, |p| p.audio_stream_count);
 
-    let backup_path = if orig_stream_count > 1 {
-        create_safety_backup(path)
-    } else {
-        None
+    if orig_stream_count <= 1 {
+        return StripOutcome::Preserved;
+    }
+
+    let Some(parent_dir) = path.parent() else {
+        return StripOutcome::Failed;
+    };
+    let Some(filename) = path.file_name().and_then(|n| n.to_str()) else {
+        return StripOutcome::Failed;
     };
 
-    let succeeded = Command::new(&bin)
+    let temp_multi = parent_dir.join(format!(".{filename}.multi_tmp"));
+    if std::fs::copy(path, &temp_multi).is_err() {
+        return StripOutcome::Failed;
+    }
+
+    let succeeded = Command::new(bin)
         .args(["strip", "--auto", "--force"])
         .arg(path)
         .status()
         .is_ok_and(|s| s.success());
 
-    if succeeded {
-        let post_probe = super::probe::probe_media_file(path);
-        let post_stream_count = post_probe.as_ref().map_or(0, |p| p.audio_stream_count);
+    if !succeeded {
+        let _ = std::fs::remove_file(&temp_multi);
+        return StripOutcome::Failed;
+    }
 
-        if post_stream_count < orig_stream_count && post_stream_count > 0 {
-            println!(
-                "  {} Audio stream optimization complete",
-                "✔".green().bold()
-            );
-            if let Some(ref bk) = backup_path {
-                println!(
-                    "  {} Safety backup preserved: {}",
-                    "🛡️".cyan(),
-                    bk.display()
-                );
+    let post_probe = super::probe::probe_media_file(path);
+    let post_stream_count = post_probe.as_ref().map_or(0, |p| p.audio_stream_count);
+
+    if post_stream_count < orig_stream_count && post_stream_count > 0 {
+        let primary = post_probe
+            .as_ref()
+            .and_then(|p| p.primary_language.as_deref())
+            .filter(|s| !s.is_empty())
+            .unwrap_or("Original");
+
+        if let Some((orig_p, multi_p)) = finalize_dual_versions(path, &temp_multi, primary) {
+            StripOutcome::Stripped {
+                primary_lang: primary.to_string(),
+                original_path: orig_p,
+                multi_path: multi_p,
             }
-            sync_filename_after_strip(path);
-        } else if let Some(ref bk) = backup_path {
-            let _ = std::fs::remove_file(bk);
+        } else {
+            StripOutcome::Failed
         }
     } else {
-        if let Some(ref bk) = backup_path {
-            let _ = std::fs::remove_file(bk);
-        }
-        eprintln!("  ⚠️ dubstrip failed — enqueueing for hourly retry");
-        strip_queue::enqueue(path);
+        let _ = std::fs::remove_file(&temp_multi);
+        sync_filename_after_strip(path);
+        StripOutcome::Preserved
     }
 }
 
-fn create_safety_backup(path: &Path) -> Option<PathBuf> {
-    let backup_base = crate::modules::media::organizer::pathing::get_jellyfin_backup_multi_dir();
-    let parent_name = path.parent().and_then(|p| p.file_name())?;
-    let file_name = path.file_name()?;
-    let target_dir = backup_base.join(parent_name);
-    let target_file = target_dir.join(file_name);
+fn finalize_dual_versions(
+    path: &Path,
+    temp_multi: &Path,
+    primary: &str,
+) -> Option<(PathBuf, PathBuf)> {
+    let parent_dir = path.parent()?;
+    let orig_filename = path.file_name()?.to_str()?;
 
-    if std::fs::create_dir_all(&target_dir).is_ok() && std::fs::copy(path, &target_file).is_ok() {
-        Some(target_file)
+    let stripped_name =
+        crate::modules::media::ai::ensure_language_in_clean_name(orig_filename, primary);
+    let stripped_path = parent_dir.join(&stripped_name);
+
+    let multi_name =
+        crate::modules::media::ai::ensure_language_in_clean_name(orig_filename, "Multi");
+    let multi_path = parent_dir.join(&multi_name);
+
+    if path != stripped_path {
+        if stripped_path.exists() {
+            let _ = std::fs::remove_file(&stripped_path);
+        }
+        let _ = std::fs::rename(path, &stripped_path);
+    }
+
+    if multi_path.exists() && multi_path != temp_multi {
+        let _ = std::fs::remove_file(&multi_path);
+    }
+
+    if std::fs::rename(temp_multi, &multi_path).is_ok() {
+        Some((stripped_path, multi_path))
     } else {
+        let _ = std::fs::remove_file(temp_multi);
         None
     }
 }
@@ -248,9 +324,48 @@ pub fn sync_filename_after_strip(path: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn test_find_dubstrip_bin() {
         let _ = find_dubstrip_bin();
+    }
+
+    #[test]
+    fn test_finalize_dual_versions_creates_both_files() -> Result<()> {
+        let tmp = std::env::temp_dir().join(format!("ryoiki_test_dual_{}", std::process::id()));
+        fs::create_dir_all(&tmp)?;
+
+        let path = tmp.join("Sample Movie (2024) [Multi] [1080p].mkv");
+        let temp_multi = tmp.join(".Sample Movie (2024) [Multi] [1080p].mkv.multi_tmp");
+
+        fs::write(&path, b"mock stripped native audio")?;
+        fs::write(&temp_multi, b"mock multi audio")?;
+
+        let res = finalize_dual_versions(&path, &temp_multi, "Japanese");
+        let (orig_p, multi_p) = res.context("Expected dual versions to be created")?;
+
+        assert_eq!(
+            orig_p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default(),
+            "Sample Movie (2024) [Japanese] [1080p].mkv"
+        );
+        assert_eq!(
+            multi_p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default(),
+            "Sample Movie (2024) [Multi] [1080p].mkv"
+        );
+
+        assert!(orig_p.exists());
+        assert!(multi_p.exists());
+        assert_eq!(fs::read_to_string(&orig_p)?, "mock stripped native audio");
+        assert_eq!(fs::read_to_string(&multi_p)?, "mock multi audio");
+
+        let _ = fs::remove_dir_all(&tmp);
+        Ok(())
     }
 }
