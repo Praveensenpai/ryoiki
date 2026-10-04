@@ -73,6 +73,15 @@ fn resolve_jellyfin_target() -> (String, Option<String>) {
     (default_url, discovered)
 }
 
+const JELLYFIN_DB_QUERY: &str = r#"import sqlite3
+try:
+    c = sqlite3.connect("{db_path}")
+    row = c.cursor().execute('SELECT AccessToken FROM ApiKeys ORDER BY Id DESC LIMIT 1').fetchone()
+    if row:
+        print(row[0])
+except Exception:
+    pass"#;
+
 fn extract_key_from_local_db() -> Option<String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     let db_path = Path::new(&home).join("jellyfin/config/data/jellyfin.db");
@@ -80,17 +89,7 @@ fn extract_key_from_local_db() -> Option<String> {
         return None;
     }
 
-    let db_str = db_path.display();
-    let script = format!(
-        "import sqlite3\n\
-        try:\n\
-            c = sqlite3.connect(\"{db_str}\")\n\
-            row = c.cursor().execute('SELECT AccessToken FROM ApiKeys ORDER BY Id DESC LIMIT 1').fetchone()\n\
-            if row:\n\
-                print(row[0])\n\
-        except Exception:\n\
-            pass"
-    );
+    let script = JELLYFIN_DB_QUERY.replace("{db_path}", &db_path.display().to_string());
 
     let output = std::process::Command::new("python3")
         .args(["-c", &script])
@@ -106,5 +105,27 @@ fn extract_key_from_local_db() -> Option<String> {
         None
     } else {
         Some(token)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::JELLYFIN_DB_QUERY;
+
+    #[test]
+    fn jellyfin_db_query_is_valid_python() {
+        let script = JELLYFIN_DB_QUERY.replace("{db_path}", "/tmp/does-not-exist.db");
+        let compile = format!("compile({script:?}, '<test>', 'exec')");
+        let Ok(output) = std::process::Command::new("python3")
+            .args(["-c", &compile])
+            .output()
+        else {
+            return;
+        };
+        assert!(
+            output.status.success(),
+            "generated Jellyfin DB query is not valid Python:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 }

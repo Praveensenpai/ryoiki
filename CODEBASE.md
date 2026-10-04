@@ -338,7 +338,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn setup (runner : & mut Runner , non_interactive : bool) -> Result < () >
   ```
 
-### `src/modules/jellyfin/api.rs` (Role: api, Lines: 110)
+### `src/modules/jellyfin/api.rs` (Role: api, Lines: 131)
 - **Responsibility**: Core api logic in src/modules/jellyfin/api.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: Path , use std :: time :: Duration , use crate :: notify :: TelegramConfig 
 - **Public Functions & Signatures**:
