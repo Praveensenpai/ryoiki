@@ -156,9 +156,9 @@ pub enum StripOutcome {
 
 /// Automatically strips redundant dub tracks from an organized media file while preserving a [Multi] version next to it.
 /// On failure, enqueues the path for hourly retry (up to 24 attempts).
-pub fn strip_audio_auto(path: &Path) {
+pub fn strip_audio_auto(path: &Path) -> StripOutcome {
     let Some(bin) = find_dubstrip_bin() else {
-        return;
+        return StripOutcome::Preserved;
     };
 
     println!(
@@ -166,7 +166,8 @@ pub fn strip_audio_auto(path: &Path) {
         "🗡️".cyan()
     );
 
-    match strip_and_preserve(&bin, path) {
+    let outcome = strip_and_preserve(&bin, path);
+    match &outcome {
         StripOutcome::Stripped {
             primary_lang,
             original_path,
@@ -194,6 +195,7 @@ pub fn strip_audio_auto(path: &Path) {
             strip_queue::enqueue(path);
         }
     }
+    outcome
 }
 
 /// Attempts to strip unwanted dubs from media while preserving the full multi-audio version side-by-side.

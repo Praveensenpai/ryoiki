@@ -144,8 +144,20 @@ pub fn handle_seedr_completion(
             (0, Vec::new())
         };
 
-    if let Some(first) = organized_results.into_iter().next() {
-        let _ = super::dedup::record_download_history(hash, &first.media_info, &[first.dest_path]);
+    if !organized_results.is_empty() {
+        let mut tracked_files = Vec::new();
+        for org in &organized_results {
+            tracked_files.push(super::history::create_tracked_file(
+                org.dest_path.clone(),
+                "original",
+            ));
+            if let Some(ref mp) = org.multi_path {
+                tracked_files.push(super::history::create_tracked_file(mp.clone(), "multi"));
+            }
+        }
+        if let Some(first) = organized_results.first() {
+            let _ = super::history::record_download_history(hash, &first.media_info, tracked_files);
+        }
     }
 
     let status_msg = if organized_count > 0 {
@@ -206,53 +218,22 @@ fn cleanup_qbittorrent(client: &Client, qb_url: &str, hash: Option<&str>, file_n
 
     if let Ok(torrents) = api::get_torrents(client, qb_url, None) {
         let clean_target = file_name.strip_prefix("folder-").unwrap_or(file_name);
-        let target_info = crate::modules::media::heuristic::classify_media_heuristic(clean_target);
+        let stem = Path::new(clean_target)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(clean_target);
 
         for t in torrents {
             let hash_match = hash.is_some_and(|h| t.hash.eq_ignore_ascii_case(h));
-            let name_match = is_same_media(&t.name, clean_target, &target_info);
+            let name_match = t.name.eq_ignore_ascii_case(clean_target)
+                || t.name.eq_ignore_ascii_case(stem)
+                || t.name.eq_ignore_ascii_case(file_name);
 
             if hash_match || name_match {
                 let _ = api::delete_torrent(client, qb_url, &t.hash, true);
             }
         }
     }
-}
-
-fn is_same_media(
-    torrent_name: &str,
-    file_name: &str,
-    file_info: &crate::modules::media::MediaInfo,
-) -> bool {
-    if torrent_name.eq_ignore_ascii_case(file_name)
-        || torrent_name.contains(file_name)
-        || file_name.contains(torrent_name)
-    {
-        return true;
-    }
-
-    let t_info = crate::modules::media::heuristic::classify_media_heuristic(torrent_name);
-    if !t_info.title.is_empty()
-        && t_info.title.eq_ignore_ascii_case(&file_info.title)
-        && t_info.media_type == file_info.media_type
-    {
-        if let (Some(ref r1), Some(ref r2)) = (&t_info.resolution, &file_info.resolution) {
-            if !r1.eq_ignore_ascii_case(r2) {
-                return false;
-            }
-        }
-
-        if t_info.season.is_some()
-            && t_info.season == file_info.season
-            && t_info.episode == file_info.episode
-        {
-            return true;
-        }
-        if t_info.year.is_some() && t_info.year == file_info.year {
-            return true;
-        }
-    }
-    false
 }
 
 /// Handles a failed Seedr download notification by automatically queueing into qBittorrent.

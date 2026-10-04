@@ -58,11 +58,15 @@ fn process_completed_media(
         };
 
     if let Some(ref org) = organized {
-        let _ = super::dedup::record_download_history(
-            Some(&t.hash),
-            &org.media_info,
-            std::slice::from_ref(&org.dest_path),
-        );
+        let mut tracked_files = vec![super::history::create_tracked_file(
+            org.dest_path.clone(),
+            "original",
+        )];
+        if let Some(ref mp) = org.multi_path {
+            tracked_files.push(super::history::create_tracked_file(mp.clone(), "multi"));
+        }
+        let _ =
+            super::history::record_download_history(Some(&t.hash), &org.media_info, tracked_files);
     }
 
     let cleared = if organized.is_some() {

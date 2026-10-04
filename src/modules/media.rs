@@ -67,6 +67,7 @@ pub struct MediaInfo {
 pub struct OrganizeResult {
     pub source_path: PathBuf,
     pub dest_path: PathBuf,
+    pub multi_path: Option<PathBuf>,
     pub media_info: MediaInfo,
 }
 

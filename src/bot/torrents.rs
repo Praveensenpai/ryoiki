@@ -30,38 +30,42 @@ use crate::modules::torrent::dedup::{self, Availability};
 
 fn check_and_restore(target: &str) -> Option<String> {
     match dedup::check_already_available(target) {
-        Availability::Local { path, title } => Some(format!(
-            "🌊 <b>領域 RYOIKI</b> • <i>Library Deduplication</i>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            ✨ <b>ALREADY AVAILABLE LOCALLY</b>\n\n\
-            🎬 <b>Title:</b> <code>{title}</code>\n\
-            📁 <b>Path:</b> <code>{}</code>\n\n\
-            <i>Skipping download — file exists in your Jellyfin media library.</i>",
-            path.display()
-        )),
-        Availability::Cloud {
-            path,
-            title,
-            media_type,
-        } => {
-            let info = crate::modules::media::heuristic::classify_media_heuristic(&title);
-            match dedup::restore_from_cloud(&path, &info) {
-                Ok(dest) => Some(format!(
+        Availability::Local { paths, title } => {
+            let files_str = paths
+                .iter()
+                .map(|p| format!("• <code>{}</code>", p.display()))
+                .collect::<Vec<_>>()
+                .join("\n");
+            Some(format!(
+                "🌊 <b>領域 RYOIKI</b> • <i>Library Deduplication</i>\n\
+                ━━━━━━━━━━━━━━━━━━━━━━━\n\
+                ✨ <b>ALREADY AVAILABLE LOCALLY</b>\n\n\
+                🎬 <b>Title:</b> <code>{title}</code>\n\
+                📁 <b>Files:</b>\n{files_str}\n\n\
+                <i>Skipping download — file(s) exist in your Jellyfin media library.</i>"
+            ))
+        }
+        Availability::Cloud { pairs, title } => match dedup::restore_from_cloud(&pairs) {
+            Ok(restored) => {
+                let files_str = restored
+                    .iter()
+                    .map(|p| format!("• <code>{}</code>", p.display()))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                Some(format!(
                     "🌊 <b>領域 RYOIKI</b> • <i>Cloud Archive Restore</i>\n\
                     ━━━━━━━━━━━━━━━━━━━━━━━\n\
                     ☁️ <b>RESTORED FROM GOOGLE DRIVE</b>\n\n\
                     🎬 <b>Title:</b> <code>{title}</code>\n\
-                    📂 <b>Type:</b> {media_type}\n\
-                    📍 <b>Restored To:</b> <code>{}</code>\n\n\
-                    <i>Copied directly from Drive archive & refreshed Jellyfin.</i>",
-                    dest.display()
-                )),
-                Err(e) => {
-                    eprintln!("  ⚠️ Failed to restore from cloud {}: {e}", path.display());
-                    None
-                }
+                    📍 <b>Restored To:</b>\n{files_str}\n\n\
+                    <i>Copied directly from Drive archive & refreshed Jellyfin.</i>"
+                ))
             }
-        }
+            Err(e) => {
+                eprintln!("  ⚠️ Failed to restore from cloud: {e}");
+                None
+            }
+        },
         Availability::NotAvailable { .. } => None,
     }
 }

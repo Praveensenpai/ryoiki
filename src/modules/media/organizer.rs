@@ -144,6 +144,7 @@ pub fn execute_file_organize(
         return Ok(OrganizeResult {
             source_path: file_path.to_path_buf(),
             dest_path,
+            multi_path: None,
             media_info,
         });
     }
@@ -154,13 +155,23 @@ pub fn execute_file_organize(
     perform_move(file_path, &dest_path)?;
 
     let has_multiple_audio = probe.is_none_or(|p| p.audio_stream_count > 1);
-    if has_multiple_audio {
-        super::audio::strip_audio_auto(&dest_path);
-    }
+    let (final_dest, multi_path) = if has_multiple_audio {
+        match super::audio::strip_audio_auto(&dest_path) {
+            super::audio::StripOutcome::Stripped {
+                original_path,
+                multi_path,
+                ..
+            } => (original_path, Some(multi_path)),
+            _ => (dest_path, None),
+        }
+    } else {
+        (dest_path, None)
+    };
 
     Ok(OrganizeResult {
         source_path: file_path.to_path_buf(),
-        dest_path,
+        dest_path: final_dest,
+        multi_path,
         media_info,
     })
 }

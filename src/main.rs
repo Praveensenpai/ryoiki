@@ -295,24 +295,24 @@ fn handle_seedr_cli(target: &str) -> Result<()> {
     }
     let availability = modules::torrent::dedup::check_already_available(target);
     match availability {
-        modules::torrent::dedup::Availability::Local { path, title } => {
+        modules::torrent::dedup::Availability::Local { paths, title } => {
             println!(
                 "  {} Already available locally: {}",
                 "✔".green().bold(),
                 title.cyan()
             );
-            println!("  📁 {}", path.display());
+            for p in &paths {
+                println!("  📁 {}", p.display());
+            }
             return Ok(());
         }
-        modules::torrent::dedup::Availability::Cloud { path, title, .. } => {
+        modules::torrent::dedup::Availability::Cloud { pairs, title } => {
             println!("  ☁️ Found in Google Drive archive: {}", title.cyan());
-            let info = modules::media::heuristic::classify_media_heuristic(&title);
-            let dest = modules::torrent::dedup::restore_from_cloud(&path, &info)?;
-            println!(
-                "  {} Restored from Drive to: {}",
-                "✔".green().bold(),
-                dest.display()
-            );
+            let restored = modules::torrent::dedup::restore_from_cloud(&pairs)?;
+            println!("  {} Restored from Drive:", "✔".green().bold());
+            for p in &restored {
+                println!("  📍 {}", p.display());
+            }
             return Ok(());
         }
         modules::torrent::dedup::Availability::NotAvailable { .. } => {}
