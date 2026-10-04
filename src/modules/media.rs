@@ -43,7 +43,7 @@ pub enum ClassificationEngine {
 impl std::fmt::Display for ClassificationEngine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Ai => write!(f, "🤖 Gemini AI"),
+            Self::Ai => write!(f, "🤖 DeepSeek / Gemini AI"),
             Self::Heuristic => write!(f, "⚡ Heuristic Fallback"),
         }
     }

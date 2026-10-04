@@ -125,6 +125,20 @@ pub fn handle_seedr_completion(
     } else {
         file_name
     };
+    let organized_count = if let Some(target) = resolve_seedr_target(file_name, dest_path) {
+        let api_key = config.gemini_api_key.as_deref();
+        crate::modules::media::organizer::organize_path(&target, &client, api_key, false)
+            .map_or(0, |r| r.len())
+    } else {
+        0
+    };
+
+    let status_msg = if organized_count > 0 {
+        format!("Organized {organized_count} file(s) into Jellyfin")
+    } else {
+        "Cleaned up from Seedr & qBittorrent".to_string()
+    };
+
     let card = crate::notify::client::format_card(
         "Seedr",
         "✅ <b>SEEDR DOWNLOAD COMPLETE</b>",
@@ -132,7 +146,7 @@ pub fn handle_seedr_completion(
             ("File:", display_name),
             ("Size:", &format!("{sz_mb} MB")),
             ("Path:", path_display),
-            ("Status:", "Cleaned up from Seedr & qBittorrent"),
+            ("Status:", &status_msg),
         ],
     );
 
@@ -143,6 +157,31 @@ pub fn handle_seedr_completion(
     crate::notify::client::send_alert(&config.bot_token, &config.chat_id, &card)?;
     let _ = crate::modules::jellyfin::api::refresh_library_auto();
     Ok(())
+}
+
+fn resolve_seedr_target(file_name: &str, dest_path: Option<&str>) -> Option<PathBuf> {
+    if let Some(dp) = dest_path {
+        let p = PathBuf::from(dp);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+
+    let home = std::env::var("HOME").ok()?;
+    let torrents = Path::new(&home).join("torrents");
+    let candidate = torrents.join(file_name);
+    if candidate.exists() {
+        return Some(candidate);
+    }
+
+    if let Some(stripped) = file_name.strip_prefix("folder-") {
+        let folder_candidate = torrents.join(stripped);
+        if folder_candidate.exists() {
+            return Some(folder_candidate);
+        }
+    }
+
+    None
 }
 
 fn cleanup_qbittorrent(client: &Client, qb_url: &str, hash: Option<&str>, file_name: &str) {

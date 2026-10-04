@@ -84,20 +84,43 @@ fn classify_video_files(
 
 fn adjust_media_info_post_classify(info: &mut super::MediaInfo, probe: Option<&MediaProbe>) {
     if let Some(p) = probe {
-        if let Some(primary) = &p.primary_language {
-            if primary != "Multi" || info.language.is_none() {
-                info.language = Some(primary.clone());
-                info.clean_name =
-                    super::ai::ensure_language_in_clean_name(&info.clean_name, primary);
-            }
+        if p.audio_stream_count <= 1 {
+            let lang = p
+                .primary_language
+                .as_deref()
+                .filter(|l| !l.is_empty() && *l != "Multi")
+                .map(std::string::ToString::to_string)
+                .or_else(|| {
+                    info.language
+                        .as_deref()
+                        .filter(|l| *l != "Multi")
+                        .map(std::string::ToString::to_string)
+                })
+                .unwrap_or_else(|| "Original".to_string());
+
+            info.clean_name = super::ai::ensure_language_in_clean_name(&info.clean_name, &lang);
+            info.language = Some(lang);
+        } else {
+            info.language = Some("Multi".to_string());
+            info.clean_name = super::ai::ensure_language_in_clean_name(&info.clean_name, "Multi");
         }
     }
 
     if info.media_type != MediaType::Anime {
-        if let Some(lang) = &info.language {
-            if lang.eq_ignore_ascii_case("japanese") {
-                info.media_type = MediaType::Anime;
-            }
+        let is_japanese = probe.is_some_and(|p| {
+            p.audio_languages
+                .iter()
+                .any(|l| l.eq_ignore_ascii_case("japanese"))
+                || p.primary_language
+                    .as_deref()
+                    .is_some_and(|l| l.eq_ignore_ascii_case("japanese"))
+        }) || info
+            .language
+            .as_deref()
+            .is_some_and(|l| l.eq_ignore_ascii_case("japanese"));
+
+        if is_japanese {
+            info.media_type = MediaType::Anime;
         }
     }
 }
@@ -252,4 +275,102 @@ pub fn organize_completed_torrent(
 ) -> Result<Option<OrganizeResult>> {
     let results = organize_torrent(torrent, client, api_key, false)?;
     Ok(results.into_iter().next())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::modules::media::ClassificationEngine;
+
+    #[test]
+    fn test_adjust_single_audio_replaces_multi_with_probed_lang() {
+        let mut info = super::super::MediaInfo {
+            media_type: MediaType::Show,
+            title: "Anime Show".to_string(),
+            year: Some(2024),
+            season: Some(1),
+            episode: Some(1),
+            resolution: Some("1080p".to_string()),
+            language: Some("Multi".to_string()),
+            clean_name: "Anime Show - S01E01 [Multi] [1080p].mkv".to_string(),
+            is_extra: false,
+            engine: ClassificationEngine::Ai,
+        };
+
+        let probe = MediaProbe {
+            duration_mins: Some(24),
+            resolution: Some("1080p".to_string()),
+            audio_stream_count: 1,
+            audio_languages: vec!["Japanese".to_string()],
+            primary_language: Some("Japanese".to_string()),
+        };
+
+        adjust_media_info_post_classify(&mut info, Some(&probe));
+        assert_eq!(info.language.as_deref(), Some("Japanese"));
+        assert_eq!(
+            info.clean_name,
+            "Anime Show - S01E01 [Japanese] [1080p].mkv"
+        );
+        assert_eq!(info.media_type, MediaType::Anime);
+    }
+
+    #[test]
+    fn test_adjust_single_audio_unknown_lang_replaces_multi_with_original() {
+        let mut info = super::super::MediaInfo {
+            media_type: MediaType::Movie,
+            title: "Indie Film".to_string(),
+            year: Some(2023),
+            season: None,
+            episode: None,
+            resolution: Some("1080p".to_string()),
+            language: Some("Multi".to_string()),
+            clean_name: "Indie Film (2023) [Multi] [1080p].mkv".to_string(),
+            is_extra: false,
+            engine: ClassificationEngine::Ai,
+        };
+
+        let probe = MediaProbe {
+            duration_mins: Some(90),
+            resolution: Some("1080p".to_string()),
+            audio_stream_count: 1,
+            audio_languages: vec![],
+            primary_language: None,
+        };
+
+        adjust_media_info_post_classify(&mut info, Some(&probe));
+        assert_eq!(info.language.as_deref(), Some("Original"));
+        assert_eq!(info.clean_name, "Indie Film (2023) [Original] [1080p].mkv");
+    }
+
+    #[test]
+    fn test_adjust_multi_audio_ensures_multi_tag() {
+        let mut info = super::super::MediaInfo {
+            media_type: MediaType::Movie,
+            title: "Blockbuster".to_string(),
+            year: Some(2024),
+            season: None,
+            episode: None,
+            resolution: Some("1080p".to_string()),
+            language: Some("English".to_string()),
+            clean_name: "Blockbuster (2024) [English] [1080p].mkv".to_string(),
+            is_extra: false,
+            engine: ClassificationEngine::Ai,
+        };
+
+        let probe = MediaProbe {
+            duration_mins: Some(120),
+            resolution: Some("1080p".to_string()),
+            audio_stream_count: 3,
+            audio_languages: vec![
+                "English".to_string(),
+                "Hindi".to_string(),
+                "Tamil".to_string(),
+            ],
+            primary_language: Some("Multi".to_string()),
+        };
+
+        adjust_media_info_post_classify(&mut info, Some(&probe));
+        assert_eq!(info.language.as_deref(), Some("Multi"));
+        assert_eq!(info.clean_name, "Blockbuster (2024) [Multi] [1080p].mkv");
+    }
 }

@@ -169,6 +169,9 @@ pub fn ensure_language_in_clean_name(name: &str, language: &str) -> String {
     if stem.contains("[Multi]") {
         return name.replace("[Multi]", &lang_bracket);
     }
+    if stem.contains("[Original]") {
+        return name.replace("[Original]", &lang_bracket);
+    }
 
     if let Some(bracket_idx) = stem.find('[') {
         let prefix = stem[..bracket_idx].trim_end();

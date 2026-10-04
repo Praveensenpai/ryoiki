@@ -385,7 +385,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_probe_context (probe : Option < & MediaProbe >) -> String
   ```
 
-### `src/modules/media/ai/schema.rs` (Role: general, Lines: 255)
+### `src/modules/media/ai/schema.rs` (Role: general, Lines: 258)
 - **Responsibility**: Core general logic in src/modules/media/ai/schema.rs
 - **Imports**: use anyhow :: { Context , Result } , use serde :: Deserialize , use std :: path :: Path , use super :: super :: { ClassificationEngine , MediaInfo , MediaType } 
 - **Types & Enums**:
@@ -601,7 +601,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn perform_move (src : & Path , dst : & Path) -> Result < () >
   ```
 
-### `src/modules/media/organizer.rs` (Role: general, Lines: 255)
+### `src/modules/media/organizer.rs` (Role: general, Lines: 376)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
 - **Imports**: pub use cli :: { run_organize_cli , setup } , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: HashMap 
 - **Public Functions & Signatures**:
@@ -932,7 +932,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_status_report (torrents : & [TorrentInfo]) -> String
   ```
 
-### `src/modules/torrent/seedr.rs` (Role: general, Lines: 350)
+### `src/modules/torrent/seedr.rs` (Role: general, Lines: 389)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: { Path , PathBuf } , use std :: process :: { Command , Stdio } , use std :: time :: Duration , use super :: api , use super :: telegram :: TelegramConfig , use serde :: Deserialize 
 - **Types & Enums**:
