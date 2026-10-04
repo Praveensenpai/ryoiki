@@ -27,7 +27,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/bot/callbacks.rs` (Role: general, Lines: 177)
-- **Responsibility**: Telegram inline-keyboard callback handling, including Seedr queue prompt resolution (keep queued vs. download first) and view/action dispatch
+- **Responsibility**: Core general logic in src/bot/callbacks.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: actions :: { execute_poweroff , execute_reboot } , use super :: client :: edit_message , use super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: services :: { get_docker_containers , get_managed_services } , use super :: system :: collect_system_metrics , use super :: torrents :: render_torrent_report , use super :: ui :: { render_docker_view , render_maintenance_view , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
@@ -77,7 +77,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/bot/prompts.rs` (Role: general, Lines: 110)
-- **Responsibility**: Shared registry of pending Seedr queue prompts plus the 2-minute timeout thread that auto-resolves unanswered prompts to "keep queued"
+- **Responsibility**: Core general logic in src/bot/prompts.rs
 - **Imports**: use std :: collections :: HashMap , use std :: sync :: { Arc , Mutex } , use std :: time :: Duration 
 - **Types & Enums**:
   ```rust
@@ -92,11 +92,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/bot/router/commands.rs` (Role: general, Lines: 228)
-- **Responsibility**: Bot command dispatch table for telemetry, media, and server-control commands
+- **Responsibility**: Core general logic in src/bot/router/commands.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig 
 
 ### `src/bot/router.rs` (Role: general, Lines: 181)
-- **Responsibility**: Telegram update routing: authorizes the chat, dispatches commands, and drives the Seedr queue prompt (keyboard + 2-minute timeout) for busy-slot magnets
+- **Responsibility**: Core general logic in src/bot/router.rs
 - **Imports**: use reqwest :: blocking :: Client , use super :: callbacks :: handle_callback_query , use super :: client :: { download_telegram_file , reply } , use super :: torrents :: { handle_magnet , handle_torrent_file , MagnetOutcome } , use super :: types :: { CallbackQuery , Message } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use commands :: dispatch_command 
 - **Public Functions & Signatures**:
   ```rust
@@ -123,7 +123,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn restart_managed_service (name : & str) -> Result < String >
   ```
 
-### `src/bot/smoke_tests.rs` (Role: general, Lines: 176)
+### `src/bot/smoke_tests.rs` (Role: general, Lines: 179)
 - **Responsibility**: Core general logic in src/bot/smoke_tests.rs
 - **Imports**: use super :: actions :: handle_charge_limit , use super :: maintenance :: { handle_bot_audio , handle_bot_check } , use super :: router :: extract_command , use super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , resolve_managed_unit , } , use super :: system :: collect_system_metrics , use super :: torrents :: handle_seedr_cmd , use super :: ui :: { render_docker_view , render_maintenance_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , } , use crate :: notify :: config :: TelegramConfig 
 
@@ -144,8 +144,8 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn get_disk_info (path : & str) -> Option < (u64 , u64 , u64) >
   ```
 
-### `src/bot/torrents.rs` (Role: general, Lines: 260)
-- **Responsibility**: Magnet submission into the Seedr/qBittorrent dual pipeline, torrent reporting, and the qBittorrent completion monitor that resolves queue races
+### `src/bot/torrents.rs` (Role: general, Lines: 268)
+- **Responsibility**: Core general logic in src/bot/torrents.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: modules :: torrent :: notify , use crate :: modules :: torrent :: report :: format_status_report , use crate :: modules :: torrent :: seedr , use crate :: notify :: config :: TelegramConfig , use crate :: modules :: torrent :: dedup :: { self , Availability } , use crate :: modules :: torrent :: scheduler :: { self , SubmitOutcome } 
 - **Types & Enums**:
   ```rust
@@ -200,7 +200,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/bot.rs` (Role: general, Lines: 53)
-- **Responsibility**: Bot daemon entrypoint: loads config, spawns webhook + torrent monitors, and runs the long-poll loop threading the Seedr prompt registry
+- **Responsibility**: Core general logic in src/bot.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: time :: Duration , use crate :: notify :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
@@ -456,7 +456,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/modules/media/audio/cli.rs` (Role: cli, Lines: 121)
-- **Responsibility**: `ryoiki audio` subcommand dispatch to the standalone dubstrip engine
+- **Responsibility**: Core cli logic in src/modules/media/audio/cli.rs
 - **Imports**: use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: process :: Command , use super :: { find_dubstrip_bin , strip_queue } 
 - **Types & Enums**:
   ```rust
@@ -477,7 +477,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/modules/media/audio/strip_queue.rs` (Role: general, Lines: 162)
-- **Responsibility**: Persistent retry queue for failed audio strips, carrying the preserve-multi intent per entry
+- **Responsibility**: Core general logic in src/modules/media/audio/strip_queue.rs
 - **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: path :: { Path , PathBuf } , use std :: { fs , time } 
 - **Types & Enums**:
   ```rust
@@ -490,11 +490,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/modules/media/audio/tests.rs` (Role: general, Lines: 100)
-- **Responsibility**: Unit tests for dual/single audio version finalization and strip summary aggregation
+- **Responsibility**: Core general logic in src/modules/media/audio/tests.rs
 - **Imports**: use super :: * , use anyhow :: { Context , Result } , use std :: fs 
 
 ### `src/modules/media/audio.rs` (Role: general, Lines: 350)
-- **Responsibility**: Audio strip orchestration: strips dubs, optionally keeps a [Multi] sidecar (off for anime), records reclaimed bytes, and aggregates a per-run summary
+- **Responsibility**: Core general logic in src/modules/media/audio.rs
 - **Imports**: pub use cli :: { handle_cli , AudioSubcommand } , use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: process :: Command 
 - **Types & Enums**:
   ```rust
@@ -668,7 +668,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/modules/media/organizer.rs` (Role: general, Lines: 393)
-- **Responsibility**: Media organization pipeline: classifies, moves, and triggers anime-aware audio stripping with an aggregated result
+- **Responsibility**: Core general logic in src/modules/media/organizer.rs
 - **Imports**: pub use cli :: { run_organize_cli , setup } , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: HashMap 
 - **Public Functions & Signatures**:
   ```rust
@@ -850,7 +850,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/modules/media.rs` (Role: general, Lines: 125)
-- **Responsibility**: Core media domain types, including OrganizeResult with an aggregated audio-strip summary
+- **Responsibility**: Core general logic in src/modules/media.rs
 - **Imports**: use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: io :: IsTerminal , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust
@@ -983,7 +983,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/modules/torrent/cli.rs` (Role: cli, Lines: 74)
-- **Responsibility**: `ryoiki seedr` CLI: status (active tasks + queue depth) and dual-pipeline submission with queue-position reporting
+- **Responsibility**: Core cli logic in src/modules/torrent/cli.rs
 - **Imports**: use crate :: modules :: torrent :: { api , dedup , queue , scheduler , seedr } , use crate :: notify :: TelegramConfig , use anyhow :: Result , use colored :: Colorize , use std :: time :: Duration 
 - **Public Functions & Signatures**:
   ```rust
@@ -1024,7 +1024,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 
 ### `src/modules/torrent/notify.rs` (Role: general, Lines: 222)
-- **Responsibility**: Torrent event notifications plus post-completion media organization dispatch
+- **Responsibility**: Core general logic in src/modules/torrent/notify.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: thread :: sleep , use std :: time :: Duration , use super :: api :: { self , TorrentInfo } , use super :: telegram :: TelegramConfig , use crate :: modules :: media :: OrganizeResult , use crate :: notify :: client :: escape_html 
 - **Public Functions & Signatures**:
   ```rust
@@ -1032,12 +1032,12 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_size (bytes : u64) -> String
   ```
 
-### `src/modules/torrent/queue/tests.rs` (Role: general, Lines: 195)
+### `src/modules/torrent/queue/tests.rs` (Role: general, Lines: 247)
 - **Responsibility**: Core general logic in src/modules/torrent/queue/tests.rs
 - **Imports**: use super :: * , use std :: sync :: Arc , use std :: thread 
 
-### `src/modules/torrent/queue.rs` (Role: general, Lines: 232)
-- **Responsibility**: Persistent single-slot Seedr download queue with FIFO/LIFO ordering, front promotion, and atomic JSON persistence
+### `src/modules/torrent/queue.rs` (Role: general, Lines: 295)
+- **Responsibility**: Core general logic in src/modules/torrent/queue.rs
 - **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: os :: unix :: io :: AsRawFd , use std :: path :: { Path , PathBuf } , use std :: sync :: Mutex 
 - **Types & Enums**:
   ```rust
@@ -1049,9 +1049,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Public Functions & Signatures**:
   ```rust
   fn parse (raw : & str) -> Self
+  fn now_secs () -> u64
   fn enqueue (& mut self , hash : & str , magnet : & str , name : & str)
   fn has_active (& self) -> bool
   fn activate (& mut self , hash : & str) -> bool
+  fn active_entry (& self) -> Option < & QueueEntry >
+  fn demote_to_queued (& mut self , hash : & str) -> bool
+  fn set_slow_since (& mut self , hash : & str , secs : u64) -> bool
+  fn clear_slow_since (& mut self , hash : & str) -> bool
   fn promote_front (& mut self , hash : & str) -> bool
   fn finish (& mut self , hash : & str , state : QueueState) -> bool
   fn remove (& mut self , hash : & str) -> bool
@@ -1070,8 +1075,8 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_status_report (torrents : & [TorrentInfo]) -> String
   ```
 
-### `src/modules/torrent/scheduler.rs` (Role: general, Lines: 321)
-- **Responsibility**: Seedr single-slot scheduling: queue submission, policy-aware promotion with free-space guard, and qBittorrent-vs-Seedr race resolution
+### `src/modules/torrent/scheduler.rs` (Role: general, Lines: 372)
+- **Responsibility**: Core general logic in src/modules/torrent/scheduler.rs
 - **Imports**: use std :: path :: { Path , PathBuf } , use super :: api , use super :: queue :: { self , QueueEntry , QueuePolicy , QueueState } , use super :: seedr , use crate :: notify :: config :: TelegramConfig 
 - **Types & Enums**:
   ```rust
@@ -1102,8 +1107,16 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_seedr_failure (hash : Option < & str > , error : & str , config : & TelegramConfig ,) -> Result < () >
   ```
 
+### `src/modules/torrent/seedr_health.rs` (Role: general, Lines: 98)
+- **Responsibility**: Core general logic in src/modules/torrent/seedr_health.rs
+- **Imports**: use anyhow :: Context , use reqwest :: blocking :: Client , use std :: time :: Duration , use super :: api , use super :: queue :: { self , QueueState } , use super :: scheduler , use super :: seedr :: { load_pending_magnet , remove_pending_magnet } , use super :: seedr_tasks , use crate :: notify :: config :: TelegramConfig 
+- **Public Functions & Signatures**:
+  ```rust
+  fn record_active_health (config : & TelegramConfig)
+  ```
+
 ### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 383)
-- **Responsibility**: Seedr task polling, formatting, stale-state reconciliation against the live cloud list, and cloud free-space reporting
+- **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks.rs
 - **Imports**: use serde :: Deserialize , use std :: collections :: HashSet , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust
@@ -1116,7 +1129,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_seedr_tasks_section (tasks : & [SeedrTaskState]) -> String
   ```
 
-### `src/modules/torrent/telegram.rs` (Role: general, Lines: 137)
+### `src/modules/torrent/telegram.rs` (Role: general, Lines: 140)
 - **Responsibility**: Core general logic in src/modules/torrent/telegram.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , pub use crate :: notify :: TelegramConfig , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
@@ -1126,7 +1139,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn configure_autorun (lines : & mut Vec < String > , enabled : bool)
   ```
 
-### `src/modules/torrent.rs` (Role: general, Lines: 393)
+### `src/modules/torrent.rs` (Role: general, Lines: 394)
 - **Responsibility**: Core general logic in src/modules/torrent.rs
 - **Imports**: use crate :: runner :: Runner , use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: Path 
 - **Public Functions & Signatures**:
@@ -1169,8 +1182,8 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_card (category : & str , badge : & str , fields : & [(& str , & str)]) -> String
   ```
 
-### `src/notify/config.rs` (Role: general, Lines: 151)
-- **Responsibility**: Telegram + integration config loader/saver with legacy fallback and Seedr queue policy knobs
+### `src/notify/config.rs` (Role: general, Lines: 169)
+- **Responsibility**: Core general logic in src/notify/config.rs
 - **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust

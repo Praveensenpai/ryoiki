@@ -72,6 +72,9 @@ pub fn prompt_telegram_config(
         timezone: Some(crate::modules::timezone::get_current_timezone()),
         seedr_queue_policy: "fifo".to_string(),
         seedr_prompt_timeout_secs: 120,
+        seedr_max_active_secs: 10_800,
+        seedr_slow_speed_bps: 307_200,
+        seedr_slow_grace_secs: 300,
     };
 
     let test_msg = "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n⚡ <b>Pure-Rust 2-Way Bot Active</b>\n\nType /help to see commands or paste a magnet link!";

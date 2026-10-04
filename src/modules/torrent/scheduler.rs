@@ -75,12 +75,18 @@ fn submit_locked(hash: &str, magnet: &str, name: &str, config: &TelegramConfig) 
     }
     q.enqueue(hash, magnet, name);
 
-    if !q.has_active() && q.activate(hash) {
-        let _ = queue::save(&q);
-        if seedr::spawn_seedr_download(magnet, config.api_port).is_ok() {
+    // A sustained-slow active download yields the slot to this newer magnet.
+    if q.has_active() && preempt_slow_active(&mut q, config) {
+        if start_entry_now(&mut q, hash, magnet, config) {
             return SubmitOutcome::Started;
         }
-        q.finish(hash, QueueState::Queued);
+        let pos = q.position(hash);
+        let _ = queue::save(&q);
+        return SubmitOutcome::Queued(pos);
+    }
+
+    if !q.has_active() && start_entry_now(&mut q, hash, magnet, config) {
+        return SubmitOutcome::Started;
     }
 
     let pos = q.position(hash);
@@ -88,12 +94,55 @@ fn submit_locked(hash: &str, magnet: &str, name: &str, config: &TelegramConfig) 
     SubmitOutcome::Queued(pos)
 }
 
+/// Activates one queued entry and spawns its Seedr worker. Caller holds the lock.
+fn start_entry_now(
+    q: &mut queue::SeedrQueue,
+    hash: &str,
+    magnet: &str,
+    config: &TelegramConfig,
+) -> bool {
+    if !q.activate(hash) {
+        return false;
+    }
+    let _ = queue::save(q);
+    if seedr::spawn_seedr_download(magnet, config.api_port).is_ok() {
+        true
+    } else {
+        q.finish(hash, QueueState::Queued);
+        let _ = queue::save(q);
+        false
+    }
+}
+
+/// Demotes the active download when it has been slow past the grace window.
+///
+/// Returns true when the slot was freed for the incoming magnet.
+fn preempt_slow_active(q: &mut queue::SeedrQueue, config: &TelegramConfig) -> bool {
+    let Some(active) = q.active_entry().cloned() else {
+        return false;
+    };
+    let Some(since) = active.slow_since else {
+        return false;
+    };
+    if queue::now_secs().saturating_sub(since) < config.seedr_slow_grace_secs {
+        return false;
+    }
+    cancel_seedr_item(&active);
+    q.demote_to_queued(&active.hash);
+    notify_telegram(
+        "⚡ <b>SEEDR SLOW — PREEMPTED</b>",
+        &active.name,
+        "Newer magnet took the slot; slow download requeued at the front",
+    );
+    true
+}
+
 /// Starts the next queued magnet once the slot frees. Returns its hash if started.
 ///
 /// The queue lock is held across the space probe and process spawn so the
 /// single-slot decision stays atomic. Callers must not already hold the lock;
 /// internal callers use [`promote_next_locked`].
-fn promote_next_locked(config: &TelegramConfig) -> Option<String> {
+pub(crate) fn promote_next_locked(config: &TelegramConfig) -> Option<String> {
     let mut q = queue::load();
     let policy = QueuePolicy::parse(&config.seedr_queue_policy);
 
@@ -184,7 +233,7 @@ fn finish_seedr_locked(hash: &str, state: QueueState, config: &TelegramConfig) {
 }
 
 /// Cancels Seedr's copy of a magnet that qBittorrent already finished.
-fn cancel_seedr_item(entry: &QueueEntry) {
+pub(crate) fn cancel_seedr_item(entry: &QueueEntry) {
     if let Some(folder_id) = find_folder_id(&entry.name) {
         let _ = std::process::Command::new("seedr-dl")
             .args(["cancel", &folder_id])
@@ -226,7 +275,7 @@ fn remove_partial(name: &str) {
     let _ = std::fs::remove_file(&part);
 }
 
-fn notify_telegram(badge: &str, name: &str, detail: &str) {
+pub(crate) fn notify_telegram(badge: &str, name: &str, detail: &str) {
     let Ok(config) = crate::notify::config::TelegramConfig::load() else {
         return;
     };
@@ -261,6 +310,8 @@ mod tests {
             name: hash.to_string(),
             seq,
             state,
+            activated_at: None,
+            slow_since: None,
         }
     }
 

@@ -83,6 +83,58 @@ fn test_promote_front_reorders() {
 }
 
 #[test]
+fn test_activate_stamps_time_and_clears_slow() {
+    let mut q = queue_with(&["a"]);
+    assert!(q.activate("a"));
+    let Some(entry) = q.active_entry() else {
+        panic!("active entry expected");
+    };
+    assert!(
+        entry.activated_at.is_some(),
+        "activation must be timestamped"
+    );
+    assert!(entry.slow_since.is_none());
+}
+
+#[test]
+fn test_demote_moves_active_to_front() {
+    let mut q = queue_with(&["a", "b", "c"]);
+    assert!(q.activate("c"));
+    assert!(q.demote_to_queued("c"));
+    assert!(!q.has_active());
+    assert_eq!(q.position("c"), 1, "demoted entry resumes at the front");
+    let demoted = q.entries.iter().find(|e| e.hash == "c");
+    assert!(demoted.is_some_and(|e| e.activated_at.is_none()));
+}
+
+#[test]
+fn test_slow_since_set_only_once_then_clear() {
+    let mut q = queue_with(&["a"]);
+    assert!(q.activate("a"));
+    assert!(q.set_slow_since("a", 100));
+    assert!(q.set_slow_since("a", 200));
+    let entry = q.entries.iter().find(|e| e.hash == "a");
+    assert_eq!(entry.and_then(|e| e.slow_since), Some(100));
+    assert!(q.clear_slow_since("a"));
+    let entry = q.entries.iter().find(|e| e.hash == "a");
+    assert!(entry.is_some_and(|e| e.slow_since.is_none()));
+}
+
+#[test]
+fn test_slow_since_ignored_when_not_active() {
+    let mut q = queue_with(&["a"]);
+    assert!(!q.set_slow_since("a", 100), "queued entries cannot be slow");
+}
+
+#[test]
+fn test_entry_serde_backward_compatible() {
+    let legacy = r#"{"hash":"a","magnet":"m","name":"a","seq":1,"state":"queued"}"#;
+    let entry: QueueEntry = serde_json::from_str(legacy).unwrap_or_else(|e| panic!("{e}"));
+    assert!(entry.activated_at.is_none());
+    assert!(entry.slow_since.is_none());
+}
+
+#[test]
 fn test_position_counts_only_queued() {
     let mut q = queue_with(&["a", "b", "c"]);
     assert!(q.activate("a"));

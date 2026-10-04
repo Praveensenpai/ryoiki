@@ -47,6 +47,20 @@ pub struct QueueEntry {
     pub name: String,
     pub seq: u64,
     pub state: QueueState,
+    /// Unix seconds when the entry last became `Active`.
+    #[serde(default)]
+    pub activated_at: Option<u64>,
+    /// Unix seconds when the active download first dropped below the slow threshold.
+    #[serde(default)]
+    pub slow_since: Option<u64>,
+}
+
+/// Current Unix time in seconds, or zero when the clock is before the epoch.
+#[must_use]
+pub fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
 }
 
 /// Persisted queue document.
@@ -71,6 +85,8 @@ impl SeedrQueue {
             name: name.to_string(),
             seq: self.next_seq,
             state: QueueState::Queued,
+            activated_at: None,
+            slow_since: None,
         });
     }
 
@@ -89,6 +105,53 @@ impl SeedrQueue {
             return false;
         };
         entry.state = QueueState::Active;
+        entry.activated_at = Some(now_secs());
+        entry.slow_since = None;
+        true
+    }
+
+    /// Returns the currently active entry, if any.
+    #[must_use]
+    pub fn active_entry(&self) -> Option<&QueueEntry> {
+        self.entries.iter().find(|e| e.state == QueueState::Active)
+    }
+
+    /// Returns the active entry back to the queue, preserving its priority.
+    ///
+    /// The entry keeps its original `seq`, so under FIFO it resumes at the front.
+    /// Used when a slow active download is preempted by a newer magnet.
+    pub fn demote_to_queued(&mut self, hash: &str) -> bool {
+        let min_seq = self.entries.iter().map(|e| e.seq).min().unwrap_or(0);
+        let Some(entry) = self.entries.iter_mut().find(|e| e.hash == hash) else {
+            return false;
+        };
+        entry.seq = min_seq.saturating_sub(1);
+        entry.state = QueueState::Queued;
+        entry.activated_at = None;
+        entry.slow_since = None;
+        true
+    }
+
+    /// Records the moment an active entry first dropped below the slow threshold.
+    pub fn set_slow_since(&mut self, hash: &str, secs: u64) -> bool {
+        let Some(entry) = self.entries.iter_mut().find(|e| e.hash == hash) else {
+            return false;
+        };
+        if entry.state != QueueState::Active {
+            return false;
+        }
+        if entry.slow_since.is_none() {
+            entry.slow_since = Some(secs);
+        }
+        true
+    }
+
+    /// Clears a previously recorded slow period once speed recovers.
+    pub fn clear_slow_since(&mut self, hash: &str) -> bool {
+        let Some(entry) = self.entries.iter_mut().find(|e| e.hash == hash) else {
+            return false;
+        };
+        entry.slow_since = None;
         true
     }
 

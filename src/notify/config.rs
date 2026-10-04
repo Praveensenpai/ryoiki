@@ -27,6 +27,18 @@ const fn default_seedr_prompt_timeout_secs() -> u64 {
     120
 }
 
+const fn default_seedr_max_active_secs() -> u64 {
+    10_800
+}
+
+const fn default_seedr_slow_speed_bps() -> u64 {
+    307_200
+}
+
+const fn default_seedr_slow_grace_secs() -> u64 {
+    300
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct TelegramConfig {
     pub bot_token: String,
@@ -61,6 +73,12 @@ pub struct TelegramConfig {
     pub seedr_queue_policy: String,
     #[serde(default = "default_seedr_prompt_timeout_secs")]
     pub seedr_prompt_timeout_secs: u64,
+    #[serde(default = "default_seedr_max_active_secs")]
+    pub seedr_max_active_secs: u64,
+    #[serde(default = "default_seedr_slow_speed_bps")]
+    pub seedr_slow_speed_bps: u64,
+    #[serde(default = "default_seedr_slow_grace_secs")]
+    pub seedr_slow_grace_secs: u64,
 }
 
 impl TelegramConfig {

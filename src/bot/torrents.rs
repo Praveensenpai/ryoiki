@@ -201,6 +201,8 @@ pub fn start_torrent_monitor(config: TelegramConfig) {
 
         let mut known: HashMap<String, bool> = HashMap::new();
         let (ts_ip, host) = crate::modules::torrent::get_access_urls();
+        let mut last_health = std::time::Instant::now();
+        let health_interval = Duration::from_secs(30);
 
         if let Ok(items) = api::get_torrents(&client, &config.qbittorrent_url, None) {
             for t in items {
@@ -214,6 +216,12 @@ pub fn start_torrent_monitor(config: TelegramConfig) {
 
         loop {
             std::thread::sleep(Duration::from_secs(4));
+
+            if last_health.elapsed() >= health_interval {
+                last_health = std::time::Instant::now();
+                crate::modules::torrent::seedr_health::record_active_health(&config);
+            }
+
             let Ok(torrents) = api::get_torrents(&client, &config.qbittorrent_url, None) else {
                 continue;
             };

@@ -61,13 +61,13 @@ enum TaskVerdict {
     Prune,
 }
 
-fn tasks_dir() -> PathBuf {
+pub(crate) fn tasks_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     Path::new(&home).join(".cache/seedr-dl/tasks")
 }
 
 /// Loads all local task JSON files paired with their on-disk paths.
-fn load_local_tasks(dir: &Path) -> Vec<(PathBuf, SeedrTaskState)> {
+pub(crate) fn load_local_tasks(dir: &Path) -> Vec<(PathBuf, SeedrTaskState)> {
     let mut out = Vec::new();
     let Ok(entries) = std::fs::read_dir(dir) else {
         return out;
@@ -112,7 +112,7 @@ fn fetch_live_list() -> Option<SeedrCloudList> {
     None
 }
 
-fn normalize(name: &str) -> String {
+pub(crate) fn normalize(name: &str) -> String {
     name.trim().to_lowercase()
 }
 
