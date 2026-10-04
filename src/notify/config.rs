@@ -31,6 +31,16 @@ pub struct TelegramConfig {
     pub api_port: u16,
     #[serde(default)]
     pub gemini_api_key: Option<String>,
+    #[serde(default)]
+    pub gemini_model: Option<String>,
+    #[serde(default)]
+    pub deepseek_url: Option<String>,
+    #[serde(default)]
+    pub deepseek_model: Option<String>,
+    #[serde(default)]
+    pub deepseek_api_key: Option<String>,
+    #[serde(default)]
+    pub enable_deepseek: Option<bool>,
     #[serde(default = "default_jellyfin_url")]
     pub jellyfin_url: String,
     #[serde(default)]

@@ -32,7 +32,7 @@ Select modules to install: (Space to toggle, Enter to run)
   [✓] 10. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
   [✓] 11. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
   [✓] 12. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
-  [✓] 13. AI Media Organizer         Auto-classify & move downloads to Jellyfin (Gemini/Regex)
+  [✓] 13. AI Media Organizer         Auto-classify & move downloads to Jellyfin (DeepSeek/Gemini/Regex)
 
   [↑/↓/j/k] Navigate   [Space] Toggle   [a] All   [n] None   [Enter] Launch   [q] Quit
 ```
@@ -89,7 +89,7 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 | `10` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
 | `11` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
 | `12` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
-| `13` | **AI Media Organizer** | `media` | Automated Jellyfin library classifier & mover (Gemini AI with 6-stage backoff & regex fallback) |
+| `13` | **AI Media Organizer** | `media` | Automated Jellyfin library classifier & mover (Dual-tier DeepSeek Primary + Gemini 3.1 Flash-Lite Secondary + Regex fallback) |
 
 ---
 
@@ -159,6 +159,44 @@ ryoiki notify battery-watch
 # Seedr.cc Cloud Downloads & Live Pipeline Status
 ryoiki seedr status                      # Inspect active Seedr cloud caching & disk download progress
 ryoiki seedr "magnet:?xt=urn:btih:..."   # Offload torrent to Seedr cloud with auto-cleanup of qBittorrent duplicates
+
+# AI Media Organizer (Jellyfin Library Placement)
+ryoiki media /path/to/downloads --dry-run # Preview media classification without moving
+ryoiki media /path/to/downloads           # Classify and organize media files into Movies/Shows/Anime
+```
+
+### 🎬 AI Media Organizer & Dual-Tier AI
+
+`ryoiki` features an autonomous dual-tier AI pipeline to classify, organize, and rename incoming torrents and media into Jellyfin-compliant directory hierarchies (`Movies/`, `Shows/`, `Anime/`):
+1. **Primary Provider**: **DeepSeek** via OpenAI-compatible endpoints (`http://mochi:4000/v1/chat/completions`, model `v4.1flash`).
+2. **Secondary Fallback**: **Google Gemini** (`gemini-3.1-flash-lite`) if DeepSeek is unreachable or rate-limited.
+3. **Tertiary Fallback**: Offline deterministic regex heuristics.
+
+#### Configuration Options
+
+**1. Configuration File (`~/.config/ryoiki/telegram.json`)**:
+```json
+{
+  "bot_token": "...",
+  "chat_id": "...",
+  "deepseek_url": "http://mochi:4000/v1/chat/completions",
+  "deepseek_model": "v4.1flash",
+  "deepseek_api_key": "dseeker",
+  "enable_deepseek": true,
+  "gemini_api_key": "AIzaSy...",
+  "gemini_model": "gemini-3.1-flash-lite"
+}
+```
+
+**2. Environment Variable Overrides**:
+```bash
+export DEEPSEEK_URL="http://mochi:4000/v1/chat/completions"
+export DEEPSEEK_MODEL="v4.1flash"
+export DEEPSEEK_API_KEY="dseeker"
+export ENABLE_DEEPSEEK="true"
+
+export GEMINI_API_KEY="AIzaSy..."
+export GEMINI_MODEL="gemini-3.1-flash-lite"
 ```
 
 ---

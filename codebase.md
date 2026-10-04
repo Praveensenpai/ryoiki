@@ -294,7 +294,7 @@ Incoming Torrent File (e.g. ~/torrents/completed/Film.2023.1080p.mkv)
   - `map_language_code(code: &str) -> String`: Maps 3-letter ISO language codes (`mal`, `tam`, `tel`, `hin`, `kan`, `eng`, `jpn`, `kor`, `fra`, `deu`, etc.) to capitalized full language names.
   - `resolve_primary_language(languages: &[String]) -> Option<String>`: Evaluates audio tracks; if single track, returns that language; if multiple tracks with English, prioritizes the native language; if multiple non-English tracks, returns `"Multi"`.
 - **`src/modules/media/ai.rs`**:
-  - `classify_media_ai(...) -> Result<MediaInfo>`: Uses Google Gemini API (`gemini-2.5-flash` with fallback models) to parse messy filenames into clean schema. Supports `media_type: "movie" | "show" | "anime"` and `is_extra: bool`.
+  - `classify_media_ai(...) -> Result<MediaInfo>`: Uses dual-tier AI (Primary: DeepSeek `v4.1flash`, Secondary: Gemini `gemini-3.1-flash-lite`) to parse messy filenames into clean schema. Supports `media_type: "movie" | "show" | "anime"` and `is_extra: bool`.
   - Injects `probe` metadata (duration, streams, resolution) into the prompt to resolve cinema remakes (e.g. *Drishyam* 2013 Malayalam vs *Drishyam* 2015 Hindi) and detect anime.
   - `ensure_year_in_clean_name(name, year)`: Guarantees `(YYYY)` format in filenames.
   - `ensure_language_in_clean_name(name, language)`: Guarantees `[Language]` format in filenames.

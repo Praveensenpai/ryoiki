@@ -54,3 +54,87 @@ fn prompt_and_save_key() -> Result<Option<String>> {
     );
     Ok(Some(key))
 }
+
+/// Resolves whether `DeepSeek` is enabled (defaults to true).
+#[must_use]
+pub fn is_deepseek_enabled() -> bool {
+    if let Ok(val) = std::env::var("ENABLE_DEEPSEEK") {
+        let lower = val.trim().to_lowercase();
+        return lower == "1" || lower == "true" || lower == "yes";
+    }
+    TelegramConfig::load()
+        .ok()
+        .and_then(|c| c.enable_deepseek)
+        .unwrap_or(true)
+}
+
+/// Resolves the `DeepSeek` URL (defaults to `<http://mochi:4000/v1/chat/completions>`).
+#[must_use]
+pub fn get_deepseek_url() -> String {
+    if let Ok(url) = std::env::var("DEEPSEEK_URL") {
+        let trimmed = url.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    TelegramConfig::load()
+        .ok()
+        .and_then(|c| c.deepseek_url)
+        .filter(|u| !u.trim().is_empty())
+        .unwrap_or_else(|| "http://mochi:4000/v1/chat/completions".to_string())
+}
+
+/// Resolves the `DeepSeek` model (defaults to v4.1flash).
+#[must_use]
+pub fn get_deepseek_model() -> String {
+    if let Ok(model) = std::env::var("DEEPSEEK_MODEL") {
+        let trimmed = model.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    TelegramConfig::load()
+        .ok()
+        .and_then(|c| c.deepseek_model)
+        .filter(|m| !m.trim().is_empty())
+        .unwrap_or_else(|| "v4.1flash".to_string())
+}
+
+/// Resolves the `DeepSeek` API key (defaults to dseeker).
+#[must_use]
+pub fn get_deepseek_api_key() -> String {
+    if let Ok(key) = std::env::var("DEEPSEEK_API_KEY").or_else(|_| std::env::var("DEEPSEEKER_API_KEY")) {
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    TelegramConfig::load()
+        .ok()
+        .and_then(|c| c.deepseek_api_key)
+        .filter(|k| !k.trim().is_empty())
+        .unwrap_or_else(|| "dseeker".to_string())
+}
+
+/// Resolves the Gemini model (defaults to gemini-3.1-flash-lite).
+#[must_use]
+pub fn get_gemini_model() -> String {
+    if let Ok(model) = std::env::var("GEMINI_MODEL") {
+        let trimmed = model.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    TelegramConfig::load()
+        .ok()
+        .and_then(|c| c.gemini_model)
+        .filter(|m| !m.trim().is_empty())
+        .unwrap_or_else(|| "gemini-3.1-flash-lite".to_string())
+}
+
+/// Checks whether any AI engine is enabled or configured.
+#[must_use]
+pub fn is_ai_enabled() -> bool {
+    is_deepseek_enabled() || get_or_prompt_gemini_key(false).is_some()
+}
+

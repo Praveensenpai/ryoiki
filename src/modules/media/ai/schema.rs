@@ -32,14 +32,16 @@ pub struct AiBatchItemSchema {
 }
 
 pub fn parse_ai_json(json_text: &str, raw_name: &str) -> Result<MediaInfo> {
+    let cleaned = super::client::clean_json_text(json_text);
     let schema: AiOutputSchema =
-        serde_json::from_str(json_text).context("Failed to parse model JSON into schema")?;
+        serde_json::from_str(&cleaned).context("Failed to parse model JSON into schema")?;
     Ok(build_media_info(&schema, raw_name))
 }
 
 pub fn parse_batch_ai_json(json_text: &str) -> Result<Vec<(String, MediaInfo)>> {
+    let cleaned = super::client::clean_json_text(json_text);
     let items: Vec<AiBatchItemSchema> =
-        serde_json::from_str(json_text).context("Failed to parse batch JSON array")?;
+        serde_json::from_str(&cleaned).context("Failed to parse batch JSON array")?;
 
     let mut results = Vec::with_capacity(items.len());
     for item in items {
@@ -237,6 +239,17 @@ mod tests {
         assert_eq!(list[0].1.episode, Some(1));
         assert!(!list[0].1.is_extra);
         assert!(list[1].1.is_extra);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_ai_json_with_markdown_fence() -> Result<()> {
+        let fenced_json = "```json\n{\n  \"media_type\": \"movie\",\n  \"title\": \"Kantara\",\n  \"year\": 2022,\n  \"season\": null,\n  \"episode\": null,\n  \"resolution\": \"1080p\",\n  \"language\": \"Kannada\",\n  \"clean_name\": \"Kantara (2022) [Kannada] [1080p].mkv\"\n}\n```";
+        let info = parse_ai_json(fenced_json, "Kantara.2022.Kannada.1080p.mkv")?;
+        assert_eq!(info.media_type, MediaType::Movie);
+        assert_eq!(info.title, "Kantara");
+        assert_eq!(info.year, Some(2022));
+        assert_eq!(info.language.as_deref(), Some("Kannada"));
         Ok(())
     }
 }

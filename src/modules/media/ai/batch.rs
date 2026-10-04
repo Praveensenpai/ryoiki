@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use super::super::probe::MediaProbe;
 use super::super::MediaInfo;
-use super::client::send_gemini_prompt;
+use super::client::send_ai_prompt;
 use super::prompt::build_batch_prompt;
 use super::schema::parse_batch_ai_json;
 
@@ -12,7 +12,7 @@ const BATCH_CHUNK_SIZE: usize = 35;
 
 pub fn classify_media_batch(
     client: &Client,
-    api_key: &str,
+    api_key: Option<&str>,
     items: &[(&str, Option<&MediaProbe>)],
 ) -> Result<HashMap<String, MediaInfo>> {
     let mut mapped_results = HashMap::with_capacity(items.len());
@@ -22,7 +22,7 @@ pub fn classify_media_batch(
         let rep_probe = chunk.iter().find_map(|(_, p)| *p);
 
         let prompt = build_batch_prompt(&raw_names, rep_probe);
-        let json_text = send_gemini_prompt(client, api_key, &prompt)?;
+        let json_text = send_ai_prompt(client, api_key, &prompt)?;
 
         let parsed_list = parse_batch_ai_json(&json_text)?;
         for (raw, mut info) in parsed_list {

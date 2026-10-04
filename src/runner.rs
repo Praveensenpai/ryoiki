@@ -228,7 +228,7 @@ fn prompt_sudo_auth() -> Result<()> {
 
 fn spawn_sudo_keepalive() {
     std::thread::spawn(|| loop {
-        std::thread::sleep(Duration::from_secs(60));
+        std::thread::sleep(Duration::from_mins(1));
         let _ = Command::new("sudo")
             .args(["-v"])
             .stdout(Stdio::null())

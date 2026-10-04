@@ -48,16 +48,17 @@ fn classify_video_files(
         .map(|f| f.file_name().and_then(|n| n.to_str()).unwrap_or(""))
         .collect();
 
-    let batch_ai_map: HashMap<String, super::MediaInfo> = match api_key {
-        Some(key) if !key.is_empty() && files.len() > 1 => {
-            let items: Vec<(&str, Option<&MediaProbe>)> = names
-                .iter()
-                .zip(probes.iter())
-                .map(|(n, p)| (*n, p.as_ref()))
-                .collect();
-            classify_media_batch(client, key, &items).unwrap_or_default()
-        }
-        _ => HashMap::new(),
+    let use_ai = super::config::is_ai_enabled() || api_key.is_some_and(|k| !k.is_empty());
+
+    let batch_ai_map: HashMap<String, super::MediaInfo> = if use_ai && files.len() > 1 {
+        let items: Vec<(&str, Option<&MediaProbe>)> = names
+            .iter()
+            .zip(probes.iter())
+            .map(|(n, p)| (*n, p.as_ref()))
+            .collect();
+        classify_media_batch(client, api_key, &items).unwrap_or_default()
+    } else {
+        HashMap::new()
     };
 
     let mut out = Vec::with_capacity(files.len());
@@ -67,14 +68,11 @@ fn classify_video_files(
 
         let mut media_info = if let Some(info) = batch_ai_map.get(name) {
             info.clone()
+        } else if use_ai {
+            classify_media_ai(client, api_key, name, probe.as_ref())
+                .unwrap_or_else(|_| classify_media_heuristic(name))
         } else {
-            match api_key {
-                Some(key) if !key.is_empty() => {
-                    classify_media_ai(client, key, name, probe.as_ref())
-                        .unwrap_or_else(|_| classify_media_heuristic(name))
-                }
-                _ => classify_media_heuristic(name),
-            }
+            classify_media_heuristic(name)
         };
 
         adjust_media_info_post_classify(&mut media_info, probe.as_ref());
