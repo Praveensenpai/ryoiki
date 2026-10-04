@@ -26,7 +26,51 @@ pub fn resume_all(client: &Client, url: &str) -> Result<()> {
     api::resume_all(client, url)
 }
 
+use crate::modules::torrent::dedup::{self, Availability};
+
+fn check_and_restore(target: &str) -> Option<String> {
+    match dedup::check_already_available(target) {
+        Availability::Local { path, title } => Some(format!(
+            "🌊 <b>領域 RYOIKI</b> • <i>Library Deduplication</i>\n\
+            ━━━━━━━━━━━━━━━━━━━━━━━\n\
+            ✨ <b>ALREADY AVAILABLE LOCALLY</b>\n\n\
+            🎬 <b>Title:</b> <code>{title}</code>\n\
+            📁 <b>Path:</b> <code>{}</code>\n\n\
+            <i>Skipping download — file exists in your Jellyfin media library.</i>",
+            path.display()
+        )),
+        Availability::Cloud {
+            path,
+            title,
+            media_type,
+        } => {
+            let info = crate::modules::media::heuristic::classify_media_heuristic(&title);
+            match dedup::restore_from_cloud(&path, &info) {
+                Ok(dest) => Some(format!(
+                    "🌊 <b>領域 RYOIKI</b> • <i>Cloud Archive Restore</i>\n\
+                    ━━━━━━━━━━━━━━━━━━━━━━━\n\
+                    ☁️ <b>RESTORED FROM GOOGLE DRIVE</b>\n\n\
+                    🎬 <b>Title:</b> <code>{title}</code>\n\
+                    📂 <b>Type:</b> {media_type}\n\
+                    📍 <b>Restored To:</b> <code>{}</code>\n\n\
+                    <i>Copied directly from Drive archive & refreshed Jellyfin.</i>",
+                    dest.display()
+                )),
+                Err(e) => {
+                    eprintln!("  ⚠️ Failed to restore from cloud {}: {e}", path.display());
+                    None
+                }
+            }
+        }
+        Availability::NotAvailable { .. } => None,
+    }
+}
+
 pub fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> String {
+    if let Some(msg) = check_and_restore(magnet) {
+        return msg;
+    }
+
     if let Err(e) = seedr::spawn_seedr_download(magnet, config.api_port) {
         let qb_ok = api::add_magnet(client, &config.qbittorrent_url, magnet).is_ok();
         if qb_ok {
@@ -60,6 +104,10 @@ pub fn handle_seedr_cmd(target: &str, api_port: u16) -> String {
             format!("🌊 <b>領域 RYOIKI • Seedr</b>\n━━━━━━━━━━━━━━━━━━━━━━━\n{sec}")
         }
     } else {
+        if let Some(msg) = check_and_restore(target) {
+            return msg;
+        }
+
         match seedr::spawn_seedr_download(target, api_port) {
             Ok(()) => "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n\
                 ━━━━━━━━━━━━━━━━━━━━━━━\n\
@@ -77,6 +125,10 @@ pub fn handle_torrent_file(
     fname: &str,
     bytes: Vec<u8>,
 ) -> Result<String> {
+    if let Some(msg) = check_and_restore(fname) {
+        return Ok(msg);
+    }
+
     api::add_torrent_file(client, &config.qbittorrent_url, fname, bytes)?;
     Ok(format!(
         "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\

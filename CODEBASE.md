@@ -123,9 +123,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn get_disk_info (path : & str) -> Option < (u64 , u64 , u64) >
   ```
 
-### `src/bot/torrents.rs` (Role: general, Lines: 152)
+### `src/bot/torrents.rs` (Role: general, Lines: 204)
 - **Responsibility**: Core general logic in src/bot/torrents.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: modules :: torrent :: notify , use crate :: modules :: torrent :: report :: format_status_report , use crate :: modules :: torrent :: seedr , use crate :: notify :: config :: TelegramConfig 
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: modules :: torrent :: notify , use crate :: modules :: torrent :: report :: format_status_report , use crate :: modules :: torrent :: seedr , use crate :: notify :: config :: TelegramConfig , use crate :: modules :: torrent :: dedup :: { self , Availability } 
 - **Public Functions & Signatures**:
   ```rust
   fn get_torrents (client : & Client , url : & str) -> Result < Vec < TorrentInfo > >
@@ -261,7 +261,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn deploy_dotfiles (home : & str) -> Result < () >
   ```
 
-### `src/main.rs` (Role: general, Lines: 368)
+### `src/main.rs` (Role: general, Lines: 393)
 - **Responsibility**: Core general logic in src/main.rs
 - **Imports**: use anyhow :: Result , use clap :: { Parser , Subcommand } , use colored :: Colorize , use modules :: { execute_module , get_available_modules } , use runner :: Runner , use std :: io :: IsTerminal 
 
@@ -915,7 +915,25 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn delete_torrent (client : & Client , base_url : & str , hash : & str , delete_files : bool ,) -> Result < () >
   ```
 
-### `src/modules/torrent/notify.rs` (Role: general, Lines: 205)
+### `src/modules/torrent/dedup.rs` (Role: general, Lines: 395)
+- **Responsibility**: Core general logic in src/modules/torrent/dedup.rs
+- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use std :: fs , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: organizer :: calculate_dest_dir , use crate :: modules :: media :: { MediaInfo , MediaType } 
+- **Types & Enums**:
+  ```rust
+  pub struct HistoryRecord
+  pub struct DownloadHistory
+  pub enum Availability
+  ```
+- **Public Functions & Signatures**:
+  ```rust
+  fn load_history () -> DownloadHistory
+  fn record_download_history (hash : Option < & str > , info : & MediaInfo , paths : & [PathBuf] ,) -> Result < () >
+  fn parse_magnet (target : & str) -> (Option < String > , Option < String >)
+  fn check_already_available (magnet_or_url : & str) -> Availability
+  fn restore_from_cloud (cloud_path : & Path , info : & MediaInfo) -> Result < PathBuf >
+  ```
+
+### `src/modules/torrent/notify.rs` (Role: general, Lines: 213)
 - **Responsibility**: Core general logic in src/modules/torrent/notify.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: thread :: sleep , use std :: time :: Duration , use super :: api :: { self , TorrentInfo } , use super :: telegram :: TelegramConfig , use crate :: modules :: media :: OrganizeResult , use crate :: notify :: client :: escape_html 
 - **Public Functions & Signatures**:
@@ -932,13 +950,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_status_report (torrents : & [TorrentInfo]) -> String
   ```
 
-### `src/modules/torrent/seedr.rs` (Role: general, Lines: 389)
+### `src/modules/torrent/seedr.rs` (Role: general, Lines: 331)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr.rs
-- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: { Path , PathBuf } , use std :: process :: { Command , Stdio } , use std :: time :: Duration , use super :: api , use super :: telegram :: TelegramConfig , use serde :: Deserialize 
-- **Types & Enums**:
-  ```rust
-  pub struct SeedrTaskState
-  ```
+- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: { Path , PathBuf } , use std :: process :: { Command , Stdio } , use std :: time :: Duration , use super :: api , use super :: telegram :: TelegramConfig , pub use super :: seedr_tasks :: { format_seedr_tasks_section , get_active_seedr_tasks } 
 - **Public Functions & Signatures**:
   ```rust
   fn extract_btih_hash (magnet : & str) -> Option < String >
@@ -948,6 +962,17 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn spawn_seedr_download (magnet : & str , api_port : u16) -> Result < () >
   fn handle_seedr_completion (hash : Option < & str > , file_name : & str , total_bytes : u64 , dest_path : Option < & str > , config : & TelegramConfig ,) -> Result < () >
   fn handle_seedr_failure (hash : Option < & str > , error : & str , config : & TelegramConfig ,) -> Result < () >
+  ```
+
+### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 136)
+- **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks.rs
+- **Imports**: use serde :: Deserialize , use std :: path :: Path 
+- **Types & Enums**:
+  ```rust
+  pub struct SeedrTaskState
+  ```
+- **Public Functions & Signatures**:
+  ```rust
   fn get_active_seedr_tasks () -> Vec < SeedrTaskState >
   fn format_seedr_tasks_section (tasks : & [SeedrTaskState]) -> String
   ```
@@ -962,7 +987,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn configure_autorun (lines : & mut Vec < String > , enabled : bool)
   ```
 
-### `src/modules/torrent.rs` (Role: general, Lines: 387)
+### `src/modules/torrent.rs` (Role: general, Lines: 389)
 - **Responsibility**: Core general logic in src/modules/torrent.rs
 - **Imports**: use crate :: runner :: Runner , use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: Path 
 - **Public Functions & Signatures**:

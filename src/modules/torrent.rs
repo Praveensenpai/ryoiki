@@ -6,9 +6,11 @@ use std::io::{self, BufRead, Write};
 use std::path::Path;
 
 pub mod api;
+pub mod dedup;
 pub mod notify;
 pub mod report;
 pub mod seedr;
+pub mod seedr_tasks;
 pub mod telegram;
 
 /// Sets up qBittorrent server directly with Docker without compose files.

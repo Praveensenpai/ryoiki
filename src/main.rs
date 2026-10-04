@@ -293,6 +293,31 @@ fn handle_seedr_cli(target: &str) -> Result<()> {
         }
         return Ok(());
     }
+    let availability = modules::torrent::dedup::check_already_available(target);
+    match availability {
+        modules::torrent::dedup::Availability::Local { path, title } => {
+            println!(
+                "  {} Already available locally: {}",
+                "✔".green().bold(),
+                title.cyan()
+            );
+            println!("  📁 {}", path.display());
+            return Ok(());
+        }
+        modules::torrent::dedup::Availability::Cloud { path, title, .. } => {
+            println!("  ☁️ Found in Google Drive archive: {}", title.cyan());
+            let info = modules::media::heuristic::classify_media_heuristic(&title);
+            let dest = modules::torrent::dedup::restore_from_cloud(&path, &info)?;
+            println!(
+                "  {} Restored from Drive to: {}",
+                "✔".green().bold(),
+                dest.display()
+            );
+            return Ok(());
+        }
+        modules::torrent::dedup::Availability::NotAvailable { .. } => {}
+    }
+
     let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;

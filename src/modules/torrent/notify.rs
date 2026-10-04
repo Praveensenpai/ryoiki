@@ -57,6 +57,14 @@ fn process_completed_media(
             }
         };
 
+    if let Some(ref org) = organized {
+        let _ = super::dedup::record_download_history(
+            Some(&t.hash),
+            &org.media_info,
+            std::slice::from_ref(&org.dest_path),
+        );
+    }
+
     let cleared = if organized.is_some() {
         api::delete_torrent(client, base_url, &t.hash, false).is_ok()
     } else {
