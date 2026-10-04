@@ -261,7 +261,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn deploy_dotfiles (home : & str) -> Result < () >
   ```
 
-### `src/main.rs` (Role: general, Lines: 393)
+### `src/main.rs` (Role: general, Lines: 351)
 - **Responsibility**: Core general logic in src/main.rs
 - **Imports**: use anyhow :: Result , use clap :: { Parser , Subcommand } , use colored :: Colorize , use modules :: { execute_module , get_available_modules } , use runner :: Runner , use std :: io :: IsTerminal 
 
@@ -338,6 +338,27 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn setup_schedule () -> Result < () >
   ```
 
+### `src/modules/jellyfin/encoding.rs` (Role: general, Lines: 163)
+- **Responsibility**: Core general logic in src/modules/jellyfin/encoding.rs
+- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: Path 
+- **Public Functions & Signatures**:
+  ```rust
+  fn provision_hardware_encoding (base_dir : & Path , dry_run : bool) -> Result < () >
+  fn patch_encoding_xml (content : & str) -> String
+  ```
+
+### `src/modules/jellyfin/kodi.rs` (Role: general, Lines: 108)
+- **Responsibility**: Core general logic in src/modules/jellyfin/kodi.rs
+- **Imports**: use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: fs , use std :: path :: PathBuf 
+- **Types & Enums**:
+  ```rust
+  pub enum KodiSubcommand
+  ```
+- **Public Functions & Signatures**:
+  ```rust
+  fn handle_cli (sub : & KodiSubcommand) -> Result < () >
+  ```
+
 ### `src/modules/jellyfin/timer.rs` (Role: general, Lines: 70)
 - **Responsibility**: Core general logic in src/modules/jellyfin/timer.rs
 - **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command 
@@ -347,7 +368,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_timer_active () -> bool
   ```
 
-### `src/modules/jellyfin.rs` (Role: general, Lines: 118)
+### `src/modules/jellyfin.rs` (Role: general, Lines: 121)
 - **Responsibility**: Core general logic in src/modules/jellyfin.rs
 - **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path 
 - **Public Functions & Signatures**:
@@ -915,6 +936,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn delete_torrent (client : & Client , base_url : & str , hash : & str , delete_files : bool ,) -> Result < () >
   ```
 
+### `src/modules/torrent/cli.rs` (Role: cli, Lines: 55)
+- **Responsibility**: Core cli logic in src/modules/torrent/cli.rs
+- **Imports**: use crate :: notify :: TelegramConfig , use crate :: modules :: torrent :: { api , dedup , seedr } , use anyhow :: Result , use colored :: Colorize , use std :: time :: Duration 
+- **Public Functions & Signatures**:
+  ```rust
+  fn handle_seedr_cli (target : & str) -> Result < () >
+  ```
+
 ### `src/modules/torrent/dedup.rs` (Role: general, Lines: 352)
 - **Responsibility**: Core general logic in src/modules/torrent/dedup.rs
 - **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } 
@@ -1002,7 +1031,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn configure_autorun (lines : & mut Vec < String > , enabled : bool)
   ```
 
-### `src/modules/torrent.rs` (Role: general, Lines: 390)
+### `src/modules/torrent.rs` (Role: general, Lines: 391)
 - **Responsibility**: Core general logic in src/modules/torrent.rs
 - **Imports**: use crate :: runner :: Runner , use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: Path 
 - **Public Functions & Signatures**:

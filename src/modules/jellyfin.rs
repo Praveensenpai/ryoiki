@@ -1,5 +1,7 @@
 pub mod api;
 pub mod backup;
+pub mod encoding;
+pub mod kodi;
 pub mod timer;
 
 use crate::runner::Runner;
@@ -14,6 +16,7 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
     let jellyfin_dir = Path::new(&home).join("jellyfin");
 
     create_directories(runner, &jellyfin_dir)?;
+    encoding::provision_hardware_encoding(&jellyfin_dir, runner.dry_run)?;
     deploy_compose_file(runner, &jellyfin_dir)?;
     start_container(runner, &jellyfin_dir)?;
     configure_firewall(runner)?;

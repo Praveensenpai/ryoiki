@@ -6,6 +6,7 @@ use std::io::{self, BufRead, Write};
 use std::path::Path;
 
 pub mod api;
+pub mod cli;
 pub mod dedup;
 pub mod history;
 pub mod notify;

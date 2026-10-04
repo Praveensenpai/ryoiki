@@ -80,6 +80,9 @@ enum Commands {
     /// Manage automated Jellyfin cloud backups to Google Drive
     #[command(subcommand)]
     Backup(modules::jellyfin::backup::BackupSubcommand),
+    /// Generate optimal Kodi streaming settings and troubleshooting guide
+    #[command(subcommand)]
+    Kodi(modules::jellyfin::kodi::KodiSubcommand),
     /// Prune watched/large media to Google Drive when SSD is full
     Prune {
         /// High-watermark percentage trigger (default: 80)
@@ -234,6 +237,9 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
         Commands::Backup(sub) => {
             modules::jellyfin::backup::handle_cli(sub)?;
         }
+        Commands::Kodi(sub) => {
+            modules::jellyfin::kodi::handle_cli(&sub)?;
+        }
         Commands::Prune {
             threshold,
             target,
@@ -275,60 +281,12 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
             modules::timezone::handle_cli(args, runner)?;
         }
         Commands::Seedr { target } => {
-            handle_seedr_cli(&target)?;
+            modules::torrent::cli::handle_seedr_cli(&target)?;
         }
     }
     Ok(())
 }
 
-fn handle_seedr_cli(target: &str) -> Result<()> {
-    let config = notify::TelegramConfig::load()?;
-    if target.is_empty() || target == "status" {
-        let tasks = modules::torrent::seedr::get_active_seedr_tasks();
-        let sec = modules::torrent::seedr::format_seedr_tasks_section(&tasks);
-        if sec.is_empty() {
-            println!("  🌱 No active Seedr downloads.");
-        } else {
-            println!("{sec}");
-        }
-        return Ok(());
-    }
-    let availability = modules::torrent::dedup::check_already_available(target);
-    match availability {
-        modules::torrent::dedup::Availability::Local { paths, title } => {
-            println!(
-                "  {} Already available locally: {}",
-                "✔".green().bold(),
-                title.cyan()
-            );
-            for p in &paths {
-                println!("  📁 {}", p.display());
-            }
-            return Ok(());
-        }
-        modules::torrent::dedup::Availability::Cloud { pairs, title } => {
-            println!("  ☁️ Found in Google Drive archive: {}", title.cyan());
-            let restored = modules::torrent::dedup::restore_from_cloud(&pairs)?;
-            println!("  {} Restored from Drive:", "✔".green().bold());
-            for p in &restored {
-                println!("  📍 {}", p.display());
-            }
-            return Ok(());
-        }
-        modules::torrent::dedup::Availability::NotAvailable { .. } => {}
-    }
-
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()?;
-    let _ = modules::torrent::api::add_magnet(&client, &config.qbittorrent_url, target);
-    modules::torrent::seedr::spawn_seedr_download(target, config.api_port)?;
-    println!(
-        "  {} Queued magnet into qBittorrent and Seedr dual-pipeline.",
-        "✔".green().bold()
-    );
-    Ok(())
-}
 
 fn resolve_selected_modules(cli: &Cli) -> Result<Option<Vec<String>>> {
     let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();
