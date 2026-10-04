@@ -1,7 +1,7 @@
 //! Seedr active-download health watchdog.
 //!
 //! Two guards run against the single active slot:
-//! 1. A whole-lifecycle deadline (`seedr_max_active_secs`, default 3h). On
+//! 1. A whole-lifecycle deadline (`seedr_max_active_secs`, default 2h30m). On
 //!    expiry the item is cancelled and handed to qBittorrent.
 //! 2. A sustained slow-speed floor (`seedr_slow_speed_bps` held for
 //!    `seedr_slow_grace_secs`). Recording the slow window lets [`super::scheduler`]

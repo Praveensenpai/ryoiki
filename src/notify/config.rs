@@ -28,7 +28,7 @@ const fn default_seedr_prompt_timeout_secs() -> u64 {
 }
 
 const fn default_seedr_max_active_secs() -> u64 {
-    10_800
+    9_000
 }
 
 const fn default_seedr_slow_speed_bps() -> u64 {

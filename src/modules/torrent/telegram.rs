@@ -72,7 +72,7 @@ pub fn prompt_telegram_config(
         timezone: Some(crate::modules::timezone::get_current_timezone()),
         seedr_queue_policy: "fifo".to_string(),
         seedr_prompt_timeout_secs: 120,
-        seedr_max_active_secs: 10_800,
+        seedr_max_active_secs: 9_000,
         seedr_slow_speed_bps: 307_200,
         seedr_slow_grace_secs: 300,
     };
