@@ -287,7 +287,6 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
     Ok(())
 }
 
-
 fn resolve_selected_modules(cli: &Cli) -> Result<Option<Vec<String>>> {
     let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();
     if non_interactive {

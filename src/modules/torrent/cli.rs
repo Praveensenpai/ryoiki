@@ -1,5 +1,5 @@
-use crate::notify::TelegramConfig;
 use crate::modules::torrent::{api, dedup, seedr};
+use crate::notify::TelegramConfig;
 use anyhow::Result;
 use colored::Colorize;
 use std::time::Duration;

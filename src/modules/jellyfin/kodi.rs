@@ -55,10 +55,17 @@ pub fn handle_cli(sub: &KodiSubcommand) -> Result<()> {
 }
 
 fn print_config_guide() {
-    println!("\n  {} {}", "🎬".bold(), "Kodi Streaming Configuration".bold());
+    println!(
+        "\n  {} {}",
+        "🎬".bold(),
+        "Kodi Streaming Configuration".bold()
+    );
     println!("  {}\n", "─".repeat(45).dimmed());
 
-    println!("  Place this content in your Kodi {} file:\n", "userdata/advancedsettings.xml".cyan());
+    println!(
+        "  Place this content in your Kodi {} file:\n",
+        "userdata/advancedsettings.xml".cyan()
+    );
     for line in KODI_ADVANCED_SETTINGS.lines() {
         println!("    {line}");
     }
@@ -70,21 +77,35 @@ fn print_config_guide() {
     println!("    • Windows:     %APPDATA%\\Kodi\\userdata\\");
 
     println!("\n  {} Next Step:", "💡".bold());
-    println!("    Pipe directly to file: {}", "ryoiki kodi config --raw > advancedsettings.xml".yellow());
+    println!(
+        "    Pipe directly to file: {}",
+        "ryoiki kodi config --raw > advancedsettings.xml".yellow()
+    );
     println!();
 }
 
 fn print_troubleshooting_guide() {
-    println!("\n  {} {}", "🛠️".bold(), "Jellyfin + Kodi Playback Optimization".bold());
+    println!(
+        "\n  {} {}",
+        "🛠️".bold(),
+        "Jellyfin + Kodi Playback Optimization".bold()
+    );
     println!("  {}\n", "─".repeat(45).dimmed());
 
     println!("  {} Long Seek Abort Fix (jellyfin-kodi):", "1.".bold());
     println!("    • In Kodi: Settings -> Add-ons -> My add-ons -> Video add-ons -> Jellyfin");
     println!("    • Select 'Settings' -> 'Playback' or 'Advanced'");
-    println!("    • Toggle {} to {} (fixes HTTP/2 stream cancellation on deep seeks)", "Enable HTTP/2".cyan(), "OFF".bold().red());
+    println!(
+        "    • Toggle {} to {} (fixes HTTP/2 stream cancellation on deep seeks)",
+        "Enable HTTP/2".cyan(),
+        "OFF".bold().red()
+    );
 
     println!("\n  {} RAM Buffer Underrun Fix:", "2.".bold());
-    println!("    • Run {} and deploy the XML.", "ryoiki kodi config".yellow());
+    println!(
+        "    • Run {} and deploy the XML.",
+        "ryoiki kodi config".yellow()
+    );
     println!("    • Expands Kodi RAM buffer to 128 MB and sets curl timeout to 60s.");
 
     println!("\n  {} Playback Engine Modes:", "3.".bold());
