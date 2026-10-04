@@ -12,6 +12,14 @@ pub struct QueueEntry {
     pub path: PathBuf,
     pub attempts: u8,
     pub enqueued_secs: u64,
+    /// Whether the original full multi-audio version should be preserved.
+    /// Defaults to true for entries written before this field existed.
+    #[serde(default = "default_true")]
+    pub preserve_multi: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn queue_path() -> Result<PathBuf> {
@@ -45,7 +53,7 @@ fn save(entries: &[QueueEntry]) -> Result<()> {
 }
 
 /// Adds a path to the persistent retry queue if not already present.
-pub fn enqueue(path: &Path) {
+pub fn enqueue(path: &Path, preserve_multi: bool) {
     let Ok(mut entries) = load() else { return };
     let already_queued = entries.iter().any(|e| e.path == path);
     if already_queued {
@@ -55,6 +63,7 @@ pub fn enqueue(path: &Path) {
         path: path.to_path_buf(),
         attempts: 0,
         enqueued_secs: now_secs(),
+        preserve_multi,
     });
     let _ = save(&entries);
     println!(
@@ -65,10 +74,12 @@ pub fn enqueue(path: &Path) {
 }
 
 /// Processes the queue: retries dubstrip on each entry, removes successes and expired entries.
-pub fn process_queue(dubstrip_bin: &Path) -> Result<()> {
+/// Returns an aggregate summary of the run.
+pub fn process_queue(dubstrip_bin: &Path) -> Result<super::AudioStripSummary> {
     let mut entries = load()?;
+    let mut summary = super::AudioStripSummary::default();
     if entries.is_empty() {
-        return Ok(());
+        return Ok(summary);
     }
 
     println!(
@@ -77,10 +88,14 @@ pub fn process_queue(dubstrip_bin: &Path) -> Result<()> {
         entries.len()
     );
 
-    let remaining: Vec<QueueEntry> = entries
-        .drain(..)
-        .filter_map(|e| process_single_entry(dubstrip_bin, e))
-        .collect();
+    let mut remaining: Vec<QueueEntry> = Vec::new();
+    for entry in entries.drain(..) {
+        let (keep, outcome) = process_single_entry(dubstrip_bin, entry);
+        summary.record(&outcome);
+        if let Some(e) = keep {
+            remaining.push(e);
+        }
+    }
 
     save(&remaining)?;
     println!(
@@ -88,16 +103,22 @@ pub fn process_queue(dubstrip_bin: &Path) -> Result<()> {
         "✔".green().bold(),
         remaining.len()
     );
-    Ok(())
+    Ok(summary)
 }
 
-fn process_single_entry(dubstrip_bin: &Path, mut entry: QueueEntry) -> Option<QueueEntry> {
+fn process_single_entry(
+    dubstrip_bin: &Path,
+    mut entry: QueueEntry,
+) -> (Option<QueueEntry>, super::StripOutcome) {
     entry.attempts += 1;
-    match super::strip_and_preserve(dubstrip_bin, &entry.path) {
+    let preserve_multi = entry.preserve_multi;
+    let outcome = super::strip_and_preserve(dubstrip_bin, &entry.path, preserve_multi);
+    match &outcome {
         super::StripOutcome::Stripped {
             primary_lang,
             original_path,
             multi_path,
+            ..
         } => {
             println!(
                 "  {} Strip succeeded after {} attempt(s):",
@@ -107,10 +128,14 @@ fn process_single_entry(dubstrip_bin: &Path, mut entry: QueueEntry) -> Option<Qu
             if let Some(orig) = original_path.file_name().and_then(|n| n.to_str()) {
                 println!("    • Original [{primary_lang}]: {}", orig.cyan());
             }
-            if let Some(multi) = multi_path.file_name().and_then(|n| n.to_str()) {
+            if let Some(multi) = multi_path
+                .as_ref()
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str())
+            {
                 println!("    • Multi Audio: {}", multi.cyan());
             }
-            None
+            (None, outcome)
         }
         super::StripOutcome::Preserved => {
             println!(
@@ -119,7 +144,7 @@ fn process_single_entry(dubstrip_bin: &Path, mut entry: QueueEntry) -> Option<Qu
                 entry.attempts,
                 entry.path.display()
             );
-            None
+            (None, outcome)
         }
         super::StripOutcome::Failed => {
             if entry.attempts >= MAX_ATTEMPTS {
@@ -128,9 +153,9 @@ fn process_single_entry(dubstrip_bin: &Path, mut entry: QueueEntry) -> Option<Qu
                     "✖".red(),
                     entry.path.display()
                 );
-                None
+                (None, outcome)
             } else {
-                Some(entry)
+                (Some(entry), outcome)
             }
         }
     }

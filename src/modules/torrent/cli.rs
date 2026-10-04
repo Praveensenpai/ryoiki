@@ -1,4 +1,4 @@
-use crate::modules::torrent::{api, dedup, seedr};
+use crate::modules::torrent::{api, dedup, queue, scheduler, seedr};
 use crate::notify::TelegramConfig;
 use anyhow::Result;
 use colored::Colorize;
@@ -10,10 +10,16 @@ pub fn handle_seedr_cli(target: &str) -> Result<()> {
     if target.is_empty() || target == "status" {
         let tasks = seedr::get_active_seedr_tasks();
         let sec = seedr::format_seedr_tasks_section(&tasks);
-        if sec.is_empty() {
+        let pending = queue::load().pending_count();
+        if sec.is_empty() && pending == 0 {
             println!("  🌱 No active Seedr downloads.");
         } else {
-            println!("{sec}");
+            if !sec.is_empty() {
+                println!("{sec}");
+            }
+            if pending > 0 {
+                println!("  ⏳ {pending} magnet(s) waiting in the Seedr queue.");
+            }
         }
         return Ok(());
     }
@@ -46,10 +52,23 @@ pub fn handle_seedr_cli(target: &str) -> Result<()> {
         .timeout(Duration::from_secs(10))
         .build()?;
     let _ = api::add_magnet(&client, &config.qbittorrent_url, target);
-    seedr::spawn_seedr_download(target, config.api_port)?;
-    println!(
-        "  {} Queued magnet into qBittorrent and Seedr dual-pipeline.",
-        "✔".green().bold()
-    );
+
+    let hash = seedr::extract_btih_hash(target).unwrap_or_default();
+    let name = dedup::parse_magnet(target)
+        .1
+        .unwrap_or_else(|| hash.clone());
+    match scheduler::submit(&hash, target, &name, &config) {
+        scheduler::SubmitOutcome::Started => println!(
+            "  {} Magnet started in Seedr; qBittorrent added as fallback.",
+            "✔".green().bold()
+        ),
+        scheduler::SubmitOutcome::Duplicate => {
+            println!("  {} Magnet already tracked in the Seedr queue.", "•".dimmed());
+        }
+        scheduler::SubmitOutcome::Queued(pos) => println!(
+            "  {} Seedr slot busy — queued at position #{pos}. Downloading in qBittorrent meanwhile.",
+            "⏳".cyan().bold()
+        ),
+    }
     Ok(())
 }

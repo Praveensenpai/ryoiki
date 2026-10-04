@@ -183,6 +183,10 @@ pub fn handle_seedr_completion(
 
     crate::notify::client::send_alert(&config.bot_token, &config.chat_id, &card)?;
     let _ = crate::modules::jellyfin::api::refresh_library_auto();
+
+    if let Some(h) = hash {
+        super::scheduler::handle_seedr_done(h, config);
+    }
     Ok(())
 }
 
@@ -272,6 +276,10 @@ pub fn handle_seedr_failure(
     );
 
     crate::notify::client::send_alert(&config.bot_token, &config.chat_id, &card)?;
+
+    if let Some(h) = hash {
+        super::scheduler::handle_seedr_failure(h, config);
+    }
     Ok(())
 }
 

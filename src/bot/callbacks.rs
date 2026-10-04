@@ -18,14 +18,56 @@ use crate::notify::config::TelegramConfig;
 pub fn handle_callback_query(
     client: &Client,
     config: &TelegramConfig,
+    prompts: &crate::bot::prompts::Prompts,
     data: &str,
     msg_id: i64,
 ) -> Result<()> {
+    if handle_seedrq_callback(client, config, prompts, data, msg_id)? {
+        return Ok(());
+    }
     if handle_view_callback(client, config, data, msg_id)? {
         return Ok(());
     }
     handle_action_callback(client, config, data, msg_id)?;
     Ok(())
+}
+
+/// Handles the Seedr queue prompt buttons: keep (default) or download first.
+fn handle_seedrq_callback(
+    client: &Client,
+    config: &TelegramConfig,
+    prompts: &crate::bot::prompts::Prompts,
+    data: &str,
+    msg_id: i64,
+) -> Result<bool> {
+    let Some(rest) = data.strip_prefix("cb:seedrq:") else {
+        return Ok(false);
+    };
+    let Some((action, hash)) = rest.split_once(':') else {
+        return Ok(false);
+    };
+    // User answered: cancel the timeout prompt.
+    let _ = crate::bot::prompts::take(prompts, hash);
+
+    let text = if action == "front" {
+        crate::modules::torrent::scheduler::promote_front(hash);
+        "⚡ <b>Moved to the front of the Seedr queue.</b>\n\
+         <i>This magnet downloads next as soon as the cloud slot frees.</i>"
+            .to_string()
+    } else {
+        "✅ <b>Kept in the Seedr queue.</b>\n\
+         <i>It downloads automatically when the current cloud slot frees.</i>"
+            .to_string()
+    };
+    edit_message(
+        client,
+        &config.bot_token,
+        &config.chat_id,
+        msg_id,
+        &text,
+        None,
+    )?;
+    Ok(true)
 }
 
 fn resolve_view(

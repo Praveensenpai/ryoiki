@@ -29,6 +29,8 @@ fn dummy_config() -> TelegramConfig {
         jellyfin_api_key: None,
         session_cooldown_mins: 60,
         timezone: None,
+        seedr_queue_policy: "fifo".to_string(),
+        seedr_prompt_timeout_secs: 120,
     }
 }
 

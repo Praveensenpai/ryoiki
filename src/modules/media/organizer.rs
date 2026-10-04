@@ -146,6 +146,7 @@ pub fn execute_file_organize(
             dest_path,
             multi_path: None,
             media_info,
+            audio_summary: super::audio::AudioStripSummary::default(),
         });
     }
 
@@ -155,17 +156,21 @@ pub fn execute_file_organize(
     perform_move(file_path, &dest_path)?;
 
     let has_multiple_audio = probe.is_none_or(|p| p.audio_stream_count > 1);
-    let (final_dest, multi_path) = if has_multiple_audio {
-        match super::audio::strip_audio_auto(&dest_path) {
+    let is_anime = matches!(media_info.media_type, MediaType::Anime);
+    let (final_dest, multi_path, audio_summary) = if has_multiple_audio {
+        let outcome = super::audio::strip_audio_auto(&dest_path, !is_anime);
+        let mut summary = super::audio::AudioStripSummary::default();
+        summary.record(&outcome);
+        match outcome {
             super::audio::StripOutcome::Stripped {
                 original_path,
                 multi_path,
                 ..
-            } => (original_path, Some(multi_path)),
-            _ => (dest_path, None),
+            } => (original_path, multi_path, summary),
+            _ => (dest_path, None, summary),
         }
     } else {
-        (dest_path, None)
+        (dest_path, None, super::audio::AudioStripSummary::default())
     };
 
     Ok(OrganizeResult {
@@ -173,6 +178,7 @@ pub fn execute_file_organize(
         dest_path: final_dest,
         multi_path,
         media_info,
+        audio_summary,
     })
 }
 

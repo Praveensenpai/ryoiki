@@ -118,6 +118,19 @@ fn print_organize_summary(results: &[OrganizeResult], cleared: usize) {
         println!();
     }
 
+    let mut audio = crate::modules::media::audio::AudioStripSummary::default();
+    for res in results {
+        audio.merge(&res.audio_summary);
+    }
+    if audio.stripped > 0 {
+        println!(
+            "  {} Audio optimized on {} file(s), reclaimed {}\n",
+            "🗡️".cyan(),
+            audio.stripped,
+            audio.reclaimed_display().green().bold()
+        );
+    }
+
     if cleared > 0 {
         println!(
             "  {} Removed {} completed torrent(s) from qBittorrent history",

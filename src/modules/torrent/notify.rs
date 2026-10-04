@@ -191,6 +191,10 @@ pub(crate) fn render_organized_message(
     } else {
         "Kept in client"
     };
+    let audio_line = org
+        .audio_summary
+        .render_html_line()
+        .map_or(String::new(), |l| format!("{l}\n"));
 
     format!(
         "🌊 <b>領域 RYOIKI</b> • <i>Media Organizer</i>\n\
@@ -200,6 +204,7 @@ pub(crate) fn render_organized_message(
         📂 <b>Type:</b> {}\n\
         ⚙️ <b>Engine:</b> {}\n\
         📍 <b>Destination:</b> <code>{dest}</code>\n\
+        {audio_line}\
         🗑 <b>qBittorrent:</b> {qb_status}\n\
         🖥 <b>Host:</b> <code>{host}</code> ({ts_ip})\n\
         ━━━━━━━━━━━━━━━━━━━━━━━",

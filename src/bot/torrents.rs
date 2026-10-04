@@ -27,6 +27,7 @@ pub fn resume_all(client: &Client, url: &str) -> Result<()> {
 }
 
 use crate::modules::torrent::dedup::{self, Availability};
+use crate::modules::torrent::scheduler::{self, SubmitOutcome};
 
 fn check_and_restore(target: &str) -> Option<String> {
     match dedup::check_already_available(target) {
@@ -70,30 +71,79 @@ fn check_and_restore(target: &str) -> Option<String> {
     }
 }
 
-pub fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> String {
+/// How a magnet submission should be surfaced to the user.
+pub enum MagnetOutcome {
+    Message(String),
+    Prompt { text: String, hash: String },
+}
+
+pub fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> MagnetOutcome {
     if let Some(msg) = check_and_restore(magnet) {
-        return msg;
+        return MagnetOutcome::Message(msg);
     }
 
-    if let Err(e) = seedr::spawn_seedr_download(magnet, config.api_port) {
-        let qb_ok = api::add_magnet(client, &config.qbittorrent_url, magnet).is_ok();
-        if qb_ok {
-            format!(
-                "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent Fallback</i>\n\
-                ━━━━━━━━━━━━━━━━━━━━━━━\n\
-                📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
-                <i>Seedr unavailable ({e}) — forwarded to qBittorrent.</i>"
-            )
-        } else {
-            format!("❌ <b>Failed to queue magnet in Seedr & qBittorrent:</b> {e}")
+    let Some(hash) = seedr::extract_btih_hash(magnet) else {
+        return MagnetOutcome::Message(fallback_to_qb(client, config, magnet, "missing info hash"));
+    };
+
+    let name = magnet_display_name(magnet).unwrap_or_else(|| hash.clone());
+
+    match scheduler::submit(&hash, magnet, &name, config) {
+        SubmitOutcome::Started => MagnetOutcome::Message(started_message()),
+        SubmitOutcome::Duplicate => MagnetOutcome::Message(duplicate_message()),
+        SubmitOutcome::Queued(pos) => {
+            // Queued in Seedr, but download in qBittorrent in parallel right away.
+            let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
+            MagnetOutcome::Prompt {
+                text: queued_prompt(pos),
+                hash,
+            }
         }
-    } else {
-        "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n\
+    }
+}
+
+fn magnet_display_name(magnet: &str) -> Option<String> {
+    dedup::parse_magnet(magnet).1
+}
+
+fn started_message() -> String {
+    "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n\
+    ━━━━━━━━━━━━━━━━━━━━━━━\n\
+    📥 <b>SEEDR DOWNLOAD STARTED</b>\n\n\
+    ☁️ Caching in Seedr cloud now.\n\
+    <i>qBittorrent picks it up as a fallback if Seedr fails.</i>"
+        .to_string()
+}
+
+fn duplicate_message() -> String {
+    "🌊 <b>領域 RYOIKI</b> • <i>Seedr Queue</i>\n\
+    ━━━━━━━━━━━━━━━━━━━━━━━\n\
+    ♻️ <b>ALREADY TRACKED</b>\n\n\
+    This magnet is already active or waiting in the Seedr queue."
+        .to_string()
+}
+
+fn queued_prompt(pos: usize) -> String {
+    format!(
+        "🌊 <b>領域 RYOIKI</b> • <i>Seedr Queue</i>\n\
         ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        📥 <b>MAGNET QUEUED IN SEEDR</b>\n\n\
-        Offloading to Seedr cloud.\n\
-        <i>If Seedr fails, qBittorrent will automatically take over.</i>"
-            .to_string()
+        ⏳ <b>SEEDR SLOT BUSY — QUEUED AT #{pos}</b>\n\n\
+        📥 Downloading in qBittorrent meanwhile.\n\
+        <i>Seedr starts automatically when the current cloud slot frees.</i>\n\n\
+        Keep it queued, or move it to the front?"
+    )
+}
+
+fn fallback_to_qb(client: &Client, config: &TelegramConfig, magnet: &str, reason: &str) -> String {
+    if api::add_magnet(client, &config.qbittorrent_url, magnet).is_ok() {
+        format!(
+            "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
+            ━━━━━━━━━━━━━━━━━━━━━━━\n\
+            📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
+            <i>Seedr unavailable ({reason}) — forwarded to qBittorrent.</i>"
+        )
+    } else {
+        format!("❌ <b>Failed to queue magnet in Seedr & qBittorrent:</b> {reason}")
     }
 }
 
@@ -157,7 +207,7 @@ pub fn start_torrent_monitor(config: TelegramConfig) {
                 let is_done = t.is_completed();
                 known.insert(t.hash.clone(), is_done);
                 if is_done {
-                    spawn_completed_task(t.hash.clone());
+                    spawn_completed_task(t.hash.clone(), config.clone());
                 }
             }
         }
@@ -175,11 +225,13 @@ pub fn start_torrent_monitor(config: TelegramConfig) {
     });
 }
 
-fn spawn_completed_task(hash: String) {
+fn spawn_completed_task(hash: String, config: TelegramConfig) {
     std::thread::spawn(move || {
         if let Err(e) = notify::execute("completed", &hash) {
             eprintln!("  ⚠️ Error organizing completed torrent {hash}: {e}");
         }
+        // qBittorrent won the race: cancel any Seedr copy and promote the next.
+        scheduler::handle_qb_completion(&hash, &config);
     });
 }
 
@@ -194,7 +246,7 @@ fn check_torrent_event(
     if let Some(was_done) = known.get_mut(&t.hash) {
         if !*was_done && is_done {
             *was_done = true;
-            spawn_completed_task(t.hash.clone());
+            spawn_completed_task(t.hash.clone(), config.clone());
         }
     } else {
         known.insert(t.hash.clone(), is_done);
@@ -202,7 +254,7 @@ fn check_torrent_event(
             let text = notify::render_message("started", Some(t), host, ts_ip);
             let _ = notify::send_telegram_alert(client, &config.bot_token, &config.chat_id, &text);
         } else if is_done {
-            spawn_completed_task(t.hash.clone());
+            spawn_completed_task(t.hash.clone(), config.clone());
         }
     }
 }

@@ -87,6 +87,15 @@ fn format_organize_report(
         lines.push(format!("<i>...and {} more items</i>", results.len() - 5));
     }
 
+    let mut audio = crate::modules::media::audio::AudioStripSummary::default();
+    for res in results {
+        audio.merge(&res.audio_summary);
+    }
+    if let Some(line) = audio.render_html_line() {
+        lines.push(String::new());
+        lines.push(line);
+    }
+
     if cleared > 0 {
         lines.push(format!(
             "\n🗑 <i>Removed {cleared} torrent(s) from qBittorrent</i>"
@@ -128,8 +137,13 @@ pub fn handle_bot_audio(action: &str) -> Result<String> {
     if action == "retry" {
         let bin = crate::modules::media::audio::find_dubstrip_bin();
         if let Some(path) = bin {
-            crate::modules::media::audio::strip_queue::process_queue(&path)?;
-            Ok("🗡️ <b>Dubstrip:</b> Audio strip retry queue processed.".to_string())
+            let summary = crate::modules::media::audio::strip_queue::process_queue(&path)?;
+            let mut msg = "🗡️ <b>Dubstrip:</b> Audio strip retry queue processed.".to_string();
+            if let Some(line) = summary.render_html_line() {
+                msg.push('\n');
+                msg.push_str(&line);
+            }
+            Ok(msg)
         } else {
             Ok("❌ <b>Dubstrip:</b> <code>dubstrip</code> binary not found.".to_string())
         }

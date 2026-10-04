@@ -87,6 +87,15 @@ pub fn maintenance_keyboard() -> InlineKeyboardMarkup {
     }
 }
 
+pub fn seedr_queue_keyboard(hash: &str) -> InlineKeyboardMarkup {
+    InlineKeyboardMarkup {
+        inline_keyboard: vec![vec![
+            InlineKeyboardButton::callback("✅ Keep queued", &format!("cb:seedrq:keep:{hash}")),
+            InlineKeyboardButton::callback("⚡ Download first", &format!("cb:seedrq:front:{hash}")),
+        ]],
+    }
+}
+
 pub fn reboot_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![

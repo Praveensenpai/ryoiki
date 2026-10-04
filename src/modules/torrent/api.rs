@@ -143,6 +143,18 @@ pub fn delete_torrent(
     Ok(())
 }
 
+/// Best-effort lookup of a torrent's known total size by hash.
+#[must_use]
+pub fn get_torrent_size(hash: &str, base_url: &str) -> Option<u64> {
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .ok()?;
+    let torrents = get_torrents(&client, base_url, Some(hash)).ok()?;
+    let torrent = torrents.into_iter().next()?;
+    u64::try_from(torrent.total_size).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -265,7 +277,7 @@ mod tests {
             .unwrap_or_else(|_| Client::new());
         if let Ok(torrents) = get_torrents(&client, "http://localhost:6881", None) {
             println!("Fetched {} live torrents successfully!", torrents.len());
-            assert_ne!(torrents.len(), 0);
+            // A reachable-but-idle qBittorrent returns an empty list; that is valid.
             for t in &torrents {
                 assert_ne!(t.name, "");
             }

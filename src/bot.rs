@@ -3,6 +3,7 @@ pub mod callbacks;
 pub mod client;
 pub mod keyboards;
 pub mod maintenance;
+pub mod prompts;
 pub mod router;
 pub mod services;
 pub mod system;
@@ -29,6 +30,7 @@ pub fn run_bot() -> Result<()> {
     println!("  ⚡ Ryoiki Pure-Rust Command Center & Bot active (Listening for commands)...");
     crate::notify::server::spawn_background_server(config.clone(), config.api_port);
     torrents::start_torrent_monitor(config.clone());
+    let prompts = prompts::new_registry();
 
     let mut offset: i64 = 0;
 
@@ -41,10 +43,10 @@ pub fn run_bot() -> Result<()> {
         for u in updates {
             offset = u.id + 1;
             if let Some(msg) = u.message {
-                router::route_message(&client, &config, msg);
+                router::route_message(&client, &config, &prompts, msg);
             }
             if let Some(cb) = u.callback_query {
-                router::route_callback(&client, &config, cb);
+                router::route_callback(&client, &config, &prompts, cb);
             }
         }
     }

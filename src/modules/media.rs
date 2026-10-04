@@ -69,6 +69,7 @@ pub struct OrganizeResult {
     pub dest_path: PathBuf,
     pub multi_path: Option<PathBuf>,
     pub media_info: MediaInfo,
+    pub audio_summary: audio::AudioStripSummary,
 }
 
 /// Runs the interactive media manager TUI to push or pull media between SSD and Google Drive.

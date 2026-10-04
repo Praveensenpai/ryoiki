@@ -19,6 +19,14 @@ const fn default_session_cooldown_mins() -> u64 {
     60
 }
 
+fn default_seedr_queue_policy() -> String {
+    "fifo".to_string()
+}
+
+const fn default_seedr_prompt_timeout_secs() -> u64 {
+    120
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct TelegramConfig {
     pub bot_token: String,
@@ -49,6 +57,10 @@ pub struct TelegramConfig {
     pub session_cooldown_mins: u64,
     #[serde(default)]
     pub timezone: Option<String>,
+    #[serde(default = "default_seedr_queue_policy")]
+    pub seedr_queue_policy: String,
+    #[serde(default = "default_seedr_prompt_timeout_secs")]
+    pub seedr_prompt_timeout_secs: u64,
 }
 
 impl TelegramConfig {

@@ -45,6 +45,27 @@ pub fn reply_with_keyboard(
     Ok(())
 }
 
+/// Sends a message with an inline keyboard and returns the new message id.
+pub fn reply_with_keyboard_id(
+    client: &Client,
+    token: &str,
+    chat_id: &str,
+    text: &str,
+    keyboard: &InlineKeyboardMarkup,
+) -> Result<i64> {
+    let url = format!("https://api.telegram.org/bot{token}/sendMessage");
+    let payload = json!({
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "reply_markup": keyboard,
+    });
+    let resp: serde_json::Value = client.post(&url).json(&payload).send()?.json()?;
+    resp["result"]["message_id"]
+        .as_i64()
+        .context("Telegram sendMessage response missing message_id")
+}
+
 pub fn edit_message(
     client: &Client,
     token: &str,
