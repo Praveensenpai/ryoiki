@@ -1,7 +1,10 @@
 use crate::runner::Runner;
 use anyhow::Result;
+use colored::Colorize;
+use std::path::Path;
 
-/// Installs essential tools including git, tmux, neovim, adb, and official GitHub CLI.
+/// Installs essential tools including git, tmux, neovim, adb, official GitHub CLI,
+/// and the `OpenCode` AI coding agent.
 pub fn setup(runner: &mut Runner) -> Result<()> {
     runner.apt_update()?;
 
@@ -29,5 +32,29 @@ pub fn setup(runner: &mut Runner) -> Result<()> {
         )?;
     }
 
+    install_opencode(runner)?;
+
     Ok(())
+}
+
+/// Installs the `OpenCode` AI coding agent CLI if it is not already present.
+fn install_opencode(runner: &mut Runner) -> Result<()> {
+    if opencode_installed() {
+        println!("  {} opencode is already installed.", "✔".green());
+        return Ok(());
+    }
+
+    runner.exec_bash(
+        "Installing OpenCode AI coding agent (opencode.ai)...",
+        "curl -fsSL https://opencode.ai/install | bash",
+    )
+}
+
+/// Returns true when the `OpenCode` binary is in PATH or its default install dir.
+fn opencode_installed() -> bool {
+    if Runner::command_exists("opencode") {
+        return true;
+    }
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    Path::new(&home).join(".opencode/bin/opencode").exists()
 }

@@ -64,7 +64,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn poweroff_keyboard () -> InlineKeyboardMarkup
   ```
 
-### `src/bot/maintenance.rs` (Role: general, Lines: 226)
+### `src/bot/maintenance.rs` (Role: general, Lines: 227)
 - **Responsibility**: Core general logic in src/bot/maintenance.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
@@ -322,9 +322,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn setup (runner : & mut Runner , non_interactive : bool) -> Result < () >
   ```
 
-### `src/modules/essentials.rs` (Role: general, Lines: 33)
+### `src/modules/essentials.rs` (Role: general, Lines: 60)
 - **Responsibility**: Core general logic in src/modules/essentials.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result 
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: path :: Path 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner) -> Result < () >
@@ -336,6 +336,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner , non_interactive : bool) -> Result < () >
+  ```
+
+### `src/modules/headless_audio.rs` (Role: general, Lines: 69)
+- **Responsibility**: Core general logic in src/modules/headless_audio.rs
+- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } 
+- **Public Functions & Signatures**:
+  ```rust
+  fn setup (runner : & mut Runner) -> Result < () >
   ```
 
 ### `src/modules/jellyfin/api.rs` (Role: api, Lines: 131)
@@ -1155,7 +1163,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn setup (runner : & mut Runner) -> Result < () >
   ```
 
-### `src/modules.rs` (Role: general, Lines: 354)
+### `src/modules.rs` (Role: general, Lines: 364)
 - **Responsibility**: Core general logic in src/modules.rs
 - **Imports**: use crate :: configs , use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: collections :: HashSet 
 - **Types & Enums**:

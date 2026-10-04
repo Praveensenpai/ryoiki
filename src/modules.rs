@@ -4,6 +4,7 @@ pub mod docker;
 pub mod dubstrip;
 pub mod essentials;
 pub mod git_ssh;
+pub mod headless_audio;
 pub mod jellyfin;
 pub mod media;
 pub mod prompt;
@@ -72,7 +73,7 @@ fn core_modules() -> Vec<Module> {
         Module {
             id: "essentials",
             title: "System Essentials",
-            description: "git, tmux, neovim, adb, and GitHub CLI (gh)",
+            description: "git, tmux, neovim, adb, GitHub CLI (gh) & OpenCode AI",
             default_enabled: true,
             deps: &[],
         },
@@ -199,6 +200,13 @@ fn environment_modules() -> Vec<Module> {
             default_enabled: true,
             deps: &["jellyfin", "torrent"],
         },
+        Module {
+            id: "headless_audio",
+            title: "Headless Audio Null Sink",
+            description: "Route default ALSA PCM to a null device (~/.asoundrc)",
+            default_enabled: true,
+            deps: &[],
+        },
     ]
 }
 
@@ -253,6 +261,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "timezone" => timezone::setup(runner, non_interactive),
         "charge_limit" => crate::charge_limit::run(non_interactive),
         "media" => media::organizer::setup(runner, non_interactive),
+        "headless_audio" => headless_audio::setup(runner),
         "rclone" => rclone::setup(runner, non_interactive),
         _ => anyhow::bail!("Unknown module: {module_id}"),
     }
@@ -297,6 +306,7 @@ pub fn run_system_check() {
         ("toss", "toss-rs trash manager"),
         ("dubstrip", "DubStrip Audio Preserver"),
         ("seedr-dl", "Seedr.cc Cloud Downloader"),
+        ("opencode", "OpenCode AI coding agent"),
         ("tailscale", "Tailscale Mesh VPN"),
         ("rclone", "Rclone Cloud Sync & Mount"),
     ];

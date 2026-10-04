@@ -78,7 +78,7 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 | # | Module | Identifier | Included Components & Configuration |
 |:---:|:---|:---|:---|
 | `01` | **Git & SSH Key** | `git_ssh` | Ed25519 SSH keypair generation, GitHub CLI association & connection test |
-| `02` | **System Essentials** | `essentials` | `git`, `tmux`, `neovim`, `adb`, `curl`, `build-essential`, official GitHub CLI (`gh`) |
+| `02` | **System Essentials** | `essentials` | `git`, `tmux`, `neovim`, `adb`, `curl`, `build-essential`, official GitHub CLI (`gh`), OpenCode AI agent |
 | `03` | **Modern CLI Suite** | `cli_tools` | `eza` (modern ls), `bat` (cat with wings), `zoxide` (smart cd), `fzf`, `ble.sh` |
 | `04` | **Dev Runtimes** | `dev_runtimes` | Latest stable Go, Rust toolchain (`rustup`), Python (`uv`), JavaScript (`bun`) |
 | `05` | **Server Security** | `security` | UFW Firewall (ports 22, 80, 443) & unneeded daemon cleanup |
@@ -90,6 +90,7 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 | `11` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
 | `12` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
 | `13` | **AI Media Organizer** | `media` | Automated Jellyfin library classifier & mover (Dual-tier DeepSeek Primary + Gemini 3.1 Flash-Lite Secondary + Regex fallback) |
+| `14` | **Headless Audio Null Sink** | `headless_audio` | Routes default ALSA PCM/CTL to a null device via `~/.asoundrc` (backs up custom config) |
 
 ---
 

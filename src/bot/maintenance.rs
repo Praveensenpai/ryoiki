@@ -184,6 +184,7 @@ pub fn handle_bot_check() -> String {
         ("toss", "toss-rs trash"),
         ("dubstrip", "DubStrip audio"),
         ("seedr-dl", "Seedr downloader"),
+        ("opencode", "OpenCode AI agent"),
         ("tailscale", "Tailscale VPN"),
         ("rclone", "Rclone sync/mount"),
     ];
