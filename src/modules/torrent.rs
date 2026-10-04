@@ -7,6 +7,7 @@ use std::path::Path;
 
 pub mod api;
 pub mod dedup;
+pub mod history;
 pub mod notify;
 pub mod report;
 pub mod seedr;

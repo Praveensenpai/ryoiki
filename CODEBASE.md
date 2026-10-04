@@ -915,22 +915,32 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn delete_torrent (client : & Client , base_url : & str , hash : & str , delete_files : bool ,) -> Result < () >
   ```
 
-### `src/modules/torrent/dedup.rs` (Role: general, Lines: 395)
+### `src/modules/torrent/dedup.rs` (Role: general, Lines: 375)
 - **Responsibility**: Core general logic in src/modules/torrent/dedup.rs
-- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use std :: fs , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: organizer :: calculate_dest_dir , use crate :: modules :: media :: { MediaInfo , MediaType } 
+- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: organizer :: calculate_dest_dir , use crate :: modules :: media :: { MediaInfo , MediaType } , pub use super :: history :: record_download_history 
+- **Types & Enums**:
+  ```rust
+  pub enum Availability
+  ```
+- **Public Functions & Signatures**:
+  ```rust
+  fn parse_magnet (target : & str) -> (Option < String > , Option < String >)
+  fn check_already_available (magnet_or_url : & str) -> Availability
+  fn restore_from_cloud (cloud_path : & Path , info : & MediaInfo) -> Result < PathBuf >
+  ```
+
+### `src/modules/torrent/history.rs` (Role: general, Lines: 74)
+- **Responsibility**: Core general logic in src/modules/torrent/history.rs
+- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use std :: fs , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: MediaInfo 
 - **Types & Enums**:
   ```rust
   pub struct HistoryRecord
   pub struct DownloadHistory
-  pub enum Availability
   ```
 - **Public Functions & Signatures**:
   ```rust
   fn load_history () -> DownloadHistory
   fn record_download_history (hash : Option < & str > , info : & MediaInfo , paths : & [PathBuf] ,) -> Result < () >
-  fn parse_magnet (target : & str) -> (Option < String > , Option < String >)
-  fn check_already_available (magnet_or_url : & str) -> Availability
-  fn restore_from_cloud (cloud_path : & Path , info : & MediaInfo) -> Result < PathBuf >
   ```
 
 ### `src/modules/torrent/notify.rs` (Role: general, Lines: 213)
@@ -950,7 +960,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_status_report (torrents : & [TorrentInfo]) -> String
   ```
 
-### `src/modules/torrent/seedr.rs` (Role: general, Lines: 331)
+### `src/modules/torrent/seedr.rs` (Role: general, Lines: 337)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: { Path , PathBuf } , use std :: process :: { Command , Stdio } , use std :: time :: Duration , use super :: api , use super :: telegram :: TelegramConfig , pub use super :: seedr_tasks :: { format_seedr_tasks_section , get_active_seedr_tasks } 
 - **Public Functions & Signatures**:
@@ -987,7 +997,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn configure_autorun (lines : & mut Vec < String > , enabled : bool)
   ```
 
-### `src/modules/torrent.rs` (Role: general, Lines: 389)
+### `src/modules/torrent.rs` (Role: general, Lines: 390)
 - **Responsibility**: Core general logic in src/modules/torrent.rs
 - **Imports**: use crate :: runner :: Runner , use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: Path 
 - **Public Functions & Signatures**:

@@ -143,7 +143,7 @@ fn strip_tracker_prefixes(input: &str) -> String {
     trimmed.to_string()
 }
 
-fn extract_resolution(input: &str) -> Option<String> {
+pub(crate) fn extract_resolution(input: &str) -> Option<String> {
     let lower = input.to_ascii_lowercase();
     if lower.contains("2160p") || lower.contains("4k") || lower.contains("3840x2160") {
         Some("2160p".to_string())

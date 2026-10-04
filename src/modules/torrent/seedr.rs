@@ -236,6 +236,12 @@ fn is_same_media(
         && t_info.title.eq_ignore_ascii_case(&file_info.title)
         && t_info.media_type == file_info.media_type
     {
+        if let (Some(ref r1), Some(ref r2)) = (&t_info.resolution, &file_info.resolution) {
+            if !r1.eq_ignore_ascii_case(r2) {
+                return false;
+            }
+        }
+
         if t_info.season.is_some()
             && t_info.season == file_info.season
             && t_info.episode == file_info.episode

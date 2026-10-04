@@ -1,25 +1,11 @@
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::modules::media::organizer::calculate_dest_dir;
 use crate::modules::media::{MediaInfo, MediaType};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HistoryRecord {
-    pub hash: String,
-    pub title: String,
-    pub clean_name: String,
-    pub paths: Vec<PathBuf>,
-    pub timestamp: u64,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub struct DownloadHistory {
-    pub entries: HashMap<String, HistoryRecord>,
-}
+pub use super::history::record_download_history;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Availability {
@@ -36,61 +22,6 @@ pub enum Availability {
         hash: Option<String>,
         display_name: Option<String>,
     },
-}
-
-fn history_file_path() -> Result<PathBuf> {
-    let home = std::env::var("HOME").context("HOME env not set")?;
-    let dir = Path::new(&home).join(".local/share/ryoiki");
-    fs::create_dir_all(&dir)?;
-    Ok(dir.join("download_history.json"))
-}
-
-pub fn load_history() -> DownloadHistory {
-    let Ok(path) = history_file_path() else {
-        return DownloadHistory::default();
-    };
-    if !path.exists() {
-        return DownloadHistory::default();
-    }
-    fs::read_to_string(&path)
-        .ok()
-        .and_then(|raw| serde_json::from_str(&raw).ok())
-        .unwrap_or_default()
-}
-
-pub fn record_download_history(
-    hash: Option<&str>,
-    info: &MediaInfo,
-    paths: &[PathBuf],
-) -> Result<()> {
-    let Some(h) = hash else {
-        return Ok(());
-    };
-    if h.trim().is_empty() {
-        return Ok(());
-    }
-
-    let mut history = load_history();
-    let lower_hash = h.to_lowercase();
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
-
-    history.entries.insert(
-        lower_hash.clone(),
-        HistoryRecord {
-            hash: lower_hash,
-            title: info.title.clone(),
-            clean_name: info.clean_name.clone(),
-            paths: paths.to_vec(),
-            timestamp: now,
-        },
-    );
-
-    let path = history_file_path()?;
-    let json = serde_json::to_string_pretty(&history)?;
-    fs::write(path, json)?;
-    Ok(())
 }
 
 /// Extracts the BTIH hash and display name (`dn=`) from a magnet URI or info-hash.
@@ -150,7 +81,7 @@ pub fn check_already_available(magnet_or_url: &str) -> Availability {
     let (hash, dn) = parse_magnet(magnet_or_url);
 
     if let Some(ref h) = hash {
-        let history = load_history();
+        let history = super::history::load_history();
         if let Some(record) = history.entries.get(h) {
             for p in &record.paths {
                 if p.exists() {
@@ -273,6 +204,7 @@ fn find_existing_in_dir(dir: &Path, info: &MediaInfo) -> Option<PathBuf> {
         return None;
     }
 
+    let res = info.resolution.as_deref();
     if let Some(ep) = info.episode {
         let e_pad = format!("E{ep:02}");
         let e_raw = format!("E{ep}");
@@ -280,18 +212,30 @@ fn find_existing_in_dir(dir: &Path, info: &MediaInfo) -> Option<PathBuf> {
         let h_raw = format!(" - {ep} ");
         for f in &files {
             let name = f.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            if is_boundary_match(name, &e_pad)
+            let ep_match = is_boundary_match(name, &e_pad)
                 || is_boundary_match(name, &e_raw)
                 || name.contains(&h_pad)
-                || name.contains(&h_raw)
-            {
+                || name.contains(&h_raw);
+            if ep_match && matches_resolution(name, res) {
                 return Some(f.clone());
             }
         }
         None
     } else {
-        files.into_iter().next()
+        files
+            .into_iter()
+            .find(|f| matches_resolution(f.file_name().and_then(|n| n.to_str()).unwrap_or(""), res))
     }
+}
+
+fn matches_resolution(name: &str, target_res: Option<&str>) -> bool {
+    let Some(target) = target_res else {
+        return true;
+    };
+    let Some(existing) = crate::modules::media::heuristic::extract_resolution(name) else {
+        return true;
+    };
+    target.eq_ignore_ascii_case(&existing)
 }
 
 fn is_boundary_match(name: &str, tag: &str) -> bool {
@@ -331,7 +275,14 @@ fn search_gdrive_category(base: &Path, info: &MediaInfo) -> Option<PathBuf> {
 
 /// Copies a file or folder from Google Drive into the local Jellyfin media library.
 pub fn restore_from_cloud(cloud_path: &Path, info: &MediaInfo) -> Result<PathBuf> {
-    let dest_dir = calculate_dest_dir(info);
+    let home = std::env::var("HOME").context("HOME env not set")?;
+    let local_base = Path::new(&home).join("jellyfin/media");
+
+    let dest_dir = if let Some(sub) = find_rel_media_subpath(cloud_path) {
+        local_base.join(sub)
+    } else {
+        calculate_dest_dir(info)
+    };
     fs::create_dir_all(&dest_dir)?;
 
     let file_name = cloud_path
@@ -355,6 +306,18 @@ pub fn restore_from_cloud(cloud_path: &Path, info: &MediaInfo) -> Result<PathBuf
 
     let _ = crate::modules::jellyfin::api::refresh_library_auto();
     Ok(target_dest)
+}
+
+fn find_rel_media_subpath(cloud_path: &Path) -> Option<PathBuf> {
+    let parent = cloud_path.parent()?;
+    let path_str = parent.to_str()?;
+    for marker in &["media/anime", "media/shows", "media/movies", "media/movie"] {
+        if let Some(idx) = path_str.find(marker) {
+            let rel = &path_str[idx + "media/".len()..];
+            return Some(PathBuf::from(rel));
+        }
+    }
+    None
 }
 
 #[cfg(test)]
@@ -391,5 +354,22 @@ mod tests {
         let mag = "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=NonExistentMovie99999999.mkv";
         let res = check_already_available(mag);
         assert!(matches!(res, Availability::NotAvailable { .. }));
+    }
+
+    #[test]
+    fn test_matches_resolution() {
+        assert!(matches_resolution(
+            "Movie (2024) [1080p].mkv",
+            Some("1080p")
+        ));
+        assert!(!matches_resolution(
+            "Movie (2024) [720p].mkv",
+            Some("1080p")
+        ));
+        assert!(!matches_resolution(
+            "Movie (2024) [1080p].mkv",
+            Some("2160p")
+        ));
+        assert!(matches_resolution("Movie (2024) [1080p].mkv", None));
     }
 }
