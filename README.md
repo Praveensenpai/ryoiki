@@ -215,7 +215,7 @@ ryoiki/
 │       ├── ci.yml            # Automated CI: fmt, clippy (-D warnings), test & line limits
 │       └── release.yml       # Multi-arch binary builder & publisher (x86_64 & aarch64)
 ├── configs/                  # Embedded configuration templates
-│   ├── .tmux.conf            # 256-color, vi-keys, mouse-scrolling tmux config
+│   ├── .tmux.conf            # 256-color, vi-keys, mouse-scrolling, OSC 52 clipboard passthrough
 │   ├── .bash_aliases         # Modern tool aliases (eza, bat, toss) & PATH exports
 │   └── starship.toml         # Minimalist Catppuccin-styled prompt with Nerd Font glyphs
 ├── src/
