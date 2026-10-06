@@ -15,7 +15,7 @@ use super::heuristic::classify_media_heuristic;
 use super::probe::MediaProbe;
 use super::{MediaType, OrganizeResult};
 use crate::modules::torrent::api::TorrentInfo;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 pub fn organize_file(
     file_path: &Path,
@@ -208,11 +208,16 @@ pub fn organize_path(
     let mut video_files = Vec::new();
     find_videos_recursive(target, &mut video_files)?;
 
-    let classified = classify_video_files(&video_files, client, api_key);
-    for (vf, info, probe) in classified {
-        match execute_file_organize(&vf, info, probe.as_ref(), dry_run) {
-            Ok(res) => results.push(res),
-            Err(e) => eprintln!("  ⚠️ Error organizing {}: {e}", vf.display()),
+    // Classify each directory as its own batch. Sibling folders often hold
+    // distinct series (a show and its spin-off, bundled companion shorts), and
+    // mixing them lets the model merge them under one franchise title.
+    for group in group_videos_by_directory(video_files) {
+        let classified = classify_video_files(&group, client, api_key);
+        for (vf, info, probe) in classified {
+            match execute_file_organize(&vf, info, probe.as_ref(), dry_run) {
+                Ok(res) => results.push(res),
+                Err(e) => eprintln!("  ⚠️ Error organizing {}: {e}", vf.display()),
+            }
         }
     }
 
@@ -238,6 +243,20 @@ pub fn find_videos_recursive(dir: &Path, list: &mut Vec<PathBuf>) -> Result<()> 
         }
     }
     Ok(())
+}
+
+/// Groups video files by their immediate parent directory.
+///
+/// Files in different folders (e.g. a show and its spin-off) end up in separate
+/// groups so they are classified in separate AI batches. A flat torrent keeps
+/// all files in one group, preserving the previous single-batch behavior.
+fn group_videos_by_directory(files: Vec<PathBuf>) -> Vec<Vec<PathBuf>> {
+    let mut groups: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
+    for file in files {
+        let key = file.parent().map_or_else(PathBuf::new, Path::to_path_buf);
+        groups.entry(key).or_default().push(file);
+    }
+    groups.into_values().collect()
 }
 
 pub fn resolve_torrent_source(torrent: &TorrentInfo, default_dl: &Path) -> PathBuf {
@@ -298,6 +317,31 @@ pub fn organize_completed_torrent(
 mod tests {
     use super::*;
     use crate::modules::media::ClassificationEngine;
+
+    #[test]
+    fn test_group_videos_by_directory_splits_sibling_series() {
+        let files = vec![
+            PathBuf::from("/t/Laid-Back Camp/Season 1/ep1.mkv"),
+            PathBuf::from("/t/Laid-Back Camp/Season 1/ep2.mkv"),
+            PathBuf::from("/t/Room Camp/Season 1/ep1.mkv"),
+        ];
+        let groups = group_videos_by_directory(files);
+        assert_eq!(groups.len(), 2, "sibling series must not share a batch");
+        assert_eq!(groups.iter().map(Vec::len).sum::<usize>(), 3);
+        assert!(groups.iter().any(|g| g.len() == 2));
+        assert!(groups.iter().any(|g| g.len() == 1));
+    }
+
+    #[test]
+    fn test_group_videos_by_directory_flat_stays_together() {
+        let files = vec![
+            PathBuf::from("/t/Show.S01E01.mkv"),
+            PathBuf::from("/t/Show.S01E02.mkv"),
+        ];
+        let groups = group_videos_by_directory(files);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].len(), 2);
+    }
 
     #[test]
     fn test_adjust_single_audio_replaces_multi_with_probed_lang() {

@@ -15,6 +15,7 @@ pub fn build_single_prompt(raw_name: &str, probe: Option<&MediaProbe>) -> String
         4. Clean title: Strip release groups, websites, resolution, and year from 'title'.\n\
         5. Specials/Extras: For bonus, special, OVA, NCED, NCOP, menu, or extra content, set 'is_extra': true and season: 0 (if series). ALWAYS keep the descriptive special title in 'clean_name' (e.g. \"Title - S00E01 - Menu 01 [Language] [1080p].ext\" or \"Title - S00E01 - NCOP [Language] [1080p].ext\") so files never get colliding filenames.\n\
         6. Multi-season anime / franchise titles: When subsequent seasons have subtitle additions (e.g. \"Non Non Biyori Repeat\", \"Non Non Biyori Nonstop\", \"Kaguya-sama: Love Is War - Ultra Romantic\"), set 'title' to the canonical base franchise name (e.g. \"Non Non Biyori\", \"Kaguya-sama: Love Is War\") so all seasons group under the same series directory in Jellyfin. In 'clean_name', use the canonical title (e.g. \"Non Non Biyori - S02E01 [Japanese] [1080p].mkv\").\n\
+        7. Distinct series must stay separate: Spin-offs, companion shorts, and bundled sibling series are NOT seasons of the main show. Keep their own title (e.g. \"Room Camp\" is separate from \"Laid-Back Camp\"; \"Heya Camp\" is separate from \"Yuru Camp\"). NEVER relabel a spin-off's episodes as the parent show's season.\n\
         \n\
         Parse and return JSON with keys:\n\
         - media_type: \"movie\", \"show\", or \"anime\"\n\
@@ -43,6 +44,7 @@ pub fn build_batch_prompt(raw_names: &[&str], probe: Option<&MediaProbe>) -> Str
         {probe_context}\
         CRITICAL INSTRUCTIONS:\n\
         1. Keep the main show/movie 'title', 'media_type', 'year', 'season', and 'language' CONSISTENT across all related files. For multi-season franchises (e.g. Season 1, Repeat, Nonstop), unify 'title' under the canonical base franchise name (e.g. \"Non Non Biyori\") across all files.\n\
+        1b. Distinct series must stay separate: Spin-offs, companion shorts, and bundled sibling series are NOT seasons of the main show. Keep their own title (e.g. \"Room Camp\" separate from \"Laid-Back Camp\"; \"Heya Camp\" separate from \"Yuru Camp\") and their own season/episode numbering. NEVER relabel a spin-off's episodes as the parent show's season.\n\
         2. Deduce episode numbers sequentially (e.g. 01 -> episode 1, 02 -> episode 2).\n\
         3. For specials, OVAs, menus, NCOPs, NCEDs, spots, interviews, or extra content:\n\
            - Set 'is_extra': true.\n\

@@ -430,7 +430,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn send_gemini_prompt (client : & Client , api_key : & str , prompt : & str) -> Result < String >
   ```
 
-### `src/modules/media/ai/prompt.rs` (Role: general, Lines: 102)
+### `src/modules/media/ai/prompt.rs` (Role: general, Lines: 104)
 - **Responsibility**: Core general logic in src/modules/media/ai/prompt.rs
 - **Imports**: use super :: super :: probe :: MediaProbe , use std :: fmt :: Write 
 - **Public Functions & Signatures**:
@@ -676,9 +676,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn perform_move (src : & Path , dst : & Path) -> Result < () >
   ```
 
-### `src/modules/media/organizer.rs` (Role: general, Lines: 393)
+### `src/modules/media/organizer.rs` (Role: general, Lines: 437)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
-- **Imports**: pub use cli :: { run_organize_cli , setup } , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: HashMap 
+- **Imports**: pub use cli :: { run_organize_cli , setup } , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
 - **Public Functions & Signatures**:
   ```rust
   fn organize_file (file_path : & Path , client : & Client , api_key : Option < & str > , dry_run : bool ,) -> Result < OrganizeResult >
