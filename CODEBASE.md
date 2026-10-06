@@ -662,6 +662,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn setup (runner : & mut Runner , non_interactive : bool) -> Result < () >
   ```
 
+### `src/modules/media/organizer/junk.rs` (Role: general, Lines: 104)
+- **Responsibility**: Core general logic in src/modules/media/organizer/junk.rs
+- **Imports**: use crate :: modules :: media :: { MediaInfo , MediaType } 
+- **Public Functions & Signatures**:
+  ```rust
+  fn is_skippable_extra (info : & MediaInfo , raw_name : & str) -> bool
+  ```
+
 ### `src/modules/media/organizer/pathing.rs` (Role: general, Lines: 295)
 - **Responsibility**: Core general logic in src/modules/media/organizer/pathing.rs
 - **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: { MediaInfo , MediaType } 
@@ -688,9 +696,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/media/organizer/tests.rs
 - **Imports**: use super :: * , use crate :: modules :: media :: ClassificationEngine 
 
-### `src/modules/media/organizer.rs` (Role: general, Lines: 384)
+### `src/modules/media/organizer.rs` (Role: general, Lines: 387)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
-- **Imports**: pub use cli :: { run_organize_cli , setup } , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use specials :: assign_unique_special_numbers , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
+- **Imports**: pub use cli :: { run_organize_cli , setup } , use junk :: is_skippable_extra , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use specials :: assign_unique_special_numbers , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
 - **Public Functions & Signatures**:
   ```rust
   fn organize_file (file_path : & Path , client : & Client , api_key : Option < & str > , dry_run : bool ,) -> Result < OrganizeResult >
