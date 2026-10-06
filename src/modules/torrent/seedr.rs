@@ -160,6 +160,12 @@ pub fn handle_seedr_completion(
         }
     }
 
+    let cloud_result = cleanup_seedr_cloud(file_name);
+    let cloud_msg = match &cloud_result {
+        Ok(()) => "Removed from Seedr cloud".to_string(),
+        Err(e) => format!("Cloud cleanup failed: {e}"),
+    };
+
     let status_msg = if organized_count > 0 {
         format!("Organized {organized_count} file(s) into Jellyfin")
     } else {
@@ -174,6 +180,7 @@ pub fn handle_seedr_completion(
             ("Size:", &format!("{sz_mb} MB")),
             ("Path:", path_display),
             ("Status:", &status_msg),
+            ("Cloud:", &cloud_msg),
         ],
     );
 
@@ -188,6 +195,54 @@ pub fn handle_seedr_completion(
         super::scheduler::handle_seedr_done(h, config);
     }
     Ok(())
+}
+
+/// Removes a completed item's folder from the Seedr cloud account.
+///
+/// Resolves the live folder/torrent ID by name (tolerating the `folder-`
+/// prefix) so cleanup never depends on transient local task JSON, which is
+/// already gone by the time the completion webhook fires.
+///
+/// # Errors
+/// Returns a human-readable message when Seedr is unreachable or deletion fails.
+pub fn cleanup_seedr_cloud(file_name: &str) -> Result<(), String> {
+    let Some(list) = super::seedr_tasks::fetch_live_list() else {
+        return Err("Seedr cloud unreachable".to_string());
+    };
+
+    let target = super::seedr_tasks::normalize(file_name);
+    let stripped = target.strip_prefix("folder-").unwrap_or(&target);
+
+    let matched = list
+        .folders
+        .iter()
+        .map(|f| (f.id, &f.name))
+        .chain(list.files.iter().map(|f| (f.id, &f.name)))
+        .chain(list.torrents.iter().map(|t| (t.id, &t.name)))
+        .find(|(_, name)| {
+            let n = super::seedr_tasks::normalize(name);
+            n == target || n == stripped
+        });
+
+    let Some((id, _)) = matched else {
+        return Ok(());
+    };
+
+    let output = Command::new("seedr-dl")
+        .args(["delete", &id.to_string(), "-y"])
+        .output()
+        .map_err(|e| format!("Failed to spawn seedr-dl delete: {e}"))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        Err(if detail.is_empty() {
+            "seedr-dl delete returned a non-zero exit".to_string()
+        } else {
+            detail
+        })
+    }
 }
 
 fn resolve_seedr_target(file_name: &str, dest_path: Option<&str>) -> Option<PathBuf> {

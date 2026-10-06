@@ -205,6 +205,28 @@ impl SeedrQueue {
             .filter(|e| e.state == QueueState::Queued)
             .count()
     }
+
+    /// Drops entries that reached a terminal state (`Done`/`Failed`).
+    ///
+    /// Terminal entries only serve to block re-submission, so they are cleared
+    /// before a new duplicate check. Returns how many were removed.
+    pub fn prune_terminal(&mut self) -> usize {
+        let before = self.entries.len();
+        self.entries
+            .retain(|e| matches!(e.state, QueueState::Queued | QueueState::Active));
+        before - self.entries.len()
+    }
+
+    /// Returns true only when the hash is still queued or active.
+    ///
+    /// Terminal (`Done`/`Failed`) entries do not count, so a completed magnet
+    /// can be submitted again instead of being reported as a duplicate.
+    #[must_use]
+    pub fn is_tracked(&self, hash: &str) -> bool {
+        self.entries
+            .iter()
+            .any(|e| e.hash == hash && matches!(e.state, QueueState::Queued | QueueState::Active))
+    }
 }
 
 fn state_dir() -> PathBuf {

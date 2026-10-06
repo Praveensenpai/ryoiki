@@ -17,17 +17,17 @@ pub struct SeedrTaskState {
 }
 
 #[derive(Deserialize)]
-struct SeedrCloudList {
+pub(crate) struct SeedrCloudList {
     #[serde(default)]
-    torrents: Vec<SeedrCloudTorrent>,
+    pub(crate) torrents: Vec<SeedrCloudTorrent>,
     #[serde(default)]
-    folders: Vec<SeedrCloudNamed>,
+    pub(crate) folders: Vec<SeedrCloudNamed>,
     #[serde(default)]
-    files: Vec<SeedrCloudNamed>,
+    pub(crate) files: Vec<SeedrCloudNamed>,
     #[serde(default)]
-    space_max: Option<u64>,
+    pub(crate) space_max: Option<u64>,
     #[serde(default)]
-    space_used: Option<u64>,
+    pub(crate) space_used: Option<u64>,
 }
 
 /// Remaining Seedr cloud space in bytes, or `None` when the account is unreachable.
@@ -40,13 +40,17 @@ pub fn seedr_available_bytes() -> Option<u64> {
 }
 
 #[derive(Deserialize)]
-struct SeedrCloudNamed {
-    name: String,
+pub(crate) struct SeedrCloudNamed {
+    #[serde(default)]
+    pub(crate) id: u64,
+    pub(crate) name: String,
 }
 
 #[derive(Deserialize)]
-struct SeedrCloudTorrent {
-    name: String,
+pub(crate) struct SeedrCloudTorrent {
+    #[serde(default)]
+    pub(crate) id: u64,
+    pub(crate) name: String,
     #[serde(default)]
     progress: Option<f64>,
     #[serde(default)]
@@ -99,7 +103,7 @@ fn query_seedr_once() -> Option<SeedrCloudList> {
 }
 
 /// Queries Seedr with bounded retries so transient API blips never prune state.
-fn fetch_live_list() -> Option<SeedrCloudList> {
+pub(crate) fn fetch_live_list() -> Option<SeedrCloudList> {
     const BACKOFF_SECS: [u64; 2] = [1, 2];
     for attempt in 0..=BACKOFF_SECS.len() {
         if let Some(list) = query_seedr_once() {
@@ -313,6 +317,7 @@ mod tests {
     fn list_with_torrent(name: &str) -> SeedrCloudList {
         SeedrCloudList {
             torrents: vec![SeedrCloudTorrent {
+                id: 42,
                 name: name.to_string(),
                 progress: Some(50.0),
                 size: Some(2048),

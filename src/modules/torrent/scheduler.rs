@@ -70,7 +70,8 @@ pub fn submit(hash: &str, magnet: &str, name: &str, config: &TelegramConfig) -> 
 
 fn submit_locked(hash: &str, magnet: &str, name: &str, config: &TelegramConfig) -> SubmitOutcome {
     let mut q = queue::load();
-    if q.entries.iter().any(|e| e.hash == hash) {
+    q.prune_terminal();
+    if q.is_tracked(hash) {
         return SubmitOutcome::Duplicate;
     }
     q.enqueue(hash, magnet, name);

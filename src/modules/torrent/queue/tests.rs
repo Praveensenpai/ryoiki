@@ -36,6 +36,43 @@ fn test_enqueue_deduplicates() {
 }
 
 #[test]
+fn test_is_tracked_ignores_terminal_states() {
+    let mut q = queue_with(&["a", "b", "c"]);
+    assert!(q.activate("a"));
+    assert!(q.finish("a", QueueState::Done));
+    assert!(q.finish("b", QueueState::Failed));
+    assert!(
+        !q.is_tracked("a"),
+        "done entry must not block re-submission"
+    );
+    assert!(
+        !q.is_tracked("b"),
+        "failed entry must not block re-submission"
+    );
+    assert!(q.is_tracked("c"), "queued entry is still tracked");
+}
+
+#[test]
+fn test_prune_terminal_removes_only_finished() {
+    let mut q = queue_with(&["a", "b", "c"]);
+    assert!(q.activate("a"));
+    assert!(q.finish("b", QueueState::Done));
+    assert!(q.finish("c", QueueState::Failed));
+    assert_eq!(q.prune_terminal(), 2);
+    assert_eq!(q.entries.len(), 1);
+    assert_eq!(q.entries[0].hash, "a");
+    assert!(q.has_active());
+}
+
+#[test]
+fn test_prune_terminal_noop_when_all_live() {
+    let q = queue_with(&["a", "b"]);
+    let mut q = q;
+    assert_eq!(q.prune_terminal(), 0);
+    assert_eq!(q.entries.len(), 2);
+}
+
+#[test]
 fn test_fifo_picks_oldest() {
     let q = queue_with(&["a", "b", "c"]);
     let mut queued: Vec<&QueueEntry> = q
