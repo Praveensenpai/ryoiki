@@ -207,11 +207,33 @@ fn install_battery_watch_service(bin_path: &Path) {
         let _ = Command::new("systemctl")
             .args(["enable", "--now", "ryoiki-battery-watch.service"])
             .output();
+        remove_user_unit("ryoiki-battery-watch.service");
         println!("  ✔ Installed and started system ryoiki-battery-watch.service");
         return;
     }
 
     install_user_battery_watch_service(&unit);
+}
+
+/// Removes a leftover user unit when the system unit supersedes it.
+///
+/// A rootless install creates the user unit; a later privileged install adds the
+/// system unit. Both share the same PID lock, so the user copy crash-loops.
+fn remove_user_unit(name: &str) {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let path = Path::new(&home).join(".config/systemd/user").join(name);
+    if !path.exists() {
+        return;
+    }
+    let _ = Command::new("systemctl")
+        .args(["--user", "disable", "--now", name])
+        .output();
+    if fs::remove_file(&path).is_ok() {
+        let _ = Command::new("systemctl")
+            .args(["--user", "daemon-reload"])
+            .output();
+        println!("  ✔ Removed superseded user unit {name}");
+    }
 }
 
 fn install_user_battery_watch_service(unit: &str) {

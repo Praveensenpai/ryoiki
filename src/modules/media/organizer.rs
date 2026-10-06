@@ -1,8 +1,10 @@
 pub mod cli;
 pub mod pathing;
+pub mod specials;
 
 pub use cli::{run_organize_cli, setup};
 pub use pathing::{calculate_dest_dir, is_video_file, perform_move, resolve_unique_dest_path};
+use specials::assign_unique_special_numbers;
 
 use anyhow::{Context, Result};
 use colored::Colorize;
@@ -219,7 +221,8 @@ pub fn organize_path(
             .file_name()
             .and_then(|n| n.to_str())
             .filter(|n| !n.trim().is_empty());
-        let classified = classify_video_files(&group, client, api_key, context);
+        let mut classified = classify_video_files(&group, client, api_key, context);
+        assign_unique_special_numbers(&mut classified);
         for (vf, info, probe) in classified {
             match execute_file_organize(&vf, info, probe.as_ref(), dry_run) {
                 Ok(res) => results.push(res),

@@ -430,7 +430,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn send_gemini_prompt (client : & Client , api_key : & str , prompt : & str) -> Result < String >
   ```
 
-### `src/modules/media/ai/prompt.rs` (Role: general, Lines: 116)
+### `src/modules/media/ai/prompt.rs` (Role: general, Lines: 143)
 - **Responsibility**: Core general logic in src/modules/media/ai/prompt.rs
 - **Imports**: use super :: super :: probe :: MediaProbe , use std :: fmt :: Write 
 - **Public Functions & Signatures**:
@@ -676,13 +676,21 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn perform_move (src : & Path , dst : & Path) -> Result < () >
   ```
 
+### `src/modules/media/organizer/specials.rs` (Role: general, Lines: 147)
+- **Responsibility**: Core general logic in src/modules/media/organizer/specials.rs
+- **Imports**: use std :: path :: PathBuf , use super :: super :: probe :: MediaProbe , use super :: super :: MediaInfo 
+- **Public Functions & Signatures**:
+  ```rust
+  fn assign_unique_special_numbers (classified : & mut [(PathBuf , MediaInfo , Option < MediaProbe >)])
+  ```
+
 ### `src/modules/media/organizer/tests.rs` (Role: general, Lines: 143)
 - **Responsibility**: Core general logic in src/modules/media/organizer/tests.rs
 - **Imports**: use super :: * , use crate :: modules :: media :: ClassificationEngine 
 
-### `src/modules/media/organizer.rs` (Role: general, Lines: 381)
+### `src/modules/media/organizer.rs` (Role: general, Lines: 384)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
-- **Imports**: pub use cli :: { run_organize_cli , setup } , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
+- **Imports**: pub use cli :: { run_organize_cli , setup } , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use specials :: assign_unique_special_numbers , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
 - **Public Functions & Signatures**:
   ```rust
   fn organize_file (file_path : & Path , client : & Client , api_key : Option < & str > , dry_run : bool ,) -> Result < OrganizeResult >
@@ -1214,7 +1222,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn save_to (& self , config_dir : & Path) -> Result < () >
   ```
 
-### `src/notify/hooks.rs` (Role: general, Lines: 328)
+### `src/notify/hooks.rs` (Role: general, Lines: 350)
 - **Responsibility**: Core general logic in src/notify/hooks.rs
 - **Imports**: use std :: fmt :: Write as _ , use std :: fs , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
