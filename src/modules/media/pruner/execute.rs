@@ -1,9 +1,9 @@
 use colored::Colorize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use super::{PruneCandidate, PruneOptions, COLD_ARCHIVE_DEST};
+use super::{remap_category, PruneCandidate, PruneOptions, COLD_ARCHIVE_DEST};
 use crate::modules::media::disk;
 use crate::notify::client::format_card;
 use crate::notify::TelegramConfig;
@@ -23,9 +23,7 @@ pub fn process_candidates(
             break;
         }
 
-        let tag = if c.is_backup {
-            "🛡️ backup".magenta().bold()
-        } else if c.is_watched {
+        let tag = if c.is_watched {
             "👀 watched".green().bold()
         } else {
             "📦 cold".dimmed()
@@ -75,109 +73,14 @@ pub fn process_candidates(
     }
 }
 
-pub const BACKUP_RETENTION_DAYS: u32 = 7;
-pub const CLOUD_BACKUP_DEST: &str = "gdrive:ryoiki-archive/backup_multi/";
-
-/// Cleans up `backup_multi` safety copies older than 7 days from local storage and Google Drive.
-pub fn cleanup_expired_backups(dry_run: bool) {
-    cleanup_expired_local_backups(dry_run);
-    cleanup_expired_cloud_backups(dry_run);
-}
-
-fn cleanup_expired_local_backups(dry_run: bool) {
-    let backup_dir = crate::modules::media::organizer::pathing::get_jellyfin_backup_multi_dir();
-    if !backup_dir.exists() {
-        return;
-    }
-
-    let cutoff = std::time::SystemTime::now()
-        .checked_sub(std::time::Duration::from_secs(
-            u64::from(BACKUP_RETENTION_DAYS) * 24 * 3600,
-        ))
-        .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
-
-    let mut expired = Vec::new();
-    collect_expired_files(&backup_dir, cutoff, &mut expired);
-
-    for path in expired {
-        if dry_run {
-            println!(
-                "  • [dry-run] Expired local backup would be deleted: {}",
-                path.display()
-            );
-        } else if fs::remove_file(&path).is_ok() {
-            println!(
-                "  {} Cleaned up expired local backup (>7d): {}",
-                "🧹".cyan(),
-                path.display()
-            );
-            clean_empty_parents(&path, &backup_dir);
-        }
-    }
-}
-
-fn collect_expired_files(
-    dir: &Path,
-    cutoff: std::time::SystemTime,
-    out: &mut Vec<std::path::PathBuf>,
-) {
-    if let Ok(entries) = fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                collect_expired_files(&path, cutoff, out);
-            } else if path.is_file() {
-                if let Ok(meta) = fs::metadata(&path) {
-                    if let Ok(mtime) = meta.modified() {
-                        if mtime <= cutoff {
-                            out.push(path);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn cleanup_expired_cloud_backups(dry_run: bool) {
-    let age_flag = format!("{BACKUP_RETENTION_DAYS}d");
-    if dry_run {
-        println!("  • [dry-run] Checking expired cloud backups (>7d) on Google Drive");
-        return;
-    }
-
-    let _ = Command::new("rclone")
-        .args([
-            "delete",
-            CLOUD_BACKUP_DEST,
-            "--min-age",
-            &age_flag,
-            "--drive-use-trash=true",
-        ])
-        .output();
-
-    let _ = Command::new("rclone")
-        .args(["rmdirs", CLOUD_BACKUP_DEST, "--leave-root"])
-        .output();
-}
-
 fn archive_and_delete(c: &PruneCandidate, base: &Path) -> Result<(), String> {
-    let (dest_prefix, base_dir) = if c.is_backup {
-        (
-            "gdrive:ryoiki-archive/backup_multi/",
-            crate::modules::media::organizer::pathing::get_jellyfin_backup_multi_dir(),
-        )
-    } else {
-        (COLD_ARCHIVE_DEST, base.to_path_buf())
-    };
-
     let rel_parent = c
         .path
         .parent()
-        .and_then(|p| p.strip_prefix(&base_dir).ok())
-        .map_or(String::new(), |p| p.to_string_lossy().to_string());
+        .and_then(|p| p.strip_prefix(base).ok())
+        .map_or_else(PathBuf::new, remap_category);
 
-    let dest = format!("{dest_prefix}{rel_parent}/");
+    let dest = format!("{COLD_ARCHIVE_DEST}{}/", rel_parent.to_string_lossy());
     let output = Command::new("rclone")
         .args(["copy", &c.path.to_string_lossy(), &dest])
         .output()
@@ -192,7 +95,7 @@ fn archive_and_delete(c: &PruneCandidate, base: &Path) -> Result<(), String> {
         return Err(format!("Local deletion failed: {e}"));
     }
 
-    clean_empty_parents(&c.path, &base_dir);
+    clean_empty_parents(&c.path, base);
     Ok(())
 }
 

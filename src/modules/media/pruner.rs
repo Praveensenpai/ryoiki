@@ -8,7 +8,27 @@ use std::time::SystemTime;
 
 use super::disk::{self, DiskUsage};
 
-pub const COLD_ARCHIVE_DEST: &str = "gdrive:ryoiki-archive/media/";
+pub const COLD_ARCHIVE_DEST: &str = "gdrive:media/";
+
+/// Remaps a local media category folder to its cloud sync equivalent.
+///
+/// The daily sync writes movies to `media/movie` (singular); archived files
+/// follow the same layout so Jellyfin sees a single consistent cloud tree.
+#[must_use]
+pub fn remap_category(rel: &Path) -> PathBuf {
+    let mut comps = rel.components();
+    let Some(first) = comps.next() else {
+        return rel.to_path_buf();
+    };
+    let mapped = match first.as_os_str().to_str() {
+        Some("movies") => "movie",
+        Some(other) => other,
+        None => return rel.to_path_buf(),
+    };
+    let mut out = PathBuf::from(mapped);
+    out.extend(comps);
+    out
+}
 
 /// Runtime configuration options for media pruning.
 #[derive(Debug, Clone, Copy)]
@@ -26,7 +46,6 @@ pub struct PruneCandidate {
     pub size_bytes: u64,
     pub modified: SystemTime,
     pub is_watched: bool,
-    pub is_backup: bool,
 }
 
 /// Executes the storage pruner against local SSD usage.
@@ -37,8 +56,6 @@ pub fn run_prune(opts: PruneOptions) -> Result<()> {
         "Smart Local SSD Media Pruner".bold()
     );
     println!("  {}\n", "─".repeat(40).dimmed());
-
-    execute::cleanup_expired_backups(opts.dry_run);
 
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     let media_dir = Path::new(&home).join("jellyfin/media");
@@ -139,9 +156,8 @@ fn print_disk_header(usage: DiskUsage, opts: PruneOptions) {
 
 pub fn sort_candidates(candidates: &mut [PruneCandidate]) {
     candidates.sort_by(|a, b| {
-        b.is_backup
-            .cmp(&a.is_backup)
-            .then_with(|| b.is_watched.cmp(&a.is_watched))
+        b.is_watched
+            .cmp(&a.is_watched)
             .then_with(|| b.size_bytes.cmp(&a.size_bytes))
             .then_with(|| a.modified.cmp(&b.modified))
     });
@@ -152,28 +168,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sort_candidates_prefers_backup_multi() {
-        let now = SystemTime::now();
-        let mut list = vec![
-            PruneCandidate {
-                path: PathBuf::from("a.mkv"),
-                name: "Watched Movie".into(),
-                size_bytes: 5000,
-                modified: now,
-                is_watched: true,
-                is_backup: false,
-            },
-            PruneCandidate {
-                path: PathBuf::from("b.mkv"),
-                name: "Backup Multi".into(),
-                size_bytes: 1000,
-                modified: now,
-                is_watched: false,
-                is_backup: true,
-            },
-        ];
-        sort_candidates(&mut list);
-        assert_eq!(list[0].name, "Backup Multi");
+    fn test_remap_category_movies_singular() {
+        assert_eq!(
+            remap_category(Path::new("movies/Title (2024)")),
+            PathBuf::from("movie/Title (2024)")
+        );
+    }
+
+    #[test]
+    fn test_remap_category_shows_unchanged() {
+        assert_eq!(
+            remap_category(Path::new("shows/Title/Season 01")),
+            PathBuf::from("shows/Title/Season 01")
+        );
     }
 
     #[test]
@@ -186,7 +193,6 @@ mod tests {
                 size_bytes: 5000,
                 modified: now,
                 is_watched: false,
-                is_backup: false,
             },
             PruneCandidate {
                 path: PathBuf::from("b.mkv"),
@@ -194,7 +200,6 @@ mod tests {
                 size_bytes: 1000,
                 modified: now,
                 is_watched: true,
-                is_backup: false,
             },
         ];
         sort_candidates(&mut list);
@@ -211,7 +216,6 @@ mod tests {
                 size_bytes: 1000,
                 modified: now,
                 is_watched: false,
-                is_backup: false,
             },
             PruneCandidate {
                 path: PathBuf::from("b.mkv"),
@@ -219,7 +223,6 @@ mod tests {
                 size_bytes: 5000,
                 modified: now,
                 is_watched: false,
-                is_backup: false,
             },
         ];
         sort_candidates(&mut list);

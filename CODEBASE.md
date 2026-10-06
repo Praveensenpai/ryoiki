@@ -672,14 +672,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_skippable_extra (info : & MediaInfo , raw_name : & str) -> bool
   ```
 
-### `src/modules/media/organizer/pathing.rs` (Role: general, Lines: 295)
+### `src/modules/media/organizer/pathing.rs` (Role: general, Lines: 290)
 - **Responsibility**: Core general logic in src/modules/media/organizer/pathing.rs
 - **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: { MediaInfo , MediaType } 
 - **Public Functions & Signatures**:
   ```rust
   fn is_video_file (path : & Path) -> bool
   fn get_jellyfin_media_dir () -> PathBuf
-  fn get_jellyfin_backup_multi_dir () -> PathBuf
   fn calculate_dest_dir (info : & MediaInfo) -> PathBuf
   fn resolve_series_dir (parent_category : & Path , title : & str) -> PathBuf
   fn resolve_unique_dest_path (src : & Path , dest_dir : & Path , info : & MediaInfo , dry_run : bool ,) -> PathBuf
@@ -745,19 +744,18 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_timer_active () -> bool
   ```
 
-### `src/modules/media/pruner/execute.rs` (Role: general, Lines: 295)
+### `src/modules/media/pruner/execute.rs` (Role: general, Lines: 198)
 - **Responsibility**: Core general logic in src/modules/media/pruner/execute.rs
-- **Imports**: use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command , use super :: { PruneCandidate , PruneOptions , COLD_ARCHIVE_DEST } , use crate :: modules :: media :: disk , use crate :: notify :: client :: format_card , use crate :: notify :: TelegramConfig 
+- **Imports**: use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use super :: { remap_category , PruneCandidate , PruneOptions , COLD_ARCHIVE_DEST } , use crate :: modules :: media :: disk , use crate :: notify :: client :: format_card , use crate :: notify :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn process_candidates (candidates : & [PruneCandidate] , target_bytes : u64 , opts : PruneOptions , base : & Path ,)
-  fn cleanup_expired_backups (dry_run : bool)
   fn send_prune_alert (names : & [String] , freed_bytes : u64)
   fn send_prune_failure_alert (item_name : & str , error_detail : & str)
   fn extract_error_detail (stderr : & [u8]) -> (String , String)
   ```
 
-### `src/modules/media/pruner/scan.rs` (Role: general, Lines: 103)
+### `src/modules/media/pruner/scan.rs` (Role: general, Lines: 87)
 - **Responsibility**: Core general logic in src/modules/media/pruner/scan.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: path :: Path , use std :: time :: { Duration , SystemTime } , use super :: PruneCandidate 
 - **Public Functions & Signatures**:
@@ -766,7 +764,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn tag_watched_status (candidates : & mut [PruneCandidate])
   ```
 
-### `src/modules/media/pruner.rs` (Role: general, Lines: 228)
+### `src/modules/media/pruner.rs` (Role: general, Lines: 231)
 - **Responsibility**: Core general logic in src/modules/media/pruner.rs
 - **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: time :: SystemTime , use super :: disk :: { self , DiskUsage } 
 - **Types & Enums**:
@@ -776,6 +774,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 - **Public Functions & Signatures**:
   ```rust
+  fn remap_category (rel : & Path) -> PathBuf
   fn run_prune (opts : PruneOptions) -> Result < () >
   fn handle_bot_prune () -> Result < String >
   fn sort_candidates (candidates : & mut [PruneCandidate])
@@ -840,7 +839,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn send_batch_completed_notification (dir : TransferDirection , timings : & [(& MediaItem , Duration)] , total_bytes : u64 , total_duration : Duration ,)
   ```
 
-### `src/modules/media/transfer/scan.rs` (Role: general, Lines: 397)
+### `src/modules/media/transfer/scan.rs` (Role: general, Lines: 325)
 - **Responsibility**: Core general logic in src/modules/media/transfer/scan.rs
 - **Imports**: use anyhow :: Result , use std :: collections :: HashSet , use std :: fs , use std :: path :: Path , use std :: process :: Command , use super :: cache :: MediaScanCache , use super :: { MediaCategory , MediaFile , MediaItem , SyncStatus } 
 - **Public Functions & Signatures**:
@@ -850,7 +849,12 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn rescan_libraries (home : & Path) -> Result < (Vec < MediaItem > , Vec < MediaItem >) >
   fn scan_local_media (home : & Path , cache : & mut MediaScanCache) -> Vec < MediaItem >
   fn scan_remote_media (home : & Path , cache : & mut MediaScanCache) -> Result < Vec < MediaItem > >
+  fn remote_subpath (folder : & str) -> String
   ```
+
+### `src/modules/media/transfer/scan/tests.rs` (Role: general, Lines: 93)
+- **Responsibility**: Unit tests for cloud/local media scan path mapping.
+- **Imports**: use super :: *
 
 ### `src/modules/media/transfer/sync_status.rs` (Role: general, Lines: 347)
 - **Responsibility**: Core general logic in src/modules/media/transfer/sync_status.rs
@@ -1077,7 +1081,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/torrent/queue/tests.rs
 - **Imports**: use super :: * , use std :: sync :: Arc , use std :: thread 
 
-### `src/modules/torrent/queue.rs` (Role: general, Lines: 295)
+### `src/modules/torrent/queue.rs` (Role: general, Lines: 317)
 - **Responsibility**: Core general logic in src/modules/torrent/queue.rs
 - **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: os :: unix :: io :: AsRawFd , use std :: path :: { Path , PathBuf } , use std :: sync :: Mutex 
 - **Types & Enums**:
@@ -1103,6 +1107,8 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn remove (& mut self , hash : & str) -> bool
   fn position (& self , hash : & str) -> usize
   fn pending_count (& self) -> usize
+  fn prune_terminal (& mut self) -> usize
+  fn is_tracked (& self , hash : & str) -> bool
   fn with_lock < T > (f : impl FnOnce () -> T) -> T
   fn load () -> SeedrQueue
   fn save (queue : & SeedrQueue) -> Result < () >
@@ -1116,7 +1122,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_status_report (torrents : & [TorrentInfo]) -> String
   ```
 
-### `src/modules/torrent/scheduler.rs` (Role: general, Lines: 372)
+### `src/modules/torrent/scheduler.rs` (Role: general, Lines: 373)
 - **Responsibility**: Core general logic in src/modules/torrent/scheduler.rs
 - **Imports**: use std :: path :: { Path , PathBuf } , use super :: api , use super :: queue :: { self , QueueEntry , QueuePolicy , QueueState } , use super :: seedr , use crate :: notify :: config :: TelegramConfig 
 - **Types & Enums**:
@@ -1134,7 +1140,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_seedr_failure (hash : & str , config : & TelegramConfig)
   ```
 
-### `src/modules/torrent/seedr.rs` (Role: general, Lines: 326)
+### `src/modules/torrent/seedr.rs` (Role: general, Lines: 381)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: { Path , PathBuf } , use std :: process :: { Command , Stdio } , use std :: time :: Duration , use super :: api , use super :: telegram :: TelegramConfig , pub use super :: seedr_tasks :: { format_seedr_tasks_section , get_active_seedr_tasks } 
 - **Public Functions & Signatures**:
@@ -1146,6 +1152,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn spawn_seedr_download (magnet : & str , api_port : u16) -> Result < () >
   fn handle_seedr_completion (hash : Option < & str > , file_name : & str , total_bytes : u64 , dest_path : Option < & str > , config : & TelegramConfig ,) -> Result < () >
   fn handle_seedr_failure (hash : Option < & str > , error : & str , config : & TelegramConfig ,) -> Result < () >
+  fn cleanup_seedr_cloud (file_name : & str) -> Result < () , String >
   ```
 
 ### `src/modules/torrent/seedr_health.rs` (Role: general, Lines: 98)
@@ -1156,7 +1163,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn record_active_health (config : & TelegramConfig)
   ```
 
-### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 383)
+### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 388)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks.rs
 - **Imports**: use serde :: Deserialize , use std :: collections :: HashSet , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:

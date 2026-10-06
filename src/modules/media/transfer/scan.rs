@@ -121,7 +121,7 @@ fn scan_local_category(
             continue;
         }
         found_keys.insert(item_key);
-        let remote_rel = format!("ryoiki-archive/media/{folder}/{name}");
+        let remote_rel = format!("media/{}/{name}", remote_subpath(folder));
         let (seasons, files, size) = if cat == MediaCategory::Movie {
             let (f, s) = cache.get_or_scan_movie(&path, &name, cat, true);
             (Vec::new(), f, s)
@@ -156,18 +156,10 @@ pub fn scan_remote_media(home: &Path, cache: &mut MediaScanCache) -> Result<Vec<
     let gdrive_media = home.join("gdrive/media");
 
     let targets = [
-        (
-            "movies",
-            "ryoiki-archive/media/movies",
-            MediaCategory::Movie,
-        ),
-        ("shows", "ryoiki-archive/media/shows", MediaCategory::Show),
-        ("anime", "ryoiki-archive/media/anime", MediaCategory::Anime),
-        (
-            "anime/movie",
-            "ryoiki-archive/media/anime/movie",
-            MediaCategory::Anime,
-        ),
+        ("movie", "media/movie", MediaCategory::Movie),
+        ("shows", "media/shows", MediaCategory::Show),
+        ("anime", "media/anime", MediaCategory::Anime),
+        ("anime/movie", "media/anime/movie", MediaCategory::Anime),
     ];
 
     if gdrive_media.exists() {
@@ -216,7 +208,7 @@ fn scan_remote_mounted(
             continue;
         }
         found_keys.insert(item_key);
-        let remote_path = format!("ryoiki-archive/media/{folder}/{name}");
+        let remote_path = format!("media/{folder}/{name}");
         let (seasons, files, size) = if cat == MediaCategory::Movie {
             let (f, s) = cache.get_or_scan_movie(&entry.path(), &name, cat, false);
             (Vec::new(), f, s)
@@ -311,87 +303,23 @@ fn tag_watched_local(items: &mut [MediaItem]) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_scan_local_category_flat_anime() -> Result<()> {
-        let temp_dir = std::env::temp_dir().join("test_scan_flat_anime");
-        let anime_dir = temp_dir.join("anime").join("Kimetsu no Yaiba (2025)");
-        fs::create_dir_all(&anime_dir)?;
-        let file_path = anime_dir.join("Kimetsu no Yaiba (2025) [1080p].mkv");
-        fs::write(&file_path, b"1234567890")?;
-
-        let mut items = Vec::new();
-        let mut found_keys = HashSet::new();
-        let mut cache = MediaScanCache::default();
-
-        scan_local_category(
-            &temp_dir,
-            "anime",
-            MediaCategory::Anime,
-            &mut items,
-            &mut found_keys,
-            &mut cache,
-        );
-
-        assert_eq!(items.len(), 1);
-        let item = &items[0];
-        assert_eq!(item.title, "Kimetsu no Yaiba (2025)");
-        assert_eq!(item.category, MediaCategory::Anime);
-        assert_eq!(item.size_bytes, 10);
-        assert!(item.seasons.is_empty());
-        assert_eq!(item.files.len(), 1);
-        assert_eq!(item.files[0].name, "Kimetsu no Yaiba (2025) [1080p].mkv");
-
-        let _ = fs::remove_dir_all(&temp_dir);
-        Ok(())
-    }
-
-    #[test]
-    fn test_scan_local_anime_movies_subfolder() -> Result<()> {
-        let temp_dir =
-            std::env::temp_dir().join(format!("test_anime_movies_{}", std::process::id()));
-        let anime_movie_dir = temp_dir.join("anime/movie/Koe no Katachi (2016)");
-        fs::create_dir_all(&anime_movie_dir)?;
-        let file_path = anime_movie_dir.join("Koe no Katachi (2016) [Japanese] [1080p].mkv");
-        fs::write(&file_path, b"koe_no_katachi_bytes")?;
-
-        let mut items = Vec::new();
-        let mut found_keys = HashSet::new();
-        let mut cache = MediaScanCache::default();
-
-        // Scanning "anime" must skip "movie"
-        scan_local_category(
-            &temp_dir,
-            "anime",
-            MediaCategory::Anime,
-            &mut items,
-            &mut found_keys,
-            &mut cache,
-        );
-        assert!(
-            items.is_empty(),
-            "anime/movie should not be added as an item titled 'movie'"
-        );
-
-        // Scanning "anime/movie" must discover Koe no Katachi (2016) directly
-        scan_local_category(
-            &temp_dir,
-            "anime/movie",
-            MediaCategory::Anime,
-            &mut items,
-            &mut found_keys,
-            &mut cache,
-        );
-        assert_eq!(items.len(), 1);
-        assert_eq!(items[0].title, "Koe no Katachi (2016)");
-        assert_eq!(items[0].category, MediaCategory::Anime);
-        assert!(items[0].seasons.is_empty());
-        assert_eq!(items[0].files.len(), 1);
-
-        let _ = fs::remove_dir_all(&temp_dir);
-        Ok(())
+/// Maps a local media folder to its Google Drive counterpart.
+///
+/// Mirrors the daily sync layout: `movies` is stored as `movie` (singular),
+/// so every archive/sync path resolves to a single cloud tree.
+fn remote_subpath(folder: &str) -> String {
+    match folder.split_once('/') {
+        Some((head, tail)) => format!("{}/{tail}", map_head(head)),
+        None => map_head(folder).to_string(),
     }
 }
+
+fn map_head(head: &str) -> &str {
+    match head {
+        "movies" => "movie",
+        other => other,
+    }
+}
+
+#[cfg(test)]
+mod tests;
