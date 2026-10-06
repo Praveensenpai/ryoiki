@@ -3,6 +3,7 @@ use reqwest::blocking::Client;
 
 use super::super::actions::{handle_charge_limit, handle_self_update};
 use super::super::client::{reply, reply_with_keyboard};
+use super::super::keyboards::torrents_keyboard;
 use super::super::maintenance::{
     handle_bot_audio, handle_bot_check, handle_bot_organize, handle_bot_prune, handle_bot_sync,
 };
@@ -73,7 +74,9 @@ fn dispatch_media(
         "/services" | "/service" => handle_services_cmd(client, config, full_text).map(|()| true),
         "/torrent" | "/torrents" => {
             let text = render_torrent_report(client, &config.qbittorrent_url)?;
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+            let kb = torrents_keyboard();
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/seedr" => {
             let arg = full_text.strip_prefix("/seedr").unwrap_or("").trim();

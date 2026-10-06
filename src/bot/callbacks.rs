@@ -3,6 +3,7 @@ use reqwest::blocking::Client;
 
 use super::actions::{execute_poweroff, execute_reboot};
 use super::client::edit_message;
+use super::keyboards::torrents_keyboard;
 use super::maintenance::{
     handle_bot_audio, handle_bot_check, handle_bot_organize, handle_bot_prune, handle_bot_sync,
 };
@@ -107,7 +108,7 @@ fn resolve_view(
         }
         "cb:torrents" => {
             let text = render_torrent_report(client, &config.qbittorrent_url)?;
-            (text, None)
+            (text, Some(torrents_keyboard()))
         }
         "cb:maintenance" => {
             let (text, kb) = render_maintenance_view();

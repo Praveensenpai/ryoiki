@@ -68,6 +68,18 @@ pub fn services_keyboard() -> InlineKeyboardMarkup {
     }
 }
 
+pub fn torrents_keyboard() -> InlineKeyboardMarkup {
+    InlineKeyboardMarkup {
+        inline_keyboard: vec![
+            vec![
+                InlineKeyboardButton::callback("🏠 Overview", "cb:status"),
+                InlineKeyboardButton::callback("📊 System", "cb:sys"),
+            ],
+            vec![InlineKeyboardButton::callback("🔄 Refresh", "cb:torrents")],
+        ],
+    }
+}
+
 pub fn maintenance_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![

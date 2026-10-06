@@ -3,6 +3,7 @@ use reqwest::blocking::Client;
 use serde_json::json;
 
 use super::types::{FileResult, InlineKeyboardMarkup, TelegramResponse, Update};
+use crate::notify::client::finalize_telegram_message;
 
 pub fn fetch_updates(client: &Client, token: &str, offset: i64) -> Result<Vec<Update>> {
     let url = format!("https://api.telegram.org/bot{token}/getUpdates");
@@ -30,6 +31,7 @@ pub fn reply_with_keyboard(
     keyboard: &InlineKeyboardMarkup,
 ) -> Result<()> {
     let url = format!("https://api.telegram.org/bot{token}/sendMessage");
+    let text = finalize_telegram_message(text);
     let payload = json!({
         "chat_id": chat_id,
         "text": text,
@@ -54,6 +56,7 @@ pub fn reply_with_keyboard_id(
     keyboard: &InlineKeyboardMarkup,
 ) -> Result<i64> {
     let url = format!("https://api.telegram.org/bot{token}/sendMessage");
+    let text = finalize_telegram_message(text);
     let payload = json!({
         "chat_id": chat_id,
         "text": text,
@@ -75,6 +78,7 @@ pub fn edit_message(
     keyboard: Option<&InlineKeyboardMarkup>,
 ) -> Result<()> {
     let url = format!("https://api.telegram.org/bot{token}/editMessageText");
+    let text = finalize_telegram_message(text);
     let mut payload = json!({
         "chat_id": chat_id,
         "message_id": message_id,
