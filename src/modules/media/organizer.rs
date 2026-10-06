@@ -1,6 +1,7 @@
 pub mod cli;
 pub mod junk;
 pub mod pathing;
+pub mod resolution;
 pub mod specials;
 
 pub use cli::{run_organize_cli, setup};
@@ -109,7 +110,13 @@ fn adjust_media_info_post_classify(info: &mut super::MediaInfo, probe: Option<&M
             info.language = Some("Multi".to_string());
             info.clean_name = super::ai::ensure_language_in_clean_name(&info.clean_name, "Multi");
         }
+
+        if let Some(res) = &p.resolution {
+            info.resolution = Some(res.clone());
+        }
     }
+
+    resolution::apply_canonical_resolution(info);
 
     if info.media_type != MediaType::Anime {
         let is_japanese = probe.is_some_and(|p| {

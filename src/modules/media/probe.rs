@@ -122,6 +122,14 @@ fn extract_audio_language(tags: Option<&FfprobeTags>, list: &mut Vec<String>) {
 }
 
 fn height_to_resolution(height: u32) -> Option<String> {
+    canonical_resolution_for_height(height)
+}
+
+/// Canonical marketing label for a vertical pixel height.
+///
+/// Kept in sync with the thresholds used by [`height_to_resolution`] so a probed
+/// frame and a label parsed from a filename collapse to the same tag.
+fn canonical_resolution_for_height(height: u32) -> Option<String> {
     if height >= 2000 {
         Some("2160p".to_string())
     } else if height >= 1000 {
@@ -133,6 +141,56 @@ fn height_to_resolution(height: u32) -> Option<String> {
     } else {
         None
     }
+}
+
+/// Normalizes an arbitrary resolution label to a single canonical form.
+///
+/// The classifier returns raw dimensions (`1024x768`) and marketing labels
+/// (`768p`) interchangeably for the same encode. Both collapse to one tag so
+/// filenames stay consistent across every file in a release.
+#[must_use]
+pub fn normalize_resolution(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    let lower = trimmed.to_ascii_lowercase();
+
+    let height = split_dimension(&lower)
+        .map(|(width, height)| width.min(height))
+        .or_else(|| parse_p_height(&lower));
+
+    height.map_or_else(
+        || trimmed.to_string(),
+        |h| canonical_resolution_for_height(h).unwrap_or_else(|| format!("{h}p")),
+    )
+}
+
+/// True when `value` looks like a resolution label (`768p`, `1024x768`).
+#[must_use]
+pub fn is_resolution_label(value: &str) -> bool {
+    let lower = value.trim().to_ascii_lowercase();
+    split_dimension(&lower).is_some() || parse_p_height(&lower).is_some()
+}
+
+/// Splits `1920x1080` / `1024×768` into `(width, height)`.
+fn split_dimension(value: &str) -> Option<(u32, u32)> {
+    let normalized = value.replace('×', "x");
+    let (width, height) = normalized.split_once('x')?;
+    let width = width.trim().parse::<u32>().ok()?;
+    let height = height.trim().parse::<u32>().ok()?;
+    if width > 0 && height > 0 {
+        Some((width, height))
+    } else {
+        None
+    }
+}
+
+/// Parses the height out of a `768p` / `1080p` label.
+fn parse_p_height(value: &str) -> Option<u32> {
+    value
+        .strip_suffix('p')
+        .and_then(|digits| digits.parse::<u32>().ok())
 }
 
 pub const KNOWN_LANGUAGES: &[&str] = &[
@@ -263,5 +321,35 @@ mod tests {
         assert_eq!(height_to_resolution(720).as_deref(), Some("720p"));
         assert_eq!(height_to_resolution(480).as_deref(), Some("480p"));
         assert_eq!(height_to_resolution(360), None);
+    }
+
+    #[test]
+    fn test_normalize_resolution_collapses_variants() {
+        assert_eq!(normalize_resolution("1024x768"), "720p");
+        assert_eq!(normalize_resolution("1024×768"), "720p");
+        assert_eq!(normalize_resolution("768p"), "720p");
+        assert_eq!(normalize_resolution("1920x1080"), "1080p");
+        assert_eq!(normalize_resolution("1080p"), "1080p");
+        assert_eq!(normalize_resolution("1280x720"), "720p");
+        assert_eq!(normalize_resolution("480p"), "480p");
+        assert_eq!(normalize_resolution("2160p"), "2160p");
+        assert_eq!(normalize_resolution("360p"), "360p");
+    }
+
+    #[test]
+    fn test_normalize_resolution_ignores_non_resolutions() {
+        assert_eq!(normalize_resolution(""), "");
+        assert_eq!(normalize_resolution("x264 AAC"), "x264 AAC");
+        assert_eq!(normalize_resolution("Japanese"), "Japanese");
+    }
+
+    #[test]
+    fn test_is_resolution_label() {
+        for good in ["768p", "1080p", "1024x768", "1920x1080", "480p"] {
+            assert!(is_resolution_label(good), "{good} should be a label");
+        }
+        for bad in ["x264 AAC", "x265 HEVC", "Japanese", "SP01", ""] {
+            assert!(!is_resolution_label(bad), "{bad} should not be a label");
+        }
     }
 }

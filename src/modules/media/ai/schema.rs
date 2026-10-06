@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use std::fmt::Write as _;
 use std::path::Path;
 
 use super::super::{ClassificationEngine, MediaInfo, MediaType};
@@ -182,6 +183,61 @@ pub fn ensure_language_in_clean_name(name: &str, language: &str) -> String {
     }
 }
 
+/// Rewrites a clean name so it carries a single canonical resolution tag.
+///
+/// A pure resolution bracket (`[768p]`, `[1024x768]`) is replaced in place.
+/// Combined brackets such as `[x264 AAC]` are left alone; if no resolution
+/// bracket exists one is inserted before the first bracket.
+pub fn ensure_resolution_in_clean_name(name: &str, resolution: &str) -> String {
+    if resolution.trim().is_empty() {
+        return name.to_string();
+    }
+    let target = format!("[{resolution}]");
+    if name.contains(&target) {
+        return name.to_string();
+    }
+
+    let path = Path::new(name);
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("mkv");
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(name);
+
+    if let Some(replaced) = replace_resolution_bracket(stem, resolution) {
+        return format!("{replaced}.{ext}");
+    }
+
+    if let Some(bracket_idx) = stem.find('[') {
+        let prefix = stem[..bracket_idx].trim_end();
+        let suffix = &stem[bracket_idx..];
+        format!("{prefix} {target} {suffix}.{ext}")
+    } else {
+        format!("{stem} {target}.{ext}")
+    }
+}
+
+/// Replaces the first bracket whose whole content is a resolution label.
+fn replace_resolution_bracket(stem: &str, canonical: &str) -> Option<String> {
+    let bytes = stem.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'[' {
+            if let Some(rel) = stem[index + 1..].find(']') {
+                let close = index + 1 + rel;
+                if crate::modules::media::probe::is_resolution_label(&stem[index + 1..close]) {
+                    let mut out = String::with_capacity(stem.len());
+                    out.push_str(&stem[..index]);
+                    let _ = write!(out, "[{canonical}]");
+                    out.push_str(&stem[close + 1..]);
+                    return Some(out);
+                }
+                index = close + 1;
+                continue;
+            }
+        }
+        index += 1;
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -243,6 +299,51 @@ mod tests {
         assert!(!list[0].1.is_extra);
         assert!(list[1].1.is_extra);
         Ok(())
+    }
+
+    #[test]
+    fn test_ensure_resolution_replaces_raw_dimension_bracket() {
+        let name = "Show - S01E01 [Japanese] [1024x768].mkv";
+        assert_eq!(
+            ensure_resolution_in_clean_name(name, "720p"),
+            "Show - S01E01 [Japanese] [720p].mkv"
+        );
+    }
+
+    #[test]
+    fn test_ensure_resolution_replaces_p_label_bracket() {
+        let name = "Show - S01E01 [Japanese] [768p].mkv";
+        assert_eq!(
+            ensure_resolution_in_clean_name(name, "720p"),
+            "Show - S01E01 [Japanese] [720p].mkv"
+        );
+    }
+
+    #[test]
+    fn test_ensure_resolution_keeps_codec_bracket() {
+        let name = "Movie (2026) [Tamil] [1024x768] [x264 AAC].mkv";
+        assert_eq!(
+            ensure_resolution_in_clean_name(name, "720p"),
+            "Movie (2026) [Tamil] [720p] [x264 AAC].mkv"
+        );
+    }
+
+    #[test]
+    fn test_ensure_resolution_inserts_when_absent() {
+        let name = "Show - S01E01 [Japanese].mkv";
+        assert_eq!(
+            ensure_resolution_in_clean_name(name, "1080p"),
+            "Show - S01E01 [1080p] [Japanese].mkv"
+        );
+    }
+
+    #[test]
+    fn test_ensure_resolution_is_idempotent() {
+        let name = "Movie (2026) [Tamil] [1080p].mkv";
+        assert_eq!(
+            ensure_resolution_in_clean_name(name, "1080p"),
+            "Movie (2026) [Tamil] [1080p].mkv"
+        );
     }
 
     #[test]

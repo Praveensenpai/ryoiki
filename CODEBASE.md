@@ -440,9 +440,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_probe_context (probe : Option < & MediaProbe >) -> String
   ```
 
-### `src/modules/media/ai/schema.rs` (Role: general, Lines: 258)
+### `src/modules/media/ai/schema.rs` (Role: general, Lines: 359)
 - **Responsibility**: Core general logic in src/modules/media/ai/schema.rs
-- **Imports**: use anyhow :: { Context , Result } , use serde :: Deserialize , use std :: path :: Path , use super :: super :: { ClassificationEngine , MediaInfo , MediaType } 
+- **Imports**: use anyhow :: { Context , Result } , use serde :: Deserialize , use std :: fmt :: Write as _ , use std :: path :: Path , use super :: super :: { ClassificationEngine , MediaInfo , MediaType } 
 - **Types & Enums**:
   ```rust
   pub struct AiOutputSchema
@@ -454,11 +454,12 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn parse_batch_ai_json (json_text : & str) -> Result < Vec < (String , MediaInfo) > >
   fn ensure_year_in_clean_name (name : & str , year : u32) -> String
   fn ensure_language_in_clean_name (name : & str , language : & str) -> String
+  fn ensure_resolution_in_clean_name (name : & str , resolution : & str) -> String
   ```
 
 ### `src/modules/media/ai.rs` (Role: general, Lines: 30)
 - **Responsibility**: Core general logic in src/modules/media/ai.rs
-- **Imports**: pub use batch :: classify_media_batch , # [allow (unused_imports)] pub use client :: { clean_json_text , send_ai_prompt , send_deepseek_prompt , send_gemini_prompt } , pub use schema :: ensure_language_in_clean_name , use anyhow :: Result , use reqwest :: blocking :: Client , use super :: probe :: MediaProbe , use super :: MediaInfo , use prompt :: build_single_prompt , use schema :: parse_ai_json 
+- **Imports**: pub use batch :: classify_media_batch , # [allow (unused_imports)] pub use client :: { clean_json_text , send_ai_prompt , send_deepseek_prompt , send_gemini_prompt } , pub use schema :: { ensure_language_in_clean_name , ensure_resolution_in_clean_name } , use anyhow :: Result , use reqwest :: blocking :: Client , use super :: probe :: MediaProbe , use super :: MediaInfo , use prompt :: build_single_prompt , use schema :: parse_ai_json 
 - **Public Functions & Signatures**:
   ```rust
   fn classify_media_ai (client : & Client , api_key : Option < & str > , raw_name : & str , probe : Option < & MediaProbe > ,) -> Result < MediaInfo >
@@ -684,6 +685,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn perform_move (src : & Path , dst : & Path) -> Result < () >
   ```
 
+### `src/modules/media/organizer/resolution.rs` (Role: general, Lines: 66)
+- **Responsibility**: Core general logic in src/modules/media/organizer/resolution.rs
+- **Imports**: use crate :: modules :: media :: probe :: normalize_resolution , use crate :: modules :: media :: MediaInfo 
+- **Public Functions & Signatures**:
+  ```rust
+  fn apply_canonical_resolution (info : & mut MediaInfo)
+  ```
+
 ### `src/modules/media/organizer/specials.rs` (Role: general, Lines: 147)
 - **Responsibility**: Core general logic in src/modules/media/organizer/specials.rs
 - **Imports**: use std :: path :: PathBuf , use super :: super :: probe :: MediaProbe , use super :: super :: MediaInfo 
@@ -696,7 +705,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/media/organizer/tests.rs
 - **Imports**: use super :: * , use crate :: modules :: media :: ClassificationEngine 
 
-### `src/modules/media/organizer.rs` (Role: general, Lines: 387)
+### `src/modules/media/organizer.rs` (Role: general, Lines: 394)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
 - **Imports**: pub use cli :: { run_organize_cli , setup } , use junk :: is_skippable_extra , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use specials :: assign_unique_special_numbers , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
 - **Public Functions & Signatures**:
@@ -710,7 +719,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn organize_completed_torrent (client : & Client , torrent : & TorrentInfo , api_key : Option < & str > ,) -> Result < Option < OrganizeResult > >
   ```
 
-### `src/modules/media/probe.rs` (Role: general, Lines: 267)
+### `src/modules/media/probe.rs` (Role: general, Lines: 355)
 - **Responsibility**: Core general logic in src/modules/media/probe.rs
 - **Imports**: use serde :: Deserialize , use std :: path :: Path , use std :: process :: Command 
 - **Types & Enums**:
@@ -721,6 +730,8 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```rust
   fn probe_media_file (path : & Path) -> Option < MediaProbe >
   fn parse_ffprobe_json (raw_json : & [u8]) -> Option < MediaProbe >
+  fn normalize_resolution (raw : & str) -> String
+  fn is_resolution_label (value : & str) -> bool
   fn map_language_code (code : & str) -> String
   ```
 

@@ -6,7 +6,7 @@ pub mod schema;
 pub use batch::classify_media_batch;
 #[allow(unused_imports)]
 pub use client::{clean_json_text, send_ai_prompt, send_deepseek_prompt, send_gemini_prompt};
-pub use schema::ensure_language_in_clean_name;
+pub use schema::{ensure_language_in_clean_name, ensure_resolution_in_clean_name};
 
 use anyhow::Result;
 use reqwest::blocking::Client;
