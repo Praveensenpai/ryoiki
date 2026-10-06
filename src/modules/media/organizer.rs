@@ -23,7 +23,7 @@ pub fn organize_file(
     api_key: Option<&str>,
     dry_run: bool,
 ) -> Result<OrganizeResult> {
-    let classified = classify_video_files(&[file_path.to_path_buf()], client, api_key);
+    let classified = classify_video_files(&[file_path.to_path_buf()], client, api_key, None);
     let Some((_, info, probe)) = classified.into_iter().next() else {
         anyhow::bail!("Failed to classify file: {}", file_path.display());
     };
@@ -34,6 +34,7 @@ fn classify_video_files(
     files: &[PathBuf],
     client: &Client,
     api_key: Option<&str>,
+    series_context: Option<&str>,
 ) -> Vec<(PathBuf, super::MediaInfo, Option<MediaProbe>)> {
     if files.is_empty() {
         return Vec::new();
@@ -56,7 +57,7 @@ fn classify_video_files(
             .zip(probes.iter())
             .map(|(n, p)| (*n, p.as_ref()))
             .collect();
-        classify_media_batch(client, api_key, &items).unwrap_or_default()
+        classify_media_batch(client, api_key, &items, series_context).unwrap_or_default()
     } else {
         HashMap::new()
     };
@@ -208,11 +209,17 @@ pub fn organize_path(
     let mut video_files = Vec::new();
     find_videos_recursive(target, &mut video_files)?;
 
-    // Classify each directory as its own batch. Sibling folders often hold
+    // Classify each series directory as its own batch. Sibling folders often hold
     // distinct series (a show and its spin-off, bundled companion shorts), and
-    // mixing them lets the model merge them under one franchise title.
-    for group in group_videos_by_directory(video_files) {
-        let classified = classify_video_files(&group, client, api_key);
+    // mixing them lets the model merge them under one franchise title. Structural
+    // subfolders (EXTRA, Specials, Season N) stay with their parent series so an
+    // abbreviated filename inside them cannot spawn a phantom sibling show.
+    for (series_dir, group) in group_videos_by_series(target, video_files) {
+        let context = series_dir
+            .file_name()
+            .and_then(|n| n.to_str())
+            .filter(|n| !n.trim().is_empty());
+        let classified = classify_video_files(&group, client, api_key, context);
         for (vf, info, probe) in classified {
             match execute_file_organize(&vf, info, probe.as_ref(), dry_run) {
                 Ok(res) => results.push(res),
@@ -245,18 +252,75 @@ pub fn find_videos_recursive(dir: &Path, list: &mut Vec<PathBuf>) -> Result<()> 
     Ok(())
 }
 
-/// Groups video files by their immediate parent directory.
+/// Directory names that describe a structural subfolder of a release rather
+/// than a separate series. Videos inside them belong to their parent series.
+fn is_structural_dir(name: &str) -> bool {
+    let lower = name.trim().to_ascii_lowercase();
+    lower.starts_with("season")
+        || matches!(
+            lower.as_str(),
+            "extra"
+                | "extras"
+                | "special"
+                | "specials"
+                | "sp"
+                | "menu"
+                | "menus"
+                | "ncop"
+                | "nced"
+                | "scan"
+                | "scans"
+                | "bonus"
+                | "creditless"
+                | "ost"
+                | "soundtrack"
+                | "cm"
+                | "cms"
+                | "pv"
+                | "pvs"
+                | "trailer"
+                | "trailers"
+        )
+}
+
+/// Resolves the series directory a video belongs to.
 ///
-/// Files in different folders (e.g. a show and its spin-off) end up in separate
-/// groups so they are classified in separate AI batches. A flat torrent keeps
-/// all files in one group, preserving the previous single-batch behavior.
-fn group_videos_by_directory(files: Vec<PathBuf>) -> Vec<Vec<PathBuf>> {
+/// The series directory is the top-level folder directly under the release root,
+/// or the release root itself. Structural subfolders (`EXTRA`, `Specials`,
+/// `Season N`) do not start a new series: videos inside them stay with their
+/// parent, so an abbreviated filename cannot spawn a phantom sibling show.
+fn series_dir_for(target: &Path, file: &Path) -> PathBuf {
+    let fallback = || file.parent().map_or_else(PathBuf::new, Path::to_path_buf);
+    let Ok(rel) = file.strip_prefix(target) else {
+        return fallback();
+    };
+    let mut comps = rel.components();
+    let Some(first) = comps.next() else {
+        return target.to_path_buf();
+    };
+    if comps.next().is_none() {
+        return target.to_path_buf();
+    }
+    let name = first.as_os_str().to_string_lossy();
+    if is_structural_dir(&name) {
+        target.to_path_buf()
+    } else {
+        target.join(first.as_os_str())
+    }
+}
+
+/// Groups video files by the series they belong to.
+///
+/// Distinct series (a show and its spin-off) end up in separate groups so they
+/// are classified in separate AI batches. A flat torrent, and a series with
+/// structural subfolders, collapse into a single group.
+fn group_videos_by_series(target: &Path, files: Vec<PathBuf>) -> BTreeMap<PathBuf, Vec<PathBuf>> {
     let mut groups: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
     for file in files {
-        let key = file.parent().map_or_else(PathBuf::new, Path::to_path_buf);
+        let key = series_dir_for(target, &file);
         groups.entry(key).or_default().push(file);
     }
-    groups.into_values().collect()
+    groups
 }
 
 pub fn resolve_torrent_source(torrent: &TorrentInfo, default_dl: &Path) -> PathBuf {

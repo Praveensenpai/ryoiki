@@ -410,12 +410,12 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn setup (runner : & mut Runner) -> Result < () >
   ```
 
-### `src/modules/media/ai/batch.rs` (Role: general, Lines: 48)
+### `src/modules/media/ai/batch.rs` (Role: general, Lines: 49)
 - **Responsibility**: Core general logic in src/modules/media/ai/batch.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use super :: super :: probe :: MediaProbe , use super :: super :: MediaInfo , use super :: client :: send_ai_prompt , use super :: prompt :: build_batch_prompt , use super :: schema :: parse_batch_ai_json 
 - **Public Functions & Signatures**:
   ```rust
-  fn classify_media_batch (client : & Client , api_key : Option < & str > , items : & [(& str , Option < & MediaProbe >)] ,) -> Result < HashMap < String , MediaInfo > >
+  fn classify_media_batch (client : & Client , api_key : Option < & str > , items : & [(& str , Option < & MediaProbe >)] , series_context : Option < & str > ,) -> Result < HashMap < String , MediaInfo > >
   fn apply_probe_fallback (info : & mut MediaInfo , probe : Option < & MediaProbe >)
   ```
 
@@ -430,13 +430,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn send_gemini_prompt (client : & Client , api_key : & str , prompt : & str) -> Result < String >
   ```
 
-### `src/modules/media/ai/prompt.rs` (Role: general, Lines: 104)
+### `src/modules/media/ai/prompt.rs` (Role: general, Lines: 116)
 - **Responsibility**: Core general logic in src/modules/media/ai/prompt.rs
 - **Imports**: use super :: super :: probe :: MediaProbe , use std :: fmt :: Write 
 - **Public Functions & Signatures**:
   ```rust
   fn build_single_prompt (raw_name : & str , probe : Option < & MediaProbe >) -> String
-  fn build_batch_prompt (raw_names : & [& str] , probe : Option < & MediaProbe >) -> String
+  fn build_batch_prompt (raw_names : & [& str] , probe : Option < & MediaProbe > , series_context : Option < & str > ,) -> String
   fn format_probe_context (probe : Option < & MediaProbe >) -> String
   ```
 
@@ -676,11 +676,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn perform_move (src : & Path , dst : & Path) -> Result < () >
   ```
 
-### `src/modules/media/organizer/tests.rs` (Role: general, Lines: 119)
+### `src/modules/media/organizer/tests.rs` (Role: general, Lines: 143)
 - **Responsibility**: Core general logic in src/modules/media/organizer/tests.rs
 - **Imports**: use super :: * , use crate :: modules :: media :: ClassificationEngine 
 
-### `src/modules/media/organizer.rs` (Role: general, Lines: 317)
+### `src/modules/media/organizer.rs` (Role: general, Lines: 381)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
 - **Imports**: pub use cli :: { run_organize_cli , setup } , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
 - **Public Functions & Signatures**:

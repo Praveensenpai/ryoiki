@@ -31,8 +31,19 @@ pub fn build_single_prompt(raw_name: &str, probe: Option<&MediaProbe>) -> String
 }
 
 #[must_use]
-pub fn build_batch_prompt(raw_names: &[&str], probe: Option<&MediaProbe>) -> String {
+pub fn build_batch_prompt(
+    raw_names: &[&str],
+    probe: Option<&MediaProbe>,
+    series_context: Option<&str>,
+) -> String {
     let probe_context = format_probe_context(probe);
+    let context_block = series_context.map_or_else(String::new, |name| {
+        format!(
+            "\nThis batch comes from the release folder \"{name}\". If a filename uses an \
+            abbreviated or alternate title, it still belongs to the series \"{name}\" \
+            unless the name clearly names a different show.\n"
+        )
+    });
     let mut files_list = String::new();
     for (i, name) in raw_names.iter().enumerate() {
         let _ = writeln!(files_list, "{}. \"{}\"", i + 1, name);
@@ -41,6 +52,7 @@ pub fn build_batch_prompt(raw_names: &[&str], probe: Option<&MediaProbe>) -> Str
     format!(
         "You are an expert media organizer for Jellyfin. Classify this BATCH of files from the SAME release/series:\n\
         {files_list}\n\
+        {context_block}\
         {probe_context}\
         CRITICAL INSTRUCTIONS:\n\
         1. Keep the main show/movie 'title', 'media_type', 'year', 'season', and 'language' CONSISTENT across all related files. For multi-season franchises (e.g. Season 1, Repeat, Nonstop), unify 'title' under the canonical base franchise name (e.g. \"Non Non Biyori\") across all files.\n\
@@ -100,5 +112,32 @@ pub fn format_probe_context(probe: Option<&MediaProbe>) -> String {
                 .collect::<Vec<_>>()
                 .join("\n")
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_batch_prompt_includes_series_context() {
+        let names = ["[Moozzi2] Kurukuru Shuffle! [SP01] NCOP.mkv"];
+        let prompt = build_batch_prompt(&names, None, Some("Onegai My Melody Kurukuru Shuffle!"));
+        assert!(prompt.contains("Onegai My Melody Kurukuru Shuffle!"));
+        assert!(prompt.contains("release folder"));
+    }
+
+    #[test]
+    fn test_batch_prompt_without_context_has_no_context_block() {
+        let names = ["Show - 01.mkv"];
+        let prompt = build_batch_prompt(&names, None, None);
+        assert!(!prompt.contains("release folder"));
+        assert!(prompt.contains("Show - 01.mkv"));
+    }
+
+    #[test]
+    fn test_single_prompt_forbids_merging_spin_offs() {
+        let prompt = build_single_prompt("Room Camp - 01.mkv", None);
+        assert!(prompt.contains("Distinct series must stay separate"));
     }
 }

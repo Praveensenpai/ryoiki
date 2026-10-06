@@ -2,28 +2,52 @@ use super::*;
 use crate::modules::media::ClassificationEngine;
 
 #[test]
-fn test_group_videos_by_directory_splits_sibling_series() {
+fn test_group_videos_by_series_splits_sibling_series() {
+    let target = PathBuf::from("/t");
     let files = vec![
         PathBuf::from("/t/Laid-Back Camp/Season 1/ep1.mkv"),
         PathBuf::from("/t/Laid-Back Camp/Season 1/ep2.mkv"),
         PathBuf::from("/t/Room Camp/Season 1/ep1.mkv"),
     ];
-    let groups = group_videos_by_directory(files);
+    let groups = group_videos_by_series(&target, files);
     assert_eq!(groups.len(), 2, "sibling series must not share a batch");
-    assert_eq!(groups.iter().map(Vec::len).sum::<usize>(), 3);
-    assert!(groups.iter().any(|g| g.len() == 2));
-    assert!(groups.iter().any(|g| g.len() == 1));
+    assert_eq!(groups.values().map(Vec::len).sum::<usize>(), 3);
+    assert!(groups.values().any(|g| g.len() == 2));
+    assert!(groups.values().any(|g| g.len() == 1));
 }
 
 #[test]
-fn test_group_videos_by_directory_flat_stays_together() {
+fn test_group_videos_by_series_flat_stays_together() {
+    let target = PathBuf::from("/t");
     let files = vec![
         PathBuf::from("/t/Show.S01E01.mkv"),
         PathBuf::from("/t/Show.S01E02.mkv"),
     ];
-    let groups = group_videos_by_directory(files);
+    let groups = group_videos_by_series(&target, files);
     assert_eq!(groups.len(), 1);
-    assert_eq!(groups[0].len(), 2);
+    assert_eq!(groups.values().map(Vec::len).sum::<usize>(), 2);
+}
+
+#[test]
+fn test_group_videos_by_series_structural_subfolder_stays_with_parent() {
+    let target = PathBuf::from("/t");
+    let files = vec![
+        PathBuf::from("/t/Onegai My Melody Shuffle/Episode 01.mkv"),
+        PathBuf::from("/t/Onegai My Melody Shuffle/EXTRA/Kurukuru Shuffle [SP01] NCOP.mkv"),
+    ];
+    let groups = group_videos_by_series(&target, files);
+    assert_eq!(groups.len(), 1, "EXTRA must not spawn a phantom series");
+    assert_eq!(groups.values().map(Vec::len).sum::<usize>(), 2);
+}
+
+#[test]
+fn test_is_structural_dir_recognizes_known_folders() {
+    for name in ["EXTRA", "Specials", "Season 1", "SP", "NCED", "CM", "Bonus"] {
+        assert!(is_structural_dir(name), "{name} should be structural");
+    }
+    for name in ["Room Camp", "Heya Camp", "Laid-Back Camp"] {
+        assert!(!is_structural_dir(name), "{name} should not be structural");
+    }
 }
 
 #[test]

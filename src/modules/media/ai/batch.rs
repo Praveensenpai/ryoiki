@@ -14,6 +14,7 @@ pub fn classify_media_batch(
     client: &Client,
     api_key: Option<&str>,
     items: &[(&str, Option<&MediaProbe>)],
+    series_context: Option<&str>,
 ) -> Result<HashMap<String, MediaInfo>> {
     let mut mapped_results = HashMap::with_capacity(items.len());
 
@@ -21,7 +22,7 @@ pub fn classify_media_batch(
         let raw_names: Vec<&str> = chunk.iter().map(|(n, _)| *n).collect();
         let rep_probe = chunk.iter().find_map(|(_, p)| *p);
 
-        let prompt = build_batch_prompt(&raw_names, rep_probe);
+        let prompt = build_batch_prompt(&raw_names, rep_probe, series_context);
         let json_text = send_ai_prompt(client, api_key, &prompt)?;
 
         let parsed_list = parse_batch_ai_json(&json_text)?;
