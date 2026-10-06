@@ -197,6 +197,8 @@ fn render_subview_body(
 
     let body = Paragraph::new(lines).block(block);
     f.render_widget(body, area);
+
+    super::render_scrollbar(f, area, item.seasons.len(), inner_height, scroll_offset);
 }
 
 fn build_season_header_line() -> Line<'static> {

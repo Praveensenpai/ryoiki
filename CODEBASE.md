@@ -581,7 +581,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn collect_transfer_items (state : & AppState) -> Vec < MediaItem >
   ```
 
-### `src/modules/media/interactive/ui/files_view.rs` (Role: tui, Lines: 297)
+### `src/modules/media/interactive/ui/files_view.rs` (Role: tui, Lines: 299)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui/files_view.rs
 - **Imports**: use crossterm :: event :: KeyCode , use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: { AppState , ViewMode } , use crate :: modules :: media :: transfer :: { MediaFile , TransferDirection } 
 - **Public Functions & Signatures**:
@@ -598,7 +598,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn render_footer (f : & mut Frame , area : Rect , shortcuts : & [(& str , & str)])
   ```
 
-### `src/modules/media/interactive/ui/main_view.rs` (Role: tui, Lines: 382)
+### `src/modules/media/interactive/ui/main_view.rs` (Role: tui, Lines: 384)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui/main_view.rs
 - **Imports**: use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: AppState , use crate :: modules :: media :: transfer :: { MediaCategory , MediaItem , TransferDirection } 
 - **Public Functions & Signatures**:
@@ -606,7 +606,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn render_main_ui (f : & mut Frame , state : & AppState)
   ```
 
-### `src/modules/media/interactive/ui/sub_view.rs` (Role: tui, Lines: 316)
+### `src/modules/media/interactive/ui/sub_view.rs` (Role: tui, Lines: 318)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui/sub_view.rs
 - **Imports**: use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: AppState , use crate :: modules :: media :: transfer :: { MediaItem , MediaSeason , TransferDirection } 
 - **Public Functions & Signatures**:
@@ -614,12 +614,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn render_subview_ui (f : & mut Frame , state : & AppState , item_idx : usize , cursor : usize)
   ```
 
-### `src/modules/media/interactive/ui.rs` (Role: tui, Lines: 33)
+### `src/modules/media/interactive/ui.rs` (Role: tui, Lines: 114)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui.rs
-- **Imports**: use ratatui :: Frame , use super :: { AppState , ViewMode } , pub use files_view :: render_files_ui , pub use main_view :: render_main_ui , pub use sub_view :: render_subview_ui 
+- **Imports**: use ratatui :: { layout :: { Margin , Rect } , style :: { Color , Style } , widgets :: { Scrollbar , ScrollbarOrientation , ScrollbarState } , Frame , } , use super :: { AppState , ViewMode } , pub use files_view :: render_files_ui , pub use main_view :: render_main_ui , pub use sub_view :: render_subview_ui 
 - **Public Functions & Signatures**:
   ```rust
   fn render_ui (f : & mut Frame , state : & AppState)
+  fn render_scrollbar (f : & mut Frame , area : Rect , content_len : usize , viewport_len : usize , offset : usize)
   fn truncate_str (s : & str , max_chars : usize) -> String
   ```
 

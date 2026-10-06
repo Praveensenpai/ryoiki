@@ -206,6 +206,8 @@ fn render_main_body(f: &mut Frame, area: Rect, state: &AppState) {
 
     let body = Paragraph::new(lines).block(block);
     f.render_widget(body, area);
+
+    super::render_scrollbar(f, area, total, inner_height, scroll_offset);
 }
 
 fn build_main_header_line() -> Line<'static> {
