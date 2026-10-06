@@ -147,7 +147,21 @@ fn fallback_to_qb(client: &Client, config: &TelegramConfig, magnet: &str, reason
     }
 }
 
-pub fn handle_seedr_cmd(target: &str, api_port: u16) -> String {
+/// Classifies a `/seedr` argument.
+///
+/// Magnets carry an info-hash and belong in the single-slot Seedr queue (same
+/// as a raw magnet message). Other targets (torrent URLs) have no hash to
+/// track, so they are handed straight to `seedr-dl`.
+#[must_use]
+pub(crate) fn seedr_magnet_target(target: &str) -> Option<(String, String)> {
+    let hash = seedr::extract_btih_hash(target)?;
+    let name = dedup::parse_magnet(target)
+        .1
+        .unwrap_or_else(|| hash.clone());
+    Some((hash, name))
+}
+
+pub fn handle_seedr_cmd(client: &Client, config: &TelegramConfig, target: &str) -> String {
     if target.is_empty() || target == "status" {
         let tasks = seedr::get_active_seedr_tasks();
         let sec = seedr::format_seedr_tasks_section(&tasks);
@@ -162,7 +176,32 @@ pub fn handle_seedr_cmd(target: &str, api_port: u16) -> String {
             return msg;
         }
 
-        match seedr::spawn_seedr_download(target, api_port) {
+        // Magnets carry a hash, so they belong in the single-slot Seedr queue
+        // exactly like a raw magnet message. Previously this spawned seedr-dl
+        // directly, bypassing the queue: no single-slot guard, no completion
+        // promotion, and a duplicate of an already-queued magnet could run.
+        if let Some((hash, name)) = seedr_magnet_target(target) {
+            return match scheduler::submit(&hash, target, &name, config) {
+                SubmitOutcome::Started => started_message(),
+                SubmitOutcome::Duplicate => duplicate_message(),
+                SubmitOutcome::Queued(pos) => {
+                    // Mirror the raw-magnet path: start the qBittorrent
+                    // fallback now while the Seedr slot is busy.
+                    let _ = api::add_magnet(client, &config.qbittorrent_url, target);
+                    format!(
+                        "🌊 <b>領域 RYOIKI</b> • <i>Seedr Queue</i>\n\
+                        ━━━━━━━━━━━━━━━━━━━━━━━\n\
+                        ⏳ <b>SEEDR SLOT BUSY — QUEUED AT #{pos}</b>\n\n\
+                        📥 Downloading in qBittorrent meanwhile.\n\
+                        <i>Seedr starts automatically when the current cloud slot frees.</i>"
+                    )
+                }
+            };
+        }
+
+        // Non-magnet target (torrent URL): the queue cannot track it by hash,
+        // so hand it straight to seedr-dl as before.
+        match seedr::spawn_seedr_download(target, config.api_port) {
             Ok(()) => "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n\
                 ━━━━━━━━━━━━━━━━━━━━━━━\n\
                 📥 <b>SEEDR DOWNLOAD QUEUED</b>\n\n\

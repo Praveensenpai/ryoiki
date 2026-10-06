@@ -35,9 +35,20 @@ pub struct DownloadHistory {
     pub entries: HashMap<String, HistoryRecord>,
 }
 
-fn history_file_path() -> Result<PathBuf> {
+/// Root directory for persisted ryoiki state.
+///
+/// Honors `RYOIKI_DATA_DIR` so tests (and alternate installs) can sandbox
+/// themselves instead of writing to the real user profile.
+fn data_dir() -> Result<PathBuf> {
+    if let Ok(dir) = std::env::var("RYOIKI_DATA_DIR") {
+        return Ok(PathBuf::from(dir));
+    }
     let home = std::env::var("HOME").context("HOME env not set")?;
-    let dir = Path::new(&home).join(".local/share/ryoiki");
+    Ok(Path::new(&home).join(".local/share/ryoiki"))
+}
+
+fn history_file_path() -> Result<PathBuf> {
+    let dir = data_dir()?;
     fs::create_dir_all(&dir)?;
     Ok(dir.join("download_history.json"))
 }

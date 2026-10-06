@@ -229,7 +229,14 @@ impl SeedrQueue {
     }
 }
 
+/// Root directory for persisted queue state.
+///
+/// Honors `RYOIKI_DATA_DIR` (matching [`super::history`]) so tests and smoke
+/// runs can sandbox the queue instead of mutating the real user profile.
 fn state_dir() -> PathBuf {
+    if let Ok(dir) = std::env::var("RYOIKI_DATA_DIR") {
+        return PathBuf::from(dir);
+    }
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     PathBuf::from(home).join(".local/share/ryoiki")
 }

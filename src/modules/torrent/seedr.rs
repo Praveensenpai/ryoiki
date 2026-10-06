@@ -124,8 +124,6 @@ pub fn handle_seedr_completion(
         .build()
         .context("Failed to build HTTP client for qBittorrent cleanup")?;
 
-    cleanup_qbittorrent(&client, &config.qbittorrent_url, hash, file_name);
-
     let sz_mb = total_bytes / 1_048_576;
     let path_display = dest_path.unwrap_or("torrents/");
     let display_name = if file_name.starts_with("folder-") {
@@ -159,6 +157,12 @@ pub fn handle_seedr_completion(
             let _ = super::history::record_download_history(hash, &first.media_info, tracked_files);
         }
     }
+
+    // Remove the qBittorrent fallback record only AFTER organizing moved the
+    // media out of the shared download dir. Keep the files: qBittorrent's save
+    // path is the same ~/torrents dir seedr-dl wrote to, so deleting them here
+    // would destroy the download before it could be organized.
+    cleanup_qbittorrent(&client, &config.qbittorrent_url, hash, file_name);
 
     let cloud_result = cleanup_seedr_cloud(file_name);
     let cloud_msg = match &cloud_result {
@@ -197,24 +201,17 @@ pub fn handle_seedr_completion(
     Ok(())
 }
 
-/// Removes a completed item's folder from the Seedr cloud account.
+/// Resolves the live Seedr cloud id for an item by name.
 ///
-/// Resolves the live folder/torrent ID by name (tolerating the `folder-`
-/// prefix) so cleanup never depends on transient local task JSON, which is
-/// already gone by the time the completion webhook fires.
-///
-/// # Errors
-/// Returns a human-readable message when Seedr is unreachable or deletion fails.
-pub fn cleanup_seedr_cloud(file_name: &str) -> Result<(), String> {
-    let Some(list) = super::seedr_tasks::fetch_live_list() else {
-        return Err("Seedr cloud unreachable".to_string());
-    };
-
+/// Tolerates the `folder-` prefix and normalizes case, so cleanup never
+/// depends on transient local task JSON (already gone at completion time).
+#[must_use]
+pub fn resolve_cloud_id(file_name: &str) -> Option<u64> {
+    let list = super::seedr_tasks::fetch_live_list()?;
     let target = super::seedr_tasks::normalize(file_name);
     let stripped = target.strip_prefix("folder-").unwrap_or(&target);
 
-    let matched = list
-        .folders
+    list.folders
         .iter()
         .map(|f| (f.id, &f.name))
         .chain(list.files.iter().map(|f| (f.id, &f.name)))
@@ -222,12 +219,15 @@ pub fn cleanup_seedr_cloud(file_name: &str) -> Result<(), String> {
         .find(|(_, name)| {
             let n = super::seedr_tasks::normalize(name);
             n == target || n == stripped
-        });
+        })
+        .map(|(id, _)| id)
+}
 
-    let Some((id, _)) = matched else {
-        return Ok(());
-    };
-
+/// Deletes an item from the Seedr cloud by id.
+///
+/// # Errors
+/// Returns a human-readable message when `seedr-dl delete` fails.
+pub(crate) fn run_seedr_delete(id: u64) -> Result<(), String> {
     let output = Command::new("seedr-dl")
         .args(["delete", &id.to_string(), "-y"])
         .output()
@@ -243,6 +243,17 @@ pub fn cleanup_seedr_cloud(file_name: &str) -> Result<(), String> {
             detail
         })
     }
+}
+
+/// Removes a completed item's folder from the Seedr cloud account.
+///
+/// # Errors
+/// Returns a human-readable message when Seedr is unreachable or deletion fails.
+pub fn cleanup_seedr_cloud(file_name: &str) -> Result<(), String> {
+    let Some(id) = resolve_cloud_id(file_name) else {
+        return Ok(());
+    };
+    run_seedr_delete(id)
 }
 
 fn resolve_seedr_target(file_name: &str, dest_path: Option<&str>) -> Option<PathBuf> {
@@ -272,7 +283,7 @@ fn resolve_seedr_target(file_name: &str, dest_path: Option<&str>) -> Option<Path
 
 fn cleanup_qbittorrent(client: &Client, qb_url: &str, hash: Option<&str>, file_name: &str) {
     if let Some(h) = hash {
-        let _ = api::delete_torrent(client, qb_url, h, true);
+        let _ = api::delete_torrent(client, qb_url, h, false);
     }
 
     if let Ok(torrents) = api::get_torrents(client, qb_url, None) {
@@ -289,7 +300,7 @@ fn cleanup_qbittorrent(client: &Client, qb_url: &str, hash: Option<&str>, file_n
                 || t.name.eq_ignore_ascii_case(file_name);
 
             if hash_match || name_match {
-                let _ = api::delete_torrent(client, qb_url, &t.hash, true);
+                let _ = api::delete_torrent(client, qb_url, &t.hash, false);
             }
         }
     }

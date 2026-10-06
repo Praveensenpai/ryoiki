@@ -68,7 +68,8 @@ fn is_expired(entry: &queue::QueueEntry, now: u64, max_secs: u64) -> bool {
 
 /// Cancels an expired Seedr item, forwards it to qBittorrent, and promotes next.
 fn expire_active(q: &mut queue::SeedrQueue, active: &queue::QueueEntry, config: &TelegramConfig) {
-    scheduler::cancel_seedr_item(active);
+    // Expired for good: drop the cloud copy instead of leaving it behind.
+    scheduler::delete_seedr_cloud(active);
     let fallback_ok = forward_to_qbittorrent(active, config);
     q.finish(&active.hash, QueueState::Failed);
     let _ = queue::save(q);

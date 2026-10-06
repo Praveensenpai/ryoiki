@@ -105,13 +105,30 @@ pub fn check_already_available(magnet_or_url: &str) -> Availability {
     }
 
     let mut local_paths = Vec::new();
+    let mut missing = Vec::new();
     for path in &tracked_files {
         if path.exists() {
             local_paths.push(path.clone());
+        } else {
+            missing.push(path.clone());
         }
     }
 
     if !local_paths.is_empty() {
+        // Complete a partial set: pull any missing variants back from Drive so
+        // the library is whole instead of silently shipping one variant.
+        let pairs: Vec<(PathBuf, PathBuf)> = missing
+            .iter()
+            .filter_map(|p| find_in_google_drive(p).map(|cloud| (cloud, p.clone())))
+            .collect();
+        if !pairs.is_empty() {
+            let _ = restore_from_cloud(&pairs);
+            for (_, dest) in &pairs {
+                if dest.exists() {
+                    local_paths.push(dest.clone());
+                }
+            }
+        }
         return Availability::Local {
             paths: local_paths,
             title: record.title.clone(),
@@ -138,36 +155,47 @@ pub fn check_already_available(magnet_or_url: &str) -> Availability {
     }
 }
 
+/// Google Drive mount root.
+///
+/// Honors `RYOIKI_GDRIVE_DIR` so tests can point at a sandbox tree instead of
+/// the real mounted drive.
+fn gdrive_root() -> Option<PathBuf> {
+    if let Ok(dir) = std::env::var("RYOIKI_GDRIVE_DIR") {
+        return Some(PathBuf::from(dir));
+    }
+    let home = std::env::var("HOME").ok()?;
+    Some(Path::new(&home).join("gdrive"))
+}
+
 #[must_use]
 pub fn find_in_google_drive(local_path: &Path) -> Option<PathBuf> {
-    let home = std::env::var("HOME").ok()?;
-    let gdrive = Path::new(&home).join("gdrive");
+    let gdrive = gdrive_root()?;
     if !gdrive.exists() {
         return None;
     }
-
     let rel = extract_rel_media_subpath(local_path)?;
-    let bases = [gdrive.join("media"), gdrive.join("ryoiki-archive/media")];
+    find_under_base(&gdrive.join("media"), &rel)
+}
 
-    for base in &bases {
-        let direct = base.join(&rel);
-        if direct.exists() {
-            return Some(direct);
+/// Resolves a media-relative path under an archive base, tolerating the
+/// `movies/` ↔ `movie/` category remap.
+fn find_under_base(base: &Path, rel: &Path) -> Option<PathBuf> {
+    let direct = base.join(rel);
+    if direct.exists() {
+        return Some(direct);
+    }
+    let rel_str = rel.to_str().unwrap_or("");
+    if let Some(rest) = rel_str.strip_prefix("movies/") {
+        let alt = base.join("movie").join(rest);
+        if alt.exists() {
+            return Some(alt);
         }
-        let rel_str = rel.to_str().unwrap_or("");
-        if let Some(rest) = rel_str.strip_prefix("movies/") {
-            let alt = base.join("movie").join(rest);
-            if alt.exists() {
-                return Some(alt);
-            }
-        } else if let Some(rest) = rel_str.strip_prefix("movie/") {
-            let alt = base.join("movies").join(rest);
-            if alt.exists() {
-                return Some(alt);
-            }
+    } else if let Some(rest) = rel_str.strip_prefix("movie/") {
+        let alt = base.join("movies").join(rest);
+        if alt.exists() {
+            return Some(alt);
         }
     }
-
     None
 }
 
@@ -211,142 +239,4 @@ pub fn restore_from_cloud(pairs: &[(PathBuf, PathBuf)]) -> Result<Vec<PathBuf>> 
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_magnet_raw_hash() {
-        let hash = "0123456789abcdef0123456789abcdef01234567";
-        let (parsed_hash, dn) = parse_magnet(hash);
-        assert_eq!(parsed_hash.as_deref(), Some(hash));
-        assert!(dn.is_none());
-    }
-
-    #[test]
-    fn test_parse_magnet_with_dn() {
-        let mag = "magnet:?xt=urn:btih:3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c&dn=Sousou%20no%20Frieren%20-%2001%20%5B1080p%5D.mkv";
-        let (parsed_hash, dn) = parse_magnet(mag);
-        assert_eq!(
-            parsed_hash.as_deref(),
-            Some("3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c")
-        );
-        assert_eq!(dn.as_deref(), Some("Sousou no Frieren - 01 [1080p].mkv"));
-    }
-
-    #[test]
-    fn test_url_decode() {
-        assert_eq!(url_decode("Hello%20World%2BTest"), "Hello World+Test");
-        assert_eq!(url_decode("Title%20%5B1080p%5D"), "Title [1080p]");
-    }
-
-    #[test]
-    fn test_extract_rel_media_subpath() {
-        let path = PathBuf::from("/home/neko/jellyfin/media/anime/Show/Season 01/ep1.mkv");
-        let rel = extract_rel_media_subpath(&path);
-        assert_eq!(rel, Some(PathBuf::from("anime/Show/Season 01/ep1.mkv")));
-    }
-
-    #[test]
-    fn test_check_already_available_untracked_is_not_available() {
-        let mag = "magnet:?xt=urn:btih:ffffffffffffffffffffffffffffffffffffffff&dn=RandomMovie.mkv";
-        let res = check_already_available(mag);
-        assert!(matches!(res, Availability::NotAvailable { .. }));
-    }
-
-    #[test]
-    fn test_restore_from_cloud_dual_versions() -> Result<()> {
-        let tmp = std::env::temp_dir().join(format!("ryoiki_test_restore_{}", std::process::id()));
-        let cloud_dir = tmp.join("cloud");
-        let local_dir = tmp.join("local");
-        let _ = fs::create_dir_all(&cloud_dir);
-        let _ = fs::create_dir_all(&local_dir);
-
-        let src_orig = cloud_dir.join("Show - S01E01 [1080p].mkv");
-        let src_multi = cloud_dir.join("Show - S01E01 [1080p] [Multi].mkv");
-        fs::write(&src_orig, "orig_content")?;
-        fs::write(&src_multi, "multi_content")?;
-
-        let dest_orig = local_dir.join("Show - S01E01 [1080p].mkv");
-        let dest_multi = local_dir.join("Show - S01E01 [1080p] [Multi].mkv");
-
-        let pairs = vec![
-            (src_orig.clone(), dest_orig.clone()),
-            (src_multi.clone(), dest_multi.clone()),
-        ];
-        let restored = restore_from_cloud(&pairs)?;
-        assert_eq!(restored.len(), 2);
-        assert!(dest_orig.exists());
-        assert!(dest_multi.exists());
-        assert_eq!(fs::read_to_string(&dest_orig)?, "orig_content");
-        assert_eq!(fs::read_to_string(&dest_multi)?, "multi_content");
-
-        let _ = fs::remove_dir_all(&tmp);
-        Ok(())
-    }
-
-    #[test]
-    fn test_dedup_full_lifecycle_three_examples() -> Result<()> {
-        let diff_magnet =
-            "magnet:?xt=urn:btih:9999999999999999999999999999999999999999&dn=Frieren+1080p+HighBitrate.mkv";
-        let res = check_already_available(diff_magnet);
-        assert!(matches!(res, Availability::NotAvailable { .. }));
-
-        let tmp = std::env::temp_dir().join(format!("ryoiki_lifecycle_{}", std::process::id()));
-        let local_dir = tmp.join("jellyfin/media/anime/Frieren/Season 01");
-        let _ = fs::create_dir_all(&local_dir);
-        let orig_file = local_dir.join("Frieren - S01E01 [1080p].mkv");
-        let multi_file = local_dir.join("Frieren - S01E01 [1080p] [Multi].mkv");
-        fs::write(&orig_file, "orig_video")?;
-        fs::write(&multi_file, "multi_video")?;
-
-        let tracked = vec![
-            crate::modules::torrent::history::create_tracked_file(orig_file.clone(), "original"),
-            crate::modules::torrent::history::create_tracked_file(multi_file.clone(), "multi"),
-        ];
-        let info = crate::modules::media::heuristic::classify_media_heuristic(
-            "Frieren - S01E01 [1080p].mkv",
-        );
-        let known_hash = "8888888888888888888888888888888888888888";
-        crate::modules::torrent::history::record_download_history(
-            Some(known_hash),
-            &info,
-            tracked,
-        )?;
-
-        let known_magnet = format!("magnet:?xt=urn:btih:{known_hash}&dn=Frieren+S01E01.mkv");
-        let res_local = check_already_available(&known_magnet);
-        match res_local {
-            Availability::Local { paths, title } => {
-                assert_eq!(title, "Frieren");
-                assert_eq!(paths.len(), 2);
-                assert!(paths.contains(&orig_file));
-                assert!(paths.contains(&multi_file));
-            }
-            _ => panic!("Expected Availability::Local, got {res_local:?}"),
-        }
-
-        let _ = fs::remove_file(&orig_file);
-        let _ = fs::remove_file(&multi_file);
-
-        let gdrive_dir = tmp.join("gdrive/ryoiki-archive/media/anime/Frieren/Season 01");
-        let _ = fs::create_dir_all(&gdrive_dir);
-        let gdrive_orig = gdrive_dir.join("Frieren - S01E01 [1080p].mkv");
-        let gdrive_multi = gdrive_dir.join("Frieren - S01E01 [1080p] [Multi].mkv");
-        fs::write(&gdrive_orig, "cloud_orig_video")?;
-        fs::write(&gdrive_multi, "cloud_multi_video")?;
-
-        let pairs = vec![
-            (gdrive_orig.clone(), orig_file.clone()),
-            (gdrive_multi.clone(), multi_file.clone()),
-        ];
-        let restored = restore_from_cloud(&pairs)?;
-        assert_eq!(restored.len(), 2);
-        assert!(orig_file.exists());
-        assert!(multi_file.exists());
-        assert_eq!(fs::read_to_string(&orig_file)?, "cloud_orig_video");
-        assert_eq!(fs::read_to_string(&multi_file)?, "cloud_multi_video");
-
-        let _ = fs::remove_dir_all(&tmp);
-        Ok(())
-    }
-}
+mod tests;

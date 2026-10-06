@@ -5,7 +5,7 @@ use super::services::{
     get_docker_containers, get_docker_logs, get_managed_services, resolve_managed_unit,
 };
 use super::system::collect_system_metrics;
-use super::torrents::handle_seedr_cmd;
+use super::torrents::{handle_seedr_cmd, seedr_magnet_target};
 use super::ui::{
     render_docker_view, render_maintenance_view, render_poweroff_confirm, render_reboot_confirm,
     render_services_view, render_storage_view, render_system_view,
@@ -174,6 +174,24 @@ fn test_smoke_service_whitelist_resolution() {
 
 #[test]
 fn test_smoke_seedr_command() {
-    let status = handle_seedr_cmd("status", 9119);
+    let config = dummy_config();
+    let client = reqwest::blocking::Client::new();
+    let status = handle_seedr_cmd(&client, &config, "status");
     assert!(status.contains("Seedr"));
+}
+
+#[test]
+fn test_seedr_cmd_routes_magnets_to_queue() {
+    // A magnet must be recognized as queueable so `/seedr <magnet>` takes the
+    // scheduler path instead of bypassing the single-slot queue.
+    let mag = "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=Route.Test.mkv";
+    let (hash, name) = seedr_magnet_target(mag).unwrap_or_else(|| panic!("magnet must parse"));
+    assert_eq!(hash, "0123456789abcdef0123456789abcdef01234567");
+    assert_eq!(name, "Route.Test.mkv");
+
+    // Raw infohash also qualifies.
+    assert!(seedr_magnet_target("0123456789abcdef0123456789abcdef01234567").is_some());
+
+    // A plain torrent URL has no hash to track, so it must not be queued.
+    assert!(seedr_magnet_target("https://example.com/file.torrent").is_none());
 }

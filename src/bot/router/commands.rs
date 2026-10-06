@@ -80,7 +80,7 @@ fn dispatch_media(
         }
         "/seedr" => {
             let arg = full_text.strip_prefix("/seedr").unwrap_or("").trim();
-            let text = handle_seedr_cmd(arg, config.api_port);
+            let text = handle_seedr_cmd(client, config, arg);
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/pause" => {

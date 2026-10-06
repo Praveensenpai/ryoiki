@@ -72,7 +72,13 @@ fn submit_locked(hash: &str, magnet: &str, name: &str, config: &TelegramConfig) 
     let mut q = queue::load();
     q.prune_terminal();
     if q.is_tracked(hash) {
-        return SubmitOutcome::Duplicate;
+        // The entry may be a phantom (cloud gone, worker dead). Verify against
+        // the live cloud before refusing, then re-check.
+        prune_stale_entries(&mut q);
+        let _ = queue::save(&q);
+        if q.is_tracked(hash) {
+            return SubmitOutcome::Duplicate;
+        }
     }
     q.enqueue(hash, magnet, name);
 
@@ -194,7 +200,7 @@ pub fn handle_qb_completion(hash: &str, config: &TelegramConfig) {
         if entry.state == QueueState::Done {
             return;
         }
-        cancel_seedr_item(&entry);
+        delete_seedr_cloud(&entry);
         q.remove(hash);
         let _ = queue::save(&q);
         let _ = promote_next_locked(config);
@@ -233,35 +239,48 @@ fn finish_seedr_locked(hash: &str, state: QueueState, config: &TelegramConfig) {
     let _ = promote_next_locked(config);
 }
 
-/// Cancels Seedr's copy of a magnet that qBittorrent already finished.
+/// Stops Seedr's background *download task* for a preempted magnet.
+///
+/// The cloud item is intentionally left in place so a later run can resume it.
 pub(crate) fn cancel_seedr_item(entry: &QueueEntry) {
-    if let Some(folder_id) = find_folder_id(&entry.name) {
+    if let Some(id) = seedr::resolve_cloud_id(&entry.name) {
         let _ = std::process::Command::new("seedr-dl")
-            .args(["cancel", &folder_id])
+            .args(["cancel", &id.to_string()])
             .output();
     }
     remove_partial(&entry.name);
 }
 
-fn find_folder_id(name: &str) -> Option<String> {
-    let home = std::env::var("HOME").ok()?;
-    let dir = Path::new(&home).join(".cache/seedr-dl/tasks");
-    for entry in std::fs::read_dir(dir).ok()?.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("json") {
-            continue;
-        }
-        let Ok(raw) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        let Ok(val) = serde_json::from_str::<serde_json::Value>(&raw) else {
-            continue;
-        };
-        if val.get("file_name").and_then(serde_json::Value::as_str) == Some(name) {
-            return val.get("folder_id").map(ToString::to_string);
-        }
+/// Deletes Seedr's copy of a magnet qBittorrent already finished locally.
+///
+/// Uses the live cloud list (not transient task JSON) and `delete -y`, so the
+/// cloud item is actually removed instead of merely having its task cancelled.
+pub(crate) fn delete_seedr_cloud(entry: &QueueEntry) {
+    if let Some(id) = seedr::resolve_cloud_id(&entry.name) {
+        let _ = seedr::run_seedr_delete(id);
     }
-    None
+    remove_partial(&entry.name);
+}
+
+/// Drops `Active` queue entries whose Seedr cloud item and worker are both gone.
+///
+/// This clears the phantom "active" rows (dead pid, empty cloud) that used to
+/// keep reporting `ALREADY TRACKED` for magnets that no longer exist anywhere.
+/// Queued entries are kept untouched: a magnet waiting for the single slot has
+/// no cloud presence yet by design. Only prunes when the cloud is reachable, so
+/// a network blip cannot wipe live state.
+pub(crate) fn prune_stale_entries(q: &mut queue::SeedrQueue) {
+    let keep: Vec<QueueEntry> = q
+        .entries
+        .iter()
+        .filter(|e| {
+            e.state != QueueState::Active
+                || super::seedr_tasks::cloud_contains(&e.name) != Some(false)
+                || super::seedr_tasks::worker_alive_by_name(&e.name)
+        })
+        .cloned()
+        .collect();
+    q.entries = keep;
 }
 
 fn remove_partial(name: &str) {
