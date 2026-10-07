@@ -1269,9 +1269,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn install_hooks (bin_path : & Path)
   ```
 
-### `src/notify/power.rs` (Role: general, Lines: 389)
+### `src/notify/power/lock.rs` (Role: general, Lines: 107)
+- **Responsibility**: Core general logic in src/notify/power/lock.rs
+- **Imports**: use anyhow :: { anyhow , Context , Result } , use std :: fs , use std :: io :: Write , use std :: path :: { Path , PathBuf } 
+
+### `src/notify/power.rs` (Role: general, Lines: 358)
 - **Responsibility**: Core general logic in src/notify/power.rs
-- **Imports**: use anyhow :: { bail , Result } , use std :: fs , use std :: io :: Write , use std :: path :: Path , use std :: thread , use std :: time :: Duration , use super :: client :: { format_card , send_alert } , use super :: config :: TelegramConfig 
+- **Imports**: use anyhow :: Result , use std :: fs , use std :: path :: Path , use std :: thread , use std :: time :: Duration , use super :: client :: { format_card , send_alert } , use super :: config :: TelegramConfig , use lock :: acquire_pid_lock 
 - **Public Functions & Signatures**:
   ```rust
   fn send_power_event (config : & TelegramConfig , status : & str) -> Result < () >

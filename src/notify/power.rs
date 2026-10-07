@@ -1,6 +1,5 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use std::fs;
-use std::io::Write;
 use std::path::Path;
 use std::thread;
 use std::time::Duration;
@@ -8,7 +7,8 @@ use std::time::Duration;
 use super::client::{format_card, send_alert};
 use super::config::TelegramConfig;
 
-const PID_FILE: &str = "/run/ryoiki-battery-watch.pid";
+mod lock;
+use lock::acquire_pid_lock;
 
 /// Battery thresholds that trigger a low-battery alert (descending order).
 const LOW_BATTERY_THRESHOLDS: &[u8] = &[50, 40, 30, 25, 15, 5, 1];
@@ -79,38 +79,7 @@ pub fn run_battery_watch(config: &TelegramConfig) -> Result<()> {
     }
 }
 
-/// Atomically creates the PID lock file. Returns a guard that removes the file on drop.
-/// Bails with an error if another instance already holds the lock.
-fn acquire_pid_lock() -> Result<PidGuard> {
-    let pid_path = Path::new(PID_FILE);
-
-    // Attempt atomic exclusive creation (O_CREAT | O_EXCL semantics).
-    let Ok(mut file) = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(pid_path)
-    else {
-        bail!("Another battery-watch instance is already running (lock: {PID_FILE}). Exiting.");
-    };
-
-    let pid = std::process::id();
-    let _ = writeln!(file, "{pid}");
-
-    Ok(PidGuard {
-        path: pid_path.to_path_buf(),
-    })
-}
-
-/// RAII guard: removes the PID file when dropped so the next start can acquire the lock.
-struct PidGuard {
-    path: std::path::PathBuf,
-}
-
-impl Drop for PidGuard {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
-    }
-}
+// PID locking lives in `lock.rs` so the stale-lock logic stays unit-testable.
 
 // ── Card builders ────────────────────────────────────────────────────────────
 
