@@ -719,7 +719,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn organize_completed_torrent (client : & Client , torrent : & TorrentInfo , api_key : Option < & str > ,) -> Result < Option < OrganizeResult > >
   ```
 
-### `src/modules/media/probe.rs` (Role: general, Lines: 355)
+### `src/modules/media/probe/tests.rs` (Role: general, Lines: 186)
+- **Responsibility**: Core general logic in src/modules/media/probe/tests.rs
+- **Imports**: use super :: * 
+
+### `src/modules/media/probe.rs` (Role: general, Lines: 284)
 - **Responsibility**: Core general logic in src/modules/media/probe.rs
 - **Imports**: use serde :: Deserialize , use std :: path :: Path , use std :: process :: Command 
 - **Types & Enums**:

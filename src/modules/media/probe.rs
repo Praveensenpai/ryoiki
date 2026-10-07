@@ -20,6 +20,7 @@ struct FfprobeOutput {
 #[derive(Debug, Deserialize, Default)]
 struct FfprobeStream {
     codec_type: Option<String>,
+    width: Option<u32>,
     height: Option<u32>,
     tags: Option<FfprobeTags>,
 }
@@ -44,7 +45,7 @@ pub fn probe_media_file(path: &Path) -> Option<MediaProbe> {
             "-show_entries",
             "format=duration",
             "-show_entries",
-            "stream=codec_type,height:stream_tags=language",
+            "stream=codec_type,width,height:stream_tags=language",
             "-of",
             "json",
         ])
@@ -97,7 +98,11 @@ fn populate_streams_info(streams: Vec<FfprobeStream>, probe: &mut MediaProbe) {
     for s in streams {
         let codec = s.codec_type.as_deref().unwrap_or_default();
         if codec == "video" && probe.resolution.is_none() {
-            probe.resolution = s.height.and_then(height_to_resolution);
+            probe.resolution = match (s.width, s.height) {
+                (Some(width), Some(height)) => resolution_for_dimensions(width, height),
+                (_, Some(height)) => canonical_resolution_for_height(height),
+                _ => None,
+            };
         } else if codec == "audio" {
             probe.audio_stream_count += 1;
             extract_audio_language(s.tags.as_ref(), &mut probe.audio_languages);
@@ -121,14 +126,27 @@ fn extract_audio_language(tags: Option<&FfprobeTags>, list: &mut Vec<String>) {
     }
 }
 
-fn height_to_resolution(height: u32) -> Option<String> {
-    canonical_resolution_for_height(height)
+fn resolution_for_dimensions(width: u32, height: u32) -> Option<String> {
+    canonical_resolution_for_height(effective_height(width, height))
+}
+
+/// Projects a frame to its equivalent 16:9 height.
+///
+/// Cinematic masters are often stored cropped (`1920x800`, 2.40:1). Height alone
+/// would tag that 720p even though the encode is 1080p-class; the width carries
+/// the resolution. Project the longer side to 16:9 and keep the taller result so
+/// cropped and letterboxed frames keep their true label.
+fn effective_height(width: u32, height: u32) -> u32 {
+    let long = width.max(height);
+    let short = width.min(height);
+    let projected = u32::try_from(u64::from(long) * 9 / 16).unwrap_or(short);
+    short.max(projected)
 }
 
 /// Canonical marketing label for a vertical pixel height.
 ///
-/// Kept in sync with the thresholds used by [`height_to_resolution`] so a probed
-/// frame and a label parsed from a filename collapse to the same tag.
+/// Kept in sync with the thresholds used by [`resolution_for_dimensions`] so a
+/// probed frame and a label parsed from a filename collapse to the same tag.
 fn canonical_resolution_for_height(height: u32) -> Option<String> {
     if height >= 2000 {
         Some("2160p".to_string())
@@ -157,7 +175,7 @@ pub fn normalize_resolution(raw: &str) -> String {
     let lower = trimmed.to_ascii_lowercase();
 
     let height = split_dimension(&lower)
-        .map(|(width, height)| width.min(height))
+        .map(|(width, height)| effective_height(width, height))
         .or_else(|| parse_p_height(&lower));
 
     height.map_or_else(
@@ -263,93 +281,4 @@ fn resolve_primary_language(languages: &[String]) -> Option<String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_parse_ffprobe_json() {
-        let sample = br#"{
-            "streams": [
-                {
-                    "codec_type": "video",
-                    "height": 1080,
-                    "tags": { "language": "mal" }
-                },
-                {
-                    "codec_type": "audio",
-                    "tags": { "language": "mal" }
-                }
-            ],
-            "format": {
-                "duration": "9854.272000"
-            }
-        }"#;
-
-        let Some(probe) = parse_ffprobe_json(sample) else {
-            panic!("Failed to parse sample json");
-        };
-        assert_eq!(probe.duration_mins, Some(164));
-        assert_eq!(probe.resolution.as_deref(), Some("1080p"));
-        assert_eq!(probe.audio_languages, vec!["Malayalam"]);
-        assert_eq!(probe.primary_language.as_deref(), Some("Malayalam"));
-    }
-
-    #[test]
-    fn test_resolve_primary_language() {
-        assert_eq!(
-            resolve_primary_language(&["Malayalam".to_string()]).as_deref(),
-            Some("Malayalam")
-        );
-        assert_eq!(
-            resolve_primary_language(&["Malayalam".to_string(), "English".to_string()]).as_deref(),
-            Some("Malayalam")
-        );
-        assert_eq!(
-            resolve_primary_language(&["Malayalam".to_string(), "Tamil".to_string()]).as_deref(),
-            Some("Multi")
-        );
-        assert_eq!(
-            resolve_primary_language(&["English".to_string()]).as_deref(),
-            Some("English")
-        );
-    }
-
-    #[test]
-    fn test_height_to_resolution() {
-        assert_eq!(height_to_resolution(2160).as_deref(), Some("2160p"));
-        assert_eq!(height_to_resolution(1080).as_deref(), Some("1080p"));
-        assert_eq!(height_to_resolution(720).as_deref(), Some("720p"));
-        assert_eq!(height_to_resolution(480).as_deref(), Some("480p"));
-        assert_eq!(height_to_resolution(360), None);
-    }
-
-    #[test]
-    fn test_normalize_resolution_collapses_variants() {
-        assert_eq!(normalize_resolution("1024x768"), "720p");
-        assert_eq!(normalize_resolution("1024×768"), "720p");
-        assert_eq!(normalize_resolution("768p"), "720p");
-        assert_eq!(normalize_resolution("1920x1080"), "1080p");
-        assert_eq!(normalize_resolution("1080p"), "1080p");
-        assert_eq!(normalize_resolution("1280x720"), "720p");
-        assert_eq!(normalize_resolution("480p"), "480p");
-        assert_eq!(normalize_resolution("2160p"), "2160p");
-        assert_eq!(normalize_resolution("360p"), "360p");
-    }
-
-    #[test]
-    fn test_normalize_resolution_ignores_non_resolutions() {
-        assert_eq!(normalize_resolution(""), "");
-        assert_eq!(normalize_resolution("x264 AAC"), "x264 AAC");
-        assert_eq!(normalize_resolution("Japanese"), "Japanese");
-    }
-
-    #[test]
-    fn test_is_resolution_label() {
-        for good in ["768p", "1080p", "1024x768", "1920x1080", "480p"] {
-            assert!(is_resolution_label(good), "{good} should be a label");
-        }
-        for bad in ["x264 AAC", "x265 HEVC", "Japanese", "SP01", ""] {
-            assert!(!is_resolution_label(bad), "{bad} should not be a label");
-        }
-    }
-}
+mod tests;
