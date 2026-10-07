@@ -719,7 +719,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn organize_completed_torrent (client : & Client , torrent : & TorrentInfo , api_key : Option < & str > ,) -> Result < Option < OrganizeResult > >
   ```
 
-### `src/modules/media/probe/tests.rs` (Role: general, Lines: 186)
+### `src/modules/media/probe/tests.rs` (Role: general, Lines: 190)
 - **Responsibility**: Core general logic in src/modules/media/probe/tests.rs
 - **Imports**: use super :: * 
 
@@ -1393,9 +1393,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn select_modules () -> Result < Option < Vec < String > > >
   ```
 
-### `src/updater.rs` (Role: general, Lines: 119)
+### `src/updater.rs` (Role: general, Lines: 283)
 - **Responsibility**: Core general logic in src/updater.rs
-- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use serde :: Deserialize , use std :: fs , use std :: os :: unix :: fs :: PermissionsExt , use std :: path :: PathBuf 
+- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use serde :: Deserialize , use std :: fs , use std :: os :: unix :: fs :: PermissionsExt , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use std :: time :: { SystemTime , UNIX_EPOCH } 
 - **Public Functions & Signatures**:
   ```rust
   fn run_self_update (current_version : & str) -> Result < () >
