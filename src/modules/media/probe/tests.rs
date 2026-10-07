@@ -182,5 +182,9 @@ fn test_probe_matrix_from_dir() {
         }
     }
 
-    assert!(failures.is_empty(), "probe matrix failures:\n{}", failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "probe matrix failures:\n{}",
+        failures.join("\n")
+    );
 }
