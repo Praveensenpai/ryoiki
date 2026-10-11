@@ -13,20 +13,38 @@ use super::telegram::TelegramConfig;
 #[must_use]
 pub fn extract_btih_hash(magnet: &str) -> Option<String> {
     let trimmed = magnet.trim();
-    if trimmed.len() == 40 && trimmed.chars().all(|c| c.is_ascii_hexdigit()) {
+    if (trimmed.len() == 40 || trimmed.len() == 32)
+        && trimmed.chars().all(|c| c.is_ascii_alphanumeric())
+    {
         return Some(trimmed.to_lowercase());
     }
 
-    let prefix = "urn:btih:";
-    let idx = trimmed.find(prefix)?;
-    let sub = &trimmed[idx + prefix.len()..];
+    let lower = trimmed.to_ascii_lowercase();
+    let (idx, len) = if let Some(i) = lower.find("urn:btih:") {
+        (i, "urn:btih:".len())
+    } else {
+        let i = lower.find("urn:btmh:")?;
+        (i, "urn:btmh:".len())
+    };
+
+    let sub = &trimmed[idx + len..];
     let end = sub.find('&').unwrap_or(sub.len());
-    let hash = &sub[..end];
+    let hash = sub[..end].trim();
     if hash.is_empty() {
         None
     } else {
         Some(hash.to_lowercase())
     }
+}
+
+/// Extracts file length in bytes from `xl=` parameter in a magnet link.
+#[must_use]
+pub fn extract_magnet_size(magnet: &str) -> Option<u64> {
+    let lower = magnet.to_ascii_lowercase();
+    let idx = lower.find("xl=")?;
+    let sub = &magnet[idx + 3..];
+    let end = sub.find('&').unwrap_or(sub.len());
+    sub[..end].trim().parse::<u64>().ok()
 }
 
 fn get_magnets_dir() -> PathBuf {
@@ -74,21 +92,22 @@ pub fn spawn_seedr_download(magnet: &str, api_port: u16) -> Result<()> {
     let hash_param = hash_opt.map(|h| format!("?hash={h}")).unwrap_or_default();
     let callback_url = format!("http://127.0.0.1:{api_port}/seedr-webhook{hash_param}");
     let torrents_dir = Path::new(&home).join("torrents");
-    let log_dir = Path::new(&home).join(".cache/seedr-dl/logs");
-    let _ = std::fs::create_dir_all(&log_dir);
-    let log_path = log_dir.join("seedr-daemon.log");
-    let log_out = std::fs::OpenOptions::new()
+    let log_path = Path::new(&home).join(".cache/seedr-dl/logs/seedr-daemon.log");
+    if let Some(parent) = log_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let log_file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(&log_path)
-        .map_or_else(|_| Stdio::null(), Stdio::from);
-    let log_err = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_path)
-        .map_or_else(|_| Stdio::null(), Stdio::from);
+        .ok();
+    let log_out = log_file
+        .as_ref()
+        .and_then(|f| f.try_clone().ok())
+        .map_or_else(Stdio::null, Stdio::from);
+    let log_err = log_file.map_or_else(Stdio::null, Stdio::from);
 
-    Command::new(exe)
+    let mut child = Command::new(exe)
         .args([
             "download",
             magnet,
@@ -104,6 +123,13 @@ pub fn spawn_seedr_download(magnet: &str, api_port: u16) -> Result<()> {
         .stderr(log_err)
         .spawn()
         .context("Failed to spawn seedr-dl background worker")?;
+
+    std::thread::sleep(Duration::from_millis(400));
+    if let Ok(Some(status)) = child.try_wait() {
+        if !status.success() {
+            anyhow::bail!("seedr-dl exited immediately with {status}");
+        }
+    }
 
     Ok(())
 }
@@ -238,7 +264,7 @@ pub(crate) fn run_seedr_delete(id: u64) -> Result<(), String> {
     } else {
         let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
         Err(if detail.is_empty() {
-            "seedr-dl delete returned a non-zero exit".to_string()
+            "seedr-dl delete failed".to_string()
         } else {
             detail
         })
@@ -246,9 +272,6 @@ pub(crate) fn run_seedr_delete(id: u64) -> Result<(), String> {
 }
 
 /// Removes a completed item's folder from the Seedr cloud account.
-///
-/// # Errors
-/// Returns a human-readable message when Seedr is unreachable or deletion fails.
 pub fn cleanup_seedr_cloud(file_name: &str) -> Result<(), String> {
     let Some(id) = resolve_cloud_id(file_name) else {
         return Ok(());
@@ -263,43 +286,27 @@ fn resolve_seedr_target(file_name: &str, dest_path: Option<&str>) -> Option<Path
             return Some(p);
         }
     }
-
     let home = std::env::var("HOME").ok()?;
     let torrents = Path::new(&home).join("torrents");
     let candidate = torrents.join(file_name);
     if candidate.exists() {
         return Some(candidate);
     }
-
-    if let Some(stripped) = file_name.strip_prefix("folder-") {
-        let folder_candidate = torrents.join(stripped);
-        if folder_candidate.exists() {
-            return Some(folder_candidate);
-        }
-    }
-
-    None
+    let stripped = file_name.strip_prefix("folder-").map(|s| torrents.join(s));
+    stripped.filter(|p| p.exists())
 }
 
 fn cleanup_qbittorrent(client: &Client, qb_url: &str, hash: Option<&str>, file_name: &str) {
     if let Some(h) = hash {
         let _ = api::delete_torrent(client, qb_url, h, false);
     }
-
     if let Ok(torrents) = api::get_torrents(client, qb_url, None) {
-        let clean_target = file_name.strip_prefix("folder-").unwrap_or(file_name);
-        let stem = Path::new(clean_target)
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or(clean_target);
-
+        let target = file_name.strip_prefix("folder-").unwrap_or(file_name);
         for t in torrents {
-            let hash_match = hash.is_some_and(|h| t.hash.eq_ignore_ascii_case(h));
-            let name_match = t.name.eq_ignore_ascii_case(clean_target)
-                || t.name.eq_ignore_ascii_case(stem)
-                || t.name.eq_ignore_ascii_case(file_name);
-
-            if hash_match || name_match {
+            if hash.is_some_and(|h| t.hash.eq_ignore_ascii_case(h))
+                || t.name.eq_ignore_ascii_case(target)
+                || t.name.eq_ignore_ascii_case(file_name)
+            {
                 let _ = api::delete_torrent(client, qb_url, &t.hash, false);
             }
         }

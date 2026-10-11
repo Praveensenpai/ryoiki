@@ -35,6 +35,15 @@ fn record_active_health_locked(config: &TelegramConfig) {
         return;
     }
 
+    let elapsed = active.activated_at.map_or(0, |s| now.saturating_sub(s));
+    if elapsed >= 30
+        && !seedr_tasks::worker_alive_by_name(&active.name)
+        && seedr_tasks::cloud_contains(&active.name) == Some(false)
+    {
+        expire_active(&mut q, &active, config);
+        return;
+    }
+
     if let Some(speed) = download_speed_for(&active.name) {
         if speed < config.seedr_slow_speed_bps {
             q.set_slow_since(&active.hash, now);

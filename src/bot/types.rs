@@ -19,6 +19,7 @@ pub struct Message {
     pub id: i64,
     pub from: Option<User>,
     pub text: Option<String>,
+    pub caption: Option<String>,
     pub document: Option<Document>,
 }
 

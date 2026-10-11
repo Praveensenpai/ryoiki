@@ -13,6 +13,7 @@ pub enum SubmitOutcome {
     Started,
     Queued(usize),
     Duplicate,
+    FailedStart,
 }
 
 /// Decision produced by [`pick_promotion`].
@@ -71,14 +72,11 @@ pub fn submit(hash: &str, magnet: &str, name: &str, config: &TelegramConfig) -> 
 fn submit_locked(hash: &str, magnet: &str, name: &str, config: &TelegramConfig) -> SubmitOutcome {
     let mut q = queue::load();
     q.prune_terminal();
+    prune_stale_entries(&mut q);
+    let _ = queue::save(&q);
+
     if q.is_tracked(hash) {
-        // The entry may be a phantom (cloud gone, worker dead). Verify against
-        // the live cloud before refusing, then re-check.
-        prune_stale_entries(&mut q);
-        let _ = queue::save(&q);
-        if q.is_tracked(hash) {
-            return SubmitOutcome::Duplicate;
-        }
+        return SubmitOutcome::Duplicate;
     }
     q.enqueue(hash, magnet, name);
 
@@ -89,11 +87,18 @@ fn submit_locked(hash: &str, magnet: &str, name: &str, config: &TelegramConfig) 
         }
         let pos = q.position(hash);
         let _ = queue::save(&q);
-        return SubmitOutcome::Queued(pos);
+        return if pos == 0 {
+            SubmitOutcome::FailedStart
+        } else {
+            SubmitOutcome::Queued(pos)
+        };
     }
 
-    if !q.has_active() && start_entry_now(&mut q, hash, magnet, config) {
-        return SubmitOutcome::Started;
+    if !q.has_active() {
+        if start_entry_now(&mut q, hash, magnet, config) {
+            return SubmitOutcome::Started;
+        }
+        return SubmitOutcome::FailedStart;
     }
 
     let pos = q.position(hash);
@@ -115,7 +120,7 @@ fn start_entry_now(
     if seedr::spawn_seedr_download(magnet, config.api_port).is_ok() {
         true
     } else {
-        q.finish(hash, QueueState::Queued);
+        q.finish(hash, QueueState::Failed);
         let _ = queue::save(q);
         false
     }

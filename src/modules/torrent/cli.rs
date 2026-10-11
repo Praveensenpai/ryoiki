@@ -69,6 +69,10 @@ pub fn handle_seedr_cli(target: &str) -> Result<()> {
             "  {} Seedr slot busy — queued at position #{pos}. Downloading in qBittorrent meanwhile.",
             "⏳".cyan().bold()
         ),
+        scheduler::SubmitOutcome::FailedStart => println!(
+            "  {} Seedr cloud unavailable/rejected — downloading directly in qBittorrent.",
+            "✔".green().bold()
+        ),
     }
     Ok(())
 }

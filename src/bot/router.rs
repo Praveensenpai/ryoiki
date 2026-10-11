@@ -29,25 +29,27 @@ pub fn route_message(
         return;
     }
 
-    let Some(text) = msg.text else {
+    let text_content = msg.text.as_deref().or(msg.caption.as_deref());
+    let Some(text) = text_content else {
         return;
     };
     let trimmed = text.trim();
-    if trimmed.starts_with("magnet:?xt=urn:") {
-        handle_magnet_message(client, config, prompts, trimmed);
-        return;
-    }
 
     if let Some((cmd, full_text)) = extract_command(trimmed) {
-        if let Err(e) = dispatch_command(client, config, cmd, full_text) {
+        if let Err(e) = dispatch_command(client, config, prompts, (cmd, full_text)) {
             let clean_err = escape_html(&e.to_string());
             let err_msg = format!("❌ <b>Command Failed ({cmd}):</b>\n<code>{clean_err}</code>");
             let _ = reply(client, &config.bot_token, &config.chat_id, &err_msg);
         }
+        return;
+    }
+
+    if let Some(magnet) = extract_magnet(trimmed) {
+        handle_magnet_message(client, config, prompts, &magnet);
     }
 }
 
-fn handle_magnet_message(
+pub(crate) fn handle_magnet_message(
     client: &Client,
     config: &TelegramConfig,
     prompts: &crate::bot::prompts::Prompts,
@@ -143,6 +145,36 @@ pub fn extract_command(text: &str) -> Option<(&str, &str)> {
     Some((cmd, trimmed))
 }
 
+#[must_use]
+pub fn extract_magnet(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if let Some(idx) = trimmed.find("magnet:?") {
+        let sub = &trimmed[idx..];
+        let end = sub
+            .find(|c: char| {
+                c.is_whitespace()
+                    || matches!(c, '"' | '\'' | '`' | '<' | '>' | '[' | ']' | '(' | ')')
+            })
+            .unwrap_or(sub.len());
+        let uri = sub[..end].trim_end_matches(['.', ',', ';', ':', '!', '?']);
+        if uri.len() > 8 && crate::modules::torrent::seedr::extract_btih_hash(uri).is_some() {
+            return Some(uri.to_string());
+        }
+    }
+
+    if (trimmed.len() == 40 || trimmed.len() == 32)
+        && trimmed.chars().all(|c| c.is_ascii_alphanumeric())
+    {
+        return Some(format!("magnet:?xt=urn:btih:{}", trimmed.to_lowercase()));
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,5 +209,28 @@ mod tests {
         assert_eq!(extract_command("hello world"), None);
         assert_eq!(extract_command("magnet:?xt=urn:btih:..."), None);
         assert_eq!(extract_command(""), None);
+    }
+
+    #[test]
+    fn test_extract_magnet_variants() {
+        let mag1 = "magnet:?xt=urn:btih:8A47A4DAC599B86BB196DE26F7EFFA2D7C0B9E1C&dn=Test";
+        assert_eq!(extract_magnet(mag1), Some(mag1.to_string()));
+
+        let mag2 = "magnet:?dn=TestMovie&xt=urn:btih:8A47A4DAC599B86BB196DE26F7EFFA2D7C0B9E1C&tr=udp://tr.com";
+        assert_eq!(extract_magnet(mag2), Some(mag2.to_string()));
+
+        let text = "Here is the torrent link: magnet:?xt=urn:btih:8a47a4dac599b86bb196de26f7effa2d7c0b9e1c. Please download it.";
+        assert_eq!(
+            extract_magnet(text),
+            Some("magnet:?xt=urn:btih:8a47a4dac599b86bb196de26f7effa2d7c0b9e1c".to_string())
+        );
+
+        let hash = "8a47a4dac599b86bb196de26f7effa2d7c0b9e1c";
+        assert_eq!(
+            extract_magnet(hash),
+            Some(format!("magnet:?xt=urn:btih:{hash}"))
+        );
+
+        assert_eq!(extract_magnet("just normal conversation"), None);
     }
 }

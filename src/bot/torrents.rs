@@ -88,16 +88,48 @@ pub fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> 
 
     let name = magnet_display_name(magnet).unwrap_or_else(|| hash.clone());
 
+    if let Some(size) = seedr::extract_magnet_size(magnet) {
+        if let Some(avail) = crate::modules::torrent::seedr_tasks::seedr_available_bytes() {
+            if size > avail {
+                let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
+                let sz_mb = size / 1_048_576;
+                let av_mb = avail / 1_048_576;
+                return MagnetOutcome::Message(format!(
+                    "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
+                    ━━━━━━━━━━━━━━━━━━━━━━━\n\
+                    📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
+                    <i>Torrent size ({}.{} GB) exceeds Seedr space ({}.{} GB) — running in qBittorrent.</i>",
+                    sz_mb / 1024,
+                    (sz_mb % 1024) / 100,
+                    av_mb / 1024,
+                    (av_mb % 1024) / 100
+                ));
+            }
+        }
+    }
+
     match scheduler::submit(&hash, magnet, &name, config) {
-        SubmitOutcome::Started => MagnetOutcome::Message(started_message()),
+        SubmitOutcome::Started => {
+            let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
+            MagnetOutcome::Message(started_message())
+        }
         SubmitOutcome::Duplicate => MagnetOutcome::Message(duplicate_message()),
         SubmitOutcome::Queued(pos) => {
-            // Queued in Seedr, but download in qBittorrent in parallel right away.
             let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
             MagnetOutcome::Prompt {
                 text: queued_prompt(pos),
                 hash,
             }
+        }
+        SubmitOutcome::FailedStart => {
+            let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
+            MagnetOutcome::Message(
+                "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
+                ━━━━━━━━━━━━━━━━━━━━━━━\n\
+                📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
+                <i>Seedr rejected download — forwarded to qBittorrent.</i>"
+                    .to_string(),
+            )
         }
     }
 }
@@ -182,11 +214,12 @@ pub fn handle_seedr_cmd(client: &Client, config: &TelegramConfig, target: &str) 
         // promotion, and a duplicate of an already-queued magnet could run.
         if let Some((hash, name)) = seedr_magnet_target(target) {
             return match scheduler::submit(&hash, target, &name, config) {
-                SubmitOutcome::Started => started_message(),
+                SubmitOutcome::Started => {
+                    let _ = api::add_magnet(client, &config.qbittorrent_url, target);
+                    started_message()
+                }
                 SubmitOutcome::Duplicate => duplicate_message(),
                 SubmitOutcome::Queued(pos) => {
-                    // Mirror the raw-magnet path: start the qBittorrent
-                    // fallback now while the Seedr slot is busy.
                     let _ = api::add_magnet(client, &config.qbittorrent_url, target);
                     format!(
                         "🌊 <b>領域 RYOIKI</b> • <i>Seedr Queue</i>\n\
@@ -195,6 +228,14 @@ pub fn handle_seedr_cmd(client: &Client, config: &TelegramConfig, target: &str) 
                         📥 Downloading in qBittorrent meanwhile.\n\
                         <i>Seedr starts automatically when the current cloud slot frees.</i>"
                     )
+                }
+                SubmitOutcome::FailedStart => {
+                    let _ = api::add_magnet(client, &config.qbittorrent_url, target);
+                    "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
+                    ━━━━━━━━━━━━━━━━━━━━━━━\n\
+                    📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
+                    <i>Seedr rejected download — forwarded to qBittorrent.</i>"
+                        .to_string()
                 }
             };
         }

@@ -20,15 +20,23 @@ use super::super::ui::{
 use crate::notify::client::escape_html;
 use crate::notify::config::TelegramConfig;
 
+fn command_arg(full_text: &str) -> &str {
+    full_text
+        .split_whitespace()
+        .next()
+        .map_or("", |first| full_text[first.len()..].trim())
+}
+
 pub(super) fn dispatch_command(
     client: &Client,
     config: &TelegramConfig,
-    cmd: &str,
-    full_text: &str,
+    prompts: &crate::bot::prompts::Prompts,
+    (cmd, full_text): (&str, &str),
 ) -> Result<()> {
     if dispatch_telemetry(client, config, cmd)?
-        || dispatch_media(client, config, cmd, full_text)?
-        || dispatch_control(client, config, cmd, full_text)?
+        || dispatch_torrent(client, config, prompts, (cmd, full_text))?
+        || dispatch_media(client, config, (cmd, full_text))?
+        || dispatch_control(client, config, (cmd, full_text))?
     {
         return Ok(());
     }
@@ -63,23 +71,42 @@ fn dispatch_telemetry(client: &Client, config: &TelegramConfig, cmd: &str) -> Re
     }
 }
 
-fn dispatch_media(
+fn dispatch_torrent(
     client: &Client,
     config: &TelegramConfig,
-    cmd: &str,
-    full_text: &str,
+    prompts: &crate::bot::prompts::Prompts,
+    (cmd, full_text): (&str, &str),
 ) -> Result<bool> {
     match cmd {
-        "/docker" | "/ps" => handle_docker_cmd(client, config, full_text).map(|()| true),
-        "/services" | "/service" => handle_services_cmd(client, config, full_text).map(|()| true),
         "/torrent" | "/torrents" => {
-            let text = render_torrent_report(client, &config.qbittorrent_url)?;
-            let kb = torrents_keyboard();
-            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
-                .map(|()| true)
+            let arg = command_arg(full_text);
+            if arg.is_empty() {
+                let text = render_torrent_report(client, &config.qbittorrent_url)?;
+                let kb = torrents_keyboard();
+                reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)?;
+            } else {
+                let mag = super::extract_magnet(arg).unwrap_or_else(|| arg.to_string());
+                super::handle_magnet_message(client, config, prompts, &mag);
+            }
+            Ok(true)
+        }
+        "/add" | "/magnet" => {
+            let arg = command_arg(full_text);
+            if arg.is_empty() {
+                reply(
+                    client,
+                    &config.bot_token,
+                    &config.chat_id,
+                    "ℹ️ <b>Usage:</b> <code>/magnet &lt;magnet-url-or-hash&gt;</code>",
+                )?;
+            } else {
+                let mag = super::extract_magnet(arg).unwrap_or_else(|| arg.to_string());
+                super::handle_magnet_message(client, config, prompts, &mag);
+            }
+            Ok(true)
         }
         "/seedr" => {
-            let arg = full_text.strip_prefix("/seedr").unwrap_or("").trim();
+            let arg = command_arg(full_text);
             let text = handle_seedr_cmd(client, config, arg);
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
@@ -103,6 +130,18 @@ fn dispatch_media(
             )
             .map(|()| true)
         }
+        _ => Ok(false),
+    }
+}
+
+fn dispatch_media(
+    client: &Client,
+    config: &TelegramConfig,
+    (cmd, full_text): (&str, &str),
+) -> Result<bool> {
+    match cmd {
+        "/docker" | "/ps" => handle_docker_cmd(client, config, full_text).map(|()| true),
+        "/services" | "/service" => handle_services_cmd(client, config, full_text).map(|()| true),
         "/organize" | "/organise" => {
             let text = handle_bot_organize(config)?;
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
@@ -116,7 +155,7 @@ fn dispatch_media(
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/audio" => {
-            let arg = full_text.strip_prefix("/audio").unwrap_or("").trim();
+            let arg = command_arg(full_text);
             let text = handle_bot_audio(arg)?;
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
@@ -127,12 +166,11 @@ fn dispatch_media(
 fn dispatch_control(
     client: &Client,
     config: &TelegramConfig,
-    cmd: &str,
-    full_text: &str,
+    (cmd, full_text): (&str, &str),
 ) -> Result<bool> {
     match cmd {
         "/charge" => {
-            let arg = full_text.strip_prefix("/charge").unwrap_or("").trim();
+            let arg = command_arg(full_text);
             let text = handle_charge_limit(arg);
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
@@ -213,8 +251,9 @@ fn send_help(client: &Client, config: &TelegramConfig) -> Result<()> {
         /services — Background systemd services & timers\n\
         /service restart &lt;name&gt; — Restart systemd service\n\n\
         📦 <b>Torrents & Media:</b>\n\
-        /torrent — Active downloads, speeds, ETAs\n\
-        /seedr &lt;magnet&gt; — Offload torrent to Seedr cloud\n\
+        /torrent [magnet] — View torrents or queue download\n\
+        /magnet &lt;magnet&gt; — Queue magnet (dual-pipeline)\n\
+        /seedr [magnet] — Offload torrent to Seedr cloud\n\
         /pause • /resume — Torrent controls\n\
         /organize — Classify & move media to Jellyfin\n\
         /prune — Evict watched media to Google Drive\n\
