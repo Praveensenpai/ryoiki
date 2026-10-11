@@ -81,12 +81,18 @@ pub fn call_acpi(call_str: &str) -> Result<String> {
 /// - bit `0x01` set -> forced discharge
 /// - otherwise -> normal charging (Auto)
 fn parse_bst0(reply: &str) -> HpChargeMode {
-    let trimmed = reply.trim();
-    let hex = trimmed
+    // `/proc/acpi/call` returns the value NUL-terminated and possibly with
+    // trailing junk (e.g. "0x90\0"). `str::trim` does not strip NUL, so drop
+    // the terminator, remove an optional `0x` prefix once, then take only the
+    // leading hex digits. Otherwise `from_str_radix` fails and every mode
+    // decodes as Auto.
+    let cleaned = reply.trim_matches(|c: char| c.is_whitespace() || c == '\0');
+    let body = cleaned
         .strip_prefix("0x")
-        .or_else(|| trimmed.strip_prefix("0X"))
-        .unwrap_or(trimmed);
-    let value = u32::from_str_radix(hex, 16).unwrap_or(0);
+        .or_else(|| cleaned.strip_prefix("0X"))
+        .unwrap_or(cleaned);
+    let hex: String = body.chars().take_while(char::is_ascii_hexdigit).collect();
+    let value = u32::from_str_radix(&hex, 16).unwrap_or(0);
 
     if value & 0x10 != 0 {
         HpChargeMode::InhibitCharge
@@ -188,6 +194,16 @@ mod tests {
         assert_eq!(parse_bst0("0xd0"), HpChargeMode::InhibitCharge);
         assert_eq!(parse_bst0("0xc1"), HpChargeMode::ForceDischarge);
         assert_eq!(parse_bst0("0xc0"), HpChargeMode::Auto);
+    }
+
+    #[test]
+    fn test_parse_bst0_tolerates_nul_terminator() {
+        // `/proc/acpi/call` returns e.g. "0x90\0" verbatim.
+        assert_eq!(parse_bst0("0x90\0"), HpChargeMode::InhibitCharge);
+        assert_eq!(parse_bst0("0x40\0"), HpChargeMode::Auto);
+        assert_eq!(parse_bst0("0x41\0"), HpChargeMode::ForceDischarge);
+        assert_eq!(parse_bst0("0x90\0\n"), HpChargeMode::InhibitCharge);
+        assert_eq!(parse_bst0("0x90\0trailing"), HpChargeMode::InhibitCharge);
     }
 
     #[test]

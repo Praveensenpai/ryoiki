@@ -221,7 +221,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn print_unsupported_hardware_guide (vendor : & str , model : & str , target_limit : u8)
   ```
 
-### `src/charge_limit/hp_acpi.rs` (Role: general, Lines: 249)
+### `src/charge_limit/hp_acpi.rs` (Role: general, Lines: 265)
 - **Responsibility**: HP battery charge-mode control via ACPI `SBCO`, decoded from the EC `BST0` status register. Never commands `ForceDischarge` (it clears the AC-present bit).
 - **Imports**: use anyhow :: { bail , Context , Result } , use std :: path :: Path , use std :: process :: Command , use super :: sysfs :: { read_privileged_file , write_privileged_file } 
 - **Types & Enums**:
