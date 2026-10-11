@@ -134,6 +134,15 @@ pub fn handle_bot_sync() -> String {
 }
 
 pub fn handle_bot_audio(action: &str) -> Result<String> {
+    if action == "pending" {
+        return Ok(format!(
+            "🌊 <b>領域 RYOIKI • Pending Decisions</b>\n\
+            ━━━━━━━━━━━━━━━━━━━━━━━\n\
+            {}\n\
+            ━━━━━━━━━━━━━━━━━━━━━━━",
+            escape_html(&crate::modules::media::audio::approval::list_pending_text())
+        ));
+    }
     if action == "retry" {
         let bin = crate::modules::media::audio::find_dubstrip_bin();
         if let Some(path) = bin {
@@ -149,8 +158,14 @@ pub fn handle_bot_audio(action: &str) -> Result<String> {
         }
     } else {
         let is_active = crate::modules::media::audio::retry_timer::is_timer_active();
+        let pending_active = crate::modules::media::audio::pending_timer::is_timer_active();
         let status = if is_active {
             "Active (hourly)"
+        } else {
+            "Inactive"
+        };
+        let pending_status = if pending_active {
+            "Active (daily)"
         } else {
             "Inactive"
         };
@@ -158,6 +173,7 @@ pub fn handle_bot_audio(action: &str) -> Result<String> {
             "🌊 <b>領域 RYOIKI • DubStrip</b>\n\
             ━━━━━━━━━━━━━━━━━━━━━━━\n\
             Retry Timer: <b>{status}</b>\n\
+            Pending Timer: <b>{pending_status}</b>\n\
             Use <code>/audio retry</code> to process pending dub strips immediately.\n\
             ━━━━━━━━━━━━━━━━━━━━━━━"
         ))

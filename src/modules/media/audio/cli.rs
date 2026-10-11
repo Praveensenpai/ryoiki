@@ -42,12 +42,19 @@ pub enum AudioSubcommand {
     },
     /// Process the pending strip retry queue (runs hourly via systemd)
     Retry,
+    /// List in-progress language decisions, or send daily reminders (`--notify`)
+    Pending {
+        /// Send Telegram prompts and apply overdue decisions
+        #[arg(long)]
+        notify: bool,
+    },
 }
 
 /// Dispatches CLI subcommands to the standalone `dubstrip` engine.
 pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
     match sub {
         AudioSubcommand::Retry => return handle_retry(),
+        AudioSubcommand::Pending { notify } => return handle_pending(notify),
         AudioSubcommand::Inspect { .. }
         | AudioSubcommand::Strip { .. }
         | AudioSubcommand::Sweep { .. } => {}
@@ -87,13 +94,27 @@ pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
             append_flags(&mut cmd, auto, dry_run, force);
             cmd.arg(path);
         }
-        AudioSubcommand::Retry => unreachable!(),
+        AudioSubcommand::Retry | AudioSubcommand::Pending { .. } => unreachable!(),
     }
 
     let status = cmd.status().context("Failed to invoke dubstrip process")?;
     if !status.success() {
         anyhow::bail!("dubstrip exited with status: {status}");
     }
+    Ok(())
+}
+
+fn handle_pending(notify: bool) -> Result<()> {
+    if notify {
+        let config = crate::notify::config::TelegramConfig::load()
+            .context("Failed to load Telegram config for pending reminders")?;
+        let sent = super::approval::notify_pending(&config)?;
+        println!(
+            "  {} {sent} pending reminder(s) dispatched",
+            "✔".green().bold()
+        );
+    }
+    println!("{}", super::approval::list_pending_text());
     Ok(())
 }
 

@@ -258,7 +258,7 @@ fn send_help(client: &Client, config: &TelegramConfig) -> Result<()> {
         /organize — Classify & move media to Jellyfin\n\
         /prune — Evict watched media to Google Drive\n\
         /sync — Jellyfin refresh & cloud sync\n\
-        /audio [retry] — Dubstrip audio queue runner\n\n\
+        /audio [retry|pending] — Dubstrip queue runner & pending language decisions\n\n\
         ⚙️ <b>Server Controls:</b>\n\
         /charge [limit] — View or set battery charge limit\n\
         /reboot — Graceful server restart (with confirmation)\n\

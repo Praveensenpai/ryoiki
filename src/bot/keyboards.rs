@@ -99,6 +99,37 @@ pub fn maintenance_keyboard() -> InlineKeyboardMarkup {
     }
 }
 
+/// Inline keyboard offering every candidate language for a pending audio
+/// decision. The AI recommendation carries a star so it stands out.
+///
+/// Callback data is `cb:al:<id>:<index>` to stay well under Telegram's
+/// 64-byte limit regardless of how long a language name is.
+pub fn language_keyboard(
+    id: &str,
+    candidates: &[String],
+    recommended: Option<&str>,
+) -> InlineKeyboardMarkup {
+    let rows = candidates
+        .iter()
+        .enumerate()
+        .map(|(idx, lang)| {
+            let is_rec = recommended.is_some_and(|r| r.eq_ignore_ascii_case(lang));
+            let label = if is_rec {
+                format!("⭐ {lang} (recommended)")
+            } else {
+                lang.clone()
+            };
+            vec![InlineKeyboardButton::callback(
+                &label,
+                &format!("cb:al:{id}:{idx}"),
+            )]
+        })
+        .collect();
+    InlineKeyboardMarkup {
+        inline_keyboard: rows,
+    }
+}
+
 pub fn seedr_queue_keyboard(hash: &str) -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![vec![

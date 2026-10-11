@@ -26,11 +26,60 @@ pub fn handle_callback_query(
     if handle_seedrq_callback(client, config, prompts, data, msg_id)? {
         return Ok(());
     }
+    if handle_language_callback(client, config, data, msg_id)? {
+        return Ok(());
+    }
     if handle_view_callback(client, config, data, msg_id)? {
         return Ok(());
     }
     handle_action_callback(client, config, data, msg_id)?;
     Ok(())
+}
+
+/// Handles the original-language buttons: `cb:al:<id>:<index>`.
+fn handle_language_callback(
+    client: &Client,
+    config: &TelegramConfig,
+    data: &str,
+    msg_id: i64,
+) -> Result<bool> {
+    let Some(rest) = data.strip_prefix("cb:al:") else {
+        return Ok(false);
+    };
+    let Some((id, idx)) = rest.split_once(':') else {
+        return Ok(false);
+    };
+    let Ok(index) = idx.parse::<usize>() else {
+        return Ok(false);
+    };
+
+    let text = resolve_language_text(id, index);
+
+    edit_message(
+        client,
+        &config.bot_token,
+        &config.chat_id,
+        msg_id,
+        &text,
+        None,
+    )?;
+    Ok(true)
+}
+
+/// Builds the reply text for a language-selection callback.
+fn resolve_language_text(id: &str, index: usize) -> String {
+    use crate::modules::media::audio::approval;
+    let Some(entry) = approval::find_pending(id) else {
+        return "✔ <b>Already resolved.</b>".to_string();
+    };
+    let Some(lang) = entry.candidates.get(index) else {
+        return "❓ <b>Unknown track selection.</b>".to_string();
+    };
+    let lang = lang.clone();
+    match approval::resolve(id, &lang, false) {
+        Ok(msg) => format!("✅ <b>{msg}</b>"),
+        Err(e) => format!("⚠️ <b>Failed:</b> {e}"),
+    }
 }
 
 /// Handles the Seedr queue prompt buttons: keep (default) or download first.

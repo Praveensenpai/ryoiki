@@ -1,4 +1,8 @@
+pub mod approval;
 pub mod cli;
+pub mod decisions;
+pub mod pending_timer;
+pub mod remux;
 pub mod retry_timer;
 pub mod strip_queue;
 
@@ -161,6 +165,9 @@ pub fn strip_audio_auto(path: &Path, preserve_multi: bool) -> StripOutcome {
             {
                 println!("  {} Multi Audio: {}", "🎧".cyan(), multi_name);
             }
+            if let Some(multi) = multi_path.as_deref() {
+                stage_language_decision(original_path, multi);
+            }
         }
         StripOutcome::Preserved => {
             println!(
@@ -174,6 +181,37 @@ pub fn strip_audio_auto(path: &Path, preserve_multi: bool) -> StripOutcome {
         }
     }
     outcome
+}
+
+/// Stages a freshly stripped multi-audio file for an original-language decision.
+///
+/// The AI recommendation is attached when available, and repeat titles are
+/// reported as duplicates instead of prompted again.
+fn stage_language_decision(stripped_path: &Path, multi_path: &Path) {
+    let probe = super::probe::probe_media_file(multi_path);
+    let name = multi_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    let recommended = approval::recommend(name, probe.as_ref());
+    match approval::register(
+        stripped_path,
+        multi_path,
+        probe.as_ref(),
+        recommended.as_deref(),
+    ) {
+        approval::StageOutcome::Pending => {
+            println!(
+                "  {} Original language pending — reply in Telegram within {} days",
+                "❓".cyan(),
+                decisions::PENDING_DAYS
+            );
+        }
+        approval::StageOutcome::Duplicate(reason) => {
+            println!("  {} {reason}", "•".dimmed());
+        }
+        approval::StageOutcome::Failed => {}
+    }
 }
 
 /// Attempts to strip unwanted dubs from media.

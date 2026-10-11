@@ -20,6 +20,7 @@ pub fn setup(runner: &mut Runner, non_interactive: bool) -> Result<()> {
 
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     crate::modules::media::audio::retry_timer::deploy_retry_timer(&home)?;
+    crate::modules::media::audio::pending_timer::deploy_pending_timer(&home)?;
 
     Ok(())
 }
