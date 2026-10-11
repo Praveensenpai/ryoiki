@@ -7,12 +7,15 @@ use super::sysfs::{read_privileged_file, write_privileged_file};
 const ACPI_CALL_PATH: &str = "/proc/acpi/call";
 const HP_SBCO_METHOD: &str = "\\_SB.WMID.SBCO";
 const HP_GBCO_METHOD: &str = "\\_SB.WMID.GBCO";
+const HP_BST0_REG: &str = "\\_SB.PCI0.LPCB.BST0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HpChargeMode {
-    Auto,           // 0x0000 - normal charging
-    ForceDischarge, // 0x0200 - discharge while on AC
-    InhibitCharge,  // 0x0500 - hold charge, run on AC without charging
+    Auto, // 0x0000 - normal charging
+    /// `0x0200`. Decoded from hardware but never commanded: its ACPI handler
+    /// clears the AC-present bit (`RPWR &= 0xFE`) with no restore path.
+    ForceDischarge,
+    InhibitCharge, // 0x0500 - hold charge, run on AC without charging
 }
 
 impl HpChargeMode {
@@ -65,20 +68,50 @@ pub fn call_acpi(call_str: &str) -> Result<String> {
     Ok(trimmed)
 }
 
-/// Queries current charge mode directly from HP firmware via `\_SB.WMID.GBCO`.
-pub fn get_hp_charge_mode() -> Result<HpChargeMode> {
-    let res = call_acpi(HP_GBCO_METHOD)?;
-    if res.contains("0x04") {
-        Ok(HpChargeMode::InhibitCharge)
-    } else if res.contains("0x02") {
-        Ok(HpChargeMode::ForceDischarge)
+/// Decodes the live charge mode from the embedded-controller status byte `BST0`.
+///
+/// `GBCO` is not usable as a commanded-mode read-back: its `0x05` branch fires
+/// whenever the "on AC" bit (`0x40`) is set, so it reports `0x05` for every mode
+/// while the charger is plugged in. The previous implementation parsed `GBCO`, so
+/// it almost always concluded "already Auto", `set_hp_charge_mode` short-circuited,
+/// and the daemon became a silent no-op.
+///
+/// `BST0` reflects the state the firmware actually applied:
+/// - bit `0x10` set -> charge inhibited
+/// - bit `0x01` set -> forced discharge
+/// - otherwise -> normal charging (Auto)
+fn parse_bst0(reply: &str) -> HpChargeMode {
+    let trimmed = reply.trim();
+    let hex = trimmed
+        .strip_prefix("0x")
+        .or_else(|| trimmed.strip_prefix("0X"))
+        .unwrap_or(trimmed);
+    let value = u32::from_str_radix(hex, 16).unwrap_or(0);
+
+    if value & 0x10 != 0 {
+        HpChargeMode::InhibitCharge
+    } else if value & 0x01 != 0 {
+        HpChargeMode::ForceDischarge
     } else {
-        Ok(HpChargeMode::Auto)
+        HpChargeMode::Auto
     }
 }
 
+/// Reads the live charge mode from the EC status register via `\_SB.PCI0.LPCB.BST0`.
+pub fn get_hp_charge_mode() -> Result<HpChargeMode> {
+    let res = call_acpi(HP_BST0_REG)?;
+    Ok(parse_bst0(&res))
+}
+
 /// Sets the charging mode on HP hardware via ACPI method `\_SB.WMID.SBCO`.
+///
+/// `ForceDischarge` is rejected outright: its `SBCO` handler runs
+/// `\_SB.PCI0.LPCB.RPWR &= 0xFE`, clearing the AC-present bit with no firmware
+/// path to restore it, so the EC and ACPI then report the adapter as absent.
 pub fn set_hp_charge_mode(mode: HpChargeMode) -> Result<()> {
+    if mode == HpChargeMode::ForceDischarge {
+        bail!("refusing to send ForceDischarge (0x0200): it clears the AC-present bit");
+    }
     if get_hp_charge_mode().ok() == Some(mode) {
         return Ok(());
     }
@@ -87,30 +120,43 @@ pub fn set_hp_charge_mode(mode: HpChargeMode) -> Result<()> {
     Ok(())
 }
 
-/// Automatically regulates battery charging between `target_limit - 5%` and `target_limit%`.
+/// Picks the charge mode for `current_pct` given the live `current` mode.
+///
+/// The pack is kept inside a ±2% dead band around `target_limit` (58–62% for a
+/// 60% limit). Below the lower edge charging resumes; at or above the upper edge
+/// charging is held; inside the band the mode is left unchanged so the EC does
+/// not flap between charge and hold. `ForceDischarge` is never chosen.
+fn desired_mode(target_limit: u8, current_pct: u8, current: HpChargeMode) -> HpChargeMode {
+    let lower = target_limit.saturating_sub(2);
+    let upper = target_limit.saturating_add(2).min(100);
+
+    if current_pct <= lower {
+        HpChargeMode::Auto
+    } else if current_pct >= upper || current == HpChargeMode::InhibitCharge {
+        HpChargeMode::InhibitCharge
+    } else {
+        HpChargeMode::Auto
+    }
+}
+
+/// Automatically regulates battery charging around `target_limit`.
+///
+/// The pack is held inside the ±2% band around the limit. When the adapter is
+/// offline there is nothing to regulate, so the EC is left untouched and its
+/// current mode is reported back.
 pub fn regulate_hp_battery(
     target_limit: u8,
     current_pct: u8,
     ac_online: bool,
 ) -> Result<HpChargeMode> {
-    let min_hysteresis = target_limit.saturating_sub(5);
-
-    if current_pct > target_limit + 2 {
-        set_hp_charge_mode(HpChargeMode::ForceDischarge)?;
-        Ok(HpChargeMode::ForceDischarge)
-    } else if current_pct >= target_limit {
-        set_hp_charge_mode(HpChargeMode::InhibitCharge)?;
-        Ok(HpChargeMode::InhibitCharge)
-    } else if current_pct <= min_hysteresis {
-        if ac_online {
-            set_hp_charge_mode(HpChargeMode::Auto)?;
-        }
-        Ok(HpChargeMode::Auto)
-    } else {
-        // Between hysteresis and target: hold charge, power via AC
-        set_hp_charge_mode(HpChargeMode::InhibitCharge)?;
-        Ok(HpChargeMode::InhibitCharge)
+    let current = get_hp_charge_mode().unwrap_or(HpChargeMode::Auto);
+    if !ac_online {
+        return Ok(current);
     }
+
+    let desired = desired_mode(target_limit, current_pct, current);
+    set_hp_charge_mode(desired)?;
+    Ok(get_hp_charge_mode().unwrap_or(desired))
 }
 
 fn ensure_acpi_call_loaded() {
@@ -133,5 +179,71 @@ mod tests {
         assert_eq!(HpChargeMode::Auto.hex_arg(), "0x0000");
         assert_eq!(HpChargeMode::ForceDischarge.hex_arg(), "0x0200");
         assert_eq!(HpChargeMode::InhibitCharge.hex_arg(), "0x0500");
+    }
+
+    #[test]
+    fn test_parse_bst0_maps_hardware_modes() {
+        // Values observed live on the HP EC: Auto=0x40, Inhibit=0xd0, ForceDischarge=0xc1.
+        assert_eq!(parse_bst0("0x40"), HpChargeMode::Auto);
+        assert_eq!(parse_bst0("0xd0"), HpChargeMode::InhibitCharge);
+        assert_eq!(parse_bst0("0xc1"), HpChargeMode::ForceDischarge);
+        assert_eq!(parse_bst0("0xc0"), HpChargeMode::Auto);
+    }
+
+    #[test]
+    fn test_parse_bst0_malformed_defaults_to_auto() {
+        assert_eq!(parse_bst0(""), HpChargeMode::Auto);
+        assert_eq!(parse_bst0("garbage"), HpChargeMode::Auto);
+        assert_eq!(parse_bst0("0X00"), HpChargeMode::Auto);
+    }
+
+    #[test]
+    fn test_desired_mode_holds_band_around_limit() {
+        // Limit 60 -> band 58..62.
+        assert_eq!(desired_mode(60, 0, HpChargeMode::Auto), HpChargeMode::Auto);
+        assert_eq!(desired_mode(60, 57, HpChargeMode::Auto), HpChargeMode::Auto);
+        assert_eq!(
+            desired_mode(60, 58, HpChargeMode::InhibitCharge),
+            HpChargeMode::Auto
+        );
+        // Inside the band the live mode is left alone (no flapping).
+        assert_eq!(desired_mode(60, 60, HpChargeMode::Auto), HpChargeMode::Auto);
+        assert_eq!(
+            desired_mode(60, 60, HpChargeMode::InhibitCharge),
+            HpChargeMode::InhibitCharge
+        );
+        assert_eq!(
+            desired_mode(60, 62, HpChargeMode::Auto),
+            HpChargeMode::InhibitCharge
+        );
+        assert_eq!(
+            desired_mode(60, 80, HpChargeMode::Auto),
+            HpChargeMode::InhibitCharge
+        );
+        // Saturating edges for the minimum and maximum limits.
+        assert_eq!(desired_mode(1, 0, HpChargeMode::Auto), HpChargeMode::Auto);
+        assert_eq!(
+            desired_mode(100, 100, HpChargeMode::Auto),
+            HpChargeMode::InhibitCharge
+        );
+    }
+
+    #[test]
+    fn test_desired_mode_never_force_discharges() {
+        for target in [20u8, 50, 60, 80, 100] {
+            for pct in 0..=100u8 {
+                for current in [HpChargeMode::Auto, HpChargeMode::InhibitCharge] {
+                    assert_ne!(
+                        desired_mode(target, pct, current),
+                        HpChargeMode::ForceDischarge
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_set_hp_charge_mode_rejects_force_discharge() {
+        assert!(set_hp_charge_mode(HpChargeMode::ForceDischarge).is_err());
     }
 }
