@@ -467,7 +467,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn classify_media_ai (client : & Client , api_key : Option < & str > , raw_name : & str , probe : Option < & MediaProbe > ,) -> Result < MediaInfo >
   ```
 
-### `src/modules/media/audio/approval.rs` (Role: general, Lines: 378)
+### `src/modules/media/audio/approval/tests.rs` (Role: general, Lines: 70)
+- **Responsibility**: Core general logic in src/modules/media/audio/approval/tests.rs
+- **Imports**: use super :: super :: decisions :: DecisionStore , use super :: * , use std :: path :: PathBuf 
+
+### `src/modules/media/audio/approval.rs` (Role: general, Lines: 341)
 - **Responsibility**: Core general logic in src/modules/media/audio/approval.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use serde :: Deserialize , use std :: path :: Path , use super :: super :: probe :: MediaProbe , use super :: decisions :: { self , days_left , find_history , now_secs , DecisionRecord , PendingDecision } , use super :: remux :: apply_language , use crate :: bot :: keyboards :: language_keyboard , use crate :: notify :: client :: { escape_html , format_card , send_alert } , use crate :: notify :: config :: TelegramConfig 
 - **Types & Enums**:
@@ -546,6 +550,15 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_timer_active () -> bool
   ```
 
+### `src/modules/media/audio/strip.rs` (Role: general, Lines: 327)
+- **Responsibility**: Core general logic in src/modules/media/audio/strip.rs
+- **Imports**: use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use super :: super :: probe :: { self , MediaProbe } , use super :: { approval , decisions , StripOutcome } 
+- **Public Functions & Signatures**:
+  ```rust
+  fn strip_and_preserve (bin : & Path , path : & Path , preserve_multi : bool) -> StripOutcome
+  fn stage_language_decision (stripped_path : & Path , multi_path : & Path)
+  ```
+
 ### `src/modules/media/audio/strip_queue.rs` (Role: general, Lines: 162)
 - **Responsibility**: Core general logic in src/modules/media/audio/strip_queue.rs
 - **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: path :: { Path , PathBuf } , use std :: { fs , time } 
@@ -559,13 +572,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn process_queue (dubstrip_bin : & Path) -> Result < super :: AudioStripSummary >
   ```
 
-### `src/modules/media/audio/tests.rs` (Role: general, Lines: 100)
+### `src/modules/media/audio/tests.rs` (Role: general, Lines: 43)
 - **Responsibility**: Core general logic in src/modules/media/audio/tests.rs
-- **Imports**: use super :: * , use anyhow :: { Context , Result } , use std :: fs 
+- **Imports**: use super :: * 
 
-### `src/modules/media/audio.rs` (Role: general, Lines: 388)
+### `src/modules/media/audio.rs` (Role: general, Lines: 184)
 - **Responsibility**: Core general logic in src/modules/media/audio.rs
-- **Imports**: pub use cli :: { handle_cli , AudioSubcommand } , use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: process :: Command 
+- **Imports**: pub use cli :: { handle_cli , AudioSubcommand } , use colored :: Colorize , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust
   pub enum StripOutcome
@@ -580,8 +593,6 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn render_html_line (& self) -> Option < String >
   fn reclaimed_display (& self) -> String
   fn strip_audio_auto (path : & Path , preserve_multi : bool) -> StripOutcome
-  fn strip_and_preserve (bin : & Path , path : & Path , preserve_multi : bool) -> StripOutcome
-  fn sync_filename_after_strip (path : & Path)
   ```
 
 ### `src/modules/media/config.rs` (Role: general, Lines: 141)

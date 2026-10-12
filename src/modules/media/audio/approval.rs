@@ -134,6 +134,15 @@ pub fn register(
     StageOutcome::Pending
 }
 
+/// Whether the old stripped file may be deleted after a remux.
+///
+/// The `[Multi]` sidecar is never removed: when a preserved multi-track file
+/// was staged with `stripped_path == multi_path`, that path *is* the multi.
+#[must_use]
+fn should_remove_stripped(stripped: &Path, multi: &Path, applied: &Path) -> bool {
+    stripped != multi && stripped.exists() && stripped != applied
+}
+
 /// Resolves a pending decision: applies the language and moves it to history.
 pub fn resolve(id: &str, chosen: &str, auto: bool) -> Result<String> {
     let mut store = decisions::load()?;
@@ -149,7 +158,7 @@ pub fn resolve(id: &str, chosen: &str, auto: bool) -> Result<String> {
             return Err(e);
         }
     };
-    if entry.stripped_path.exists() && entry.stripped_path != applied {
+    if should_remove_stripped(&entry.stripped_path, &entry.multi_path, &applied) {
         let _ = std::fs::remove_file(&entry.stripped_path);
     }
 
@@ -329,50 +338,4 @@ pub fn find_pending(id: &str) -> Option<PendingDecision> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::super::decisions::DecisionStore;
-    use super::*;
-    use std::path::PathBuf;
-
-    #[test]
-    fn test_build_candidates_prefers_recommendation() {
-        let probe = MediaProbe {
-            audio_languages: vec!["Tamil".to_string(), "Telugu".to_string()],
-            ..Default::default()
-        };
-        let c = build_candidates(Some(&probe), Some("Telugu"));
-        assert_eq!(c[0], "Telugu");
-        assert!(c.contains(&"Tamil".to_string()));
-    }
-
-    #[test]
-    fn test_build_candidates_fallback() {
-        let c = build_candidates(None, None);
-        assert_eq!(c, vec!["Original".to_string()]);
-    }
-
-    #[test]
-    fn test_render_prompt_marks_recommendation() {
-        let entry = PendingDecision {
-            id: "abc".to_string(),
-            title: "Sample (2024) [Multi].mkv".to_string(),
-            stripped_path: PathBuf::from("/a.mkv"),
-            multi_path: PathBuf::from("/b.mkv"),
-            recommended: Some("Telugu".to_string()),
-            candidates: vec!["Telugu".to_string(), "Tamil".to_string()],
-            created_secs: now_secs(),
-            last_reminded_secs: 0,
-            prompt_msg_id: None,
-        };
-        let card = render_prompt(&entry);
-        assert!(card.contains("Telugu"));
-        assert!(card.contains("AI recommends"));
-    }
-
-    #[test]
-    fn test_store_roundtrip_serialization() {
-        let store = DecisionStore::default();
-        let json = serde_json::to_string(&store).unwrap_or_default();
-        assert!(serde_json::from_str::<DecisionStore>(&json).is_ok());
-    }
-}
+mod tests;

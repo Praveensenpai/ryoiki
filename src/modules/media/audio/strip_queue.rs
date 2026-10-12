@@ -112,7 +112,7 @@ fn process_single_entry(
 ) -> (Option<QueueEntry>, super::StripOutcome) {
     entry.attempts += 1;
     let preserve_multi = entry.preserve_multi;
-    let outcome = super::strip_and_preserve(dubstrip_bin, &entry.path, preserve_multi);
+    let outcome = super::strip::strip_and_preserve(dubstrip_bin, &entry.path, preserve_multi);
     match &outcome {
         super::StripOutcome::Stripped {
             primary_lang,

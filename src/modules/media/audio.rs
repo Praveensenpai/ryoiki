@@ -4,13 +4,12 @@ pub mod decisions;
 pub mod pending_timer;
 pub mod remux;
 pub mod retry_timer;
+pub mod strip;
 pub mod strip_queue;
 
 pub use cli::{handle_cli, AudioSubcommand};
-
 use colored::Colorize;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 /// Locates the installed `dubstrip` binary in PATH or user's local bin.
 #[must_use]
@@ -99,6 +98,12 @@ impl AudioStripSummary {
             parts.join(", ")
         ))
     }
+
+    /// Human-readable reclaimed size, for plain-text CLI summaries.
+    #[must_use]
+    pub fn reclaimed_display(&self) -> String {
+        format_reclaimed(self.reclaimed_bytes)
+    }
 }
 
 fn format_reclaimed(bytes: u64) -> String {
@@ -120,14 +125,6 @@ fn format_reclaimed(bytes: u64) -> String {
     }
 }
 
-impl AudioStripSummary {
-    /// Human-readable reclaimed size, for plain-text CLI summaries.
-    #[must_use]
-    pub fn reclaimed_display(&self) -> String {
-        format_reclaimed(self.reclaimed_bytes)
-    }
-}
-
 /// Automatically strips redundant dub tracks from an organized media file.
 ///
 /// When `preserve_multi` is false (anime), only the original audio track is kept
@@ -143,7 +140,7 @@ pub fn strip_audio_auto(path: &Path, preserve_multi: bool) -> StripOutcome {
         "🗡️".cyan()
     );
 
-    let outcome = strip_and_preserve(&bin, path, preserve_multi);
+    let outcome = strip::strip_and_preserve(&bin, path, preserve_multi);
     match &outcome {
         StripOutcome::Stripped {
             primary_lang,
@@ -166,7 +163,7 @@ pub fn strip_audio_auto(path: &Path, preserve_multi: bool) -> StripOutcome {
                 println!("  {} Multi Audio: {}", "🎧".cyan(), multi_name);
             }
             if let Some(multi) = multi_path.as_deref() {
-                stage_language_decision(original_path, multi);
+                strip::stage_language_decision(original_path, multi);
             }
         }
         StripOutcome::Preserved => {
@@ -181,207 +178,6 @@ pub fn strip_audio_auto(path: &Path, preserve_multi: bool) -> StripOutcome {
         }
     }
     outcome
-}
-
-/// Stages a freshly stripped multi-audio file for an original-language decision.
-///
-/// The AI recommendation is attached when available, and repeat titles are
-/// reported as duplicates instead of prompted again.
-fn stage_language_decision(stripped_path: &Path, multi_path: &Path) {
-    let probe = super::probe::probe_media_file(multi_path);
-    let name = multi_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
-    let recommended = approval::recommend(name, probe.as_ref());
-    match approval::register(
-        stripped_path,
-        multi_path,
-        probe.as_ref(),
-        recommended.as_deref(),
-    ) {
-        approval::StageOutcome::Pending => {
-            println!(
-                "  {} Original language pending — reply in Telegram within {} days",
-                "❓".cyan(),
-                decisions::PENDING_DAYS
-            );
-        }
-        approval::StageOutcome::Duplicate(reason) => {
-            println!("  {} {reason}", "•".dimmed());
-        }
-        approval::StageOutcome::Failed => {}
-    }
-}
-
-/// Attempts to strip unwanted dubs from media.
-///
-/// When `preserve_multi` is true the full multi-audio version is kept side-by-side
-/// as a `[Multi]` file. When false (anime), only the stripped original is kept and
-/// no sidecar is written.
-pub fn strip_and_preserve(bin: &Path, path: &Path, preserve_multi: bool) -> StripOutcome {
-    let initial_probe = super::probe::probe_media_file(path);
-    let orig_stream_count = initial_probe.as_ref().map_or(0, |p| p.audio_stream_count);
-
-    if orig_stream_count <= 1 {
-        return StripOutcome::Preserved;
-    }
-
-    let Some(parent_dir) = path.parent() else {
-        return StripOutcome::Failed;
-    };
-    let Some(filename) = path.file_name().and_then(|n| n.to_str()) else {
-        return StripOutcome::Failed;
-    };
-
-    let size_before = std::fs::metadata(path).map_or(0, |m| m.len());
-
-    let temp_multi = parent_dir.join(format!(".{filename}.multi_tmp"));
-    if preserve_multi && std::fs::copy(path, &temp_multi).is_err() {
-        return StripOutcome::Failed;
-    }
-
-    let mut cmd = Command::new(bin);
-    cmd.args(["strip", "--auto", "--force", "--quiet"]);
-    if !preserve_multi {
-        cmd.arg("--anime");
-    }
-    let succeeded = cmd.arg(path).status().is_ok_and(|s| s.success());
-
-    if !succeeded {
-        if preserve_multi {
-            let _ = std::fs::remove_file(&temp_multi);
-        }
-        return StripOutcome::Failed;
-    }
-
-    let post_probe = super::probe::probe_media_file(path);
-    let post_stream_count = post_probe.as_ref().map_or(0, |p| p.audio_stream_count);
-
-    if post_stream_count < orig_stream_count && post_stream_count > 0 {
-        let primary = post_probe
-            .as_ref()
-            .and_then(|p| p.primary_language.as_deref())
-            .filter(|s| !s.is_empty())
-            .unwrap_or("Original");
-
-        let size_after = std::fs::metadata(path).map_or(size_before, |m| m.len());
-        let reclaimed_bytes = size_before.saturating_sub(size_after);
-
-        if preserve_multi {
-            if let Some((orig_p, multi_p)) = finalize_dual_versions(path, &temp_multi, primary) {
-                StripOutcome::Stripped {
-                    primary_lang: primary.to_string(),
-                    original_path: orig_p,
-                    multi_path: Some(multi_p),
-                    reclaimed_bytes,
-                }
-            } else {
-                StripOutcome::Failed
-            }
-        } else if let Some(orig_p) = finalize_single_version(path, primary) {
-            StripOutcome::Stripped {
-                primary_lang: primary.to_string(),
-                original_path: orig_p,
-                multi_path: None,
-                reclaimed_bytes,
-            }
-        } else {
-            StripOutcome::Failed
-        }
-    } else {
-        if preserve_multi {
-            let _ = std::fs::remove_file(&temp_multi);
-        }
-        sync_filename_after_strip(path);
-        StripOutcome::Preserved
-    }
-}
-
-/// Renames the stripped file to carry the primary language tag, without a Multi sidecar.
-fn finalize_single_version(path: &Path, primary: &str) -> Option<PathBuf> {
-    let parent_dir = path.parent()?;
-    let orig_filename = path.file_name()?.to_str()?;
-    let stripped_name =
-        crate::modules::media::ai::ensure_language_in_clean_name(orig_filename, primary);
-    let stripped_path = parent_dir.join(&stripped_name);
-
-    if path != stripped_path {
-        if stripped_path.exists() {
-            let _ = std::fs::remove_file(&stripped_path);
-        }
-        if std::fs::rename(path, &stripped_path).is_err() {
-            return None;
-        }
-    }
-    Some(stripped_path)
-}
-
-fn finalize_dual_versions(
-    path: &Path,
-    temp_multi: &Path,
-    primary: &str,
-) -> Option<(PathBuf, PathBuf)> {
-    let parent_dir = path.parent()?;
-    let orig_filename = path.file_name()?.to_str()?;
-
-    let stripped_name =
-        crate::modules::media::ai::ensure_language_in_clean_name(orig_filename, primary);
-    let stripped_path = parent_dir.join(&stripped_name);
-
-    let multi_name =
-        crate::modules::media::ai::ensure_language_in_clean_name(orig_filename, "Multi");
-    let multi_path = parent_dir.join(&multi_name);
-
-    if path != stripped_path {
-        if stripped_path.exists() {
-            let _ = std::fs::remove_file(&stripped_path);
-        }
-        let _ = std::fs::rename(path, &stripped_path);
-    }
-
-    if multi_path.exists() && multi_path != temp_multi {
-        let _ = std::fs::remove_file(&multi_path);
-    }
-
-    if std::fs::rename(temp_multi, &multi_path).is_ok() {
-        Some((stripped_path, multi_path))
-    } else {
-        let _ = std::fs::remove_file(temp_multi);
-        None
-    }
-}
-
-/// Synchronizes the file's language tag with the probed native audio language after stripping.
-pub fn sync_filename_after_strip(path: &Path) {
-    let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    if filename.is_empty() {
-        return;
-    }
-
-    let Some(probe) = super::probe::probe_media_file(path) else {
-        return;
-    };
-
-    let Some(ref primary) = probe.primary_language else {
-        return;
-    };
-
-    if primary.is_empty() {
-        return;
-    }
-
-    let new_filename = crate::modules::media::ai::ensure_language_in_clean_name(filename, primary);
-    if new_filename != filename {
-        let new_path = path.with_file_name(&new_filename);
-        if let Ok(()) = std::fs::rename(path, &new_path) {
-            println!(
-                "  {} Updated media tag: {} -> [{primary}]",
-                "✔".green().bold(),
-                filename
-            );
-        }
-    }
 }
 
 #[cfg(test)]
