@@ -223,7 +223,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn print_unsupported_hardware_guide (vendor : & str , model : & str , target_limit : u8)
   ```
 
-### `src/charge_limit/hp_acpi.rs` (Role: general, Lines: 265)
+### `src/charge_limit/hp_acpi.rs` (Role: general, Lines: 275)
 - **Responsibility**: Core general logic in src/charge_limit/hp_acpi.rs
 - **Imports**: use anyhow :: { bail , Context , Result } , use std :: path :: Path , use std :: process :: Command , use super :: sysfs :: { read_privileged_file , write_privileged_file } 
 - **Types & Enums**:

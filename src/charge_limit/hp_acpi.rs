@@ -70,16 +70,24 @@ pub fn call_acpi(call_str: &str) -> Result<String> {
 
 /// Decodes the live charge mode from the embedded-controller status byte `BST0`.
 ///
-/// `GBCO` is not usable as a commanded-mode read-back: its `0x05` branch fires
-/// whenever the "on AC" bit (`0x40`) is set, so it reports `0x05` for every mode
-/// while the charger is plugged in. The previous implementation parsed `GBCO`, so
-/// it almost always concluded "already Auto", `set_hp_charge_mode` short-circuited,
-/// and the daemon became a silent no-op.
+/// Neither `GBCO` nor `BST0` is a commanded-mode echo. `GBCO`'s `0x05` branch
+/// fires whenever the "on AC" bit (`0x40`) is set, so it reports `0x05` for
+/// every mode while the charger is plugged in. `BST0` is the EC *status* byte:
+/// its bits describe the current power path, not the last `SBCO` argument.
 ///
-/// `BST0` reflects the state the firmware actually applied:
-/// - bit `0x10` set -> charge inhibited
-/// - bit `0x01` set -> forced discharge
-/// - otherwise -> normal charging (Auto)
+/// Live values observed on this HP (board 849A):
+/// - `0x00` -> on battery, idle
+/// - `0x40` -> AC present, idle (at limit / not charging)
+/// - `0x41` -> AC present, discharging
+/// - `0x42` -> AC present, charging
+/// - `0x80` -> `SBCO 0x0100` applied
+/// - `0x90` -> charge inhibited (`SBCO 0x0500`)
+/// - `0xc0`/`0xc8` -> `SBCO 0x0300` applied
+///
+/// Only bit `0x10` is a charge-inhibit signal. Bit `0x01` merely means the pack
+/// is discharging, which is a normal power-path state and never a charge
+/// command, so it must not be read as `ForceDischarge`. Anything without
+/// `0x10` maps to `Auto` so the daemon keeps (re-)asserting normal charging.
 fn parse_bst0(reply: &str) -> HpChargeMode {
     // `/proc/acpi/call` returns the value NUL-terminated and possibly with
     // trailing junk (e.g. "0x90\0"). `str::trim` does not strip NUL, so drop
@@ -96,8 +104,6 @@ fn parse_bst0(reply: &str) -> HpChargeMode {
 
     if value & 0x10 != 0 {
         HpChargeMode::InhibitCharge
-    } else if value & 0x01 != 0 {
-        HpChargeMode::ForceDischarge
     } else {
         HpChargeMode::Auto
     }
@@ -189,11 +195,15 @@ mod tests {
 
     #[test]
     fn test_parse_bst0_maps_hardware_modes() {
-        // Values observed live on the HP EC: Auto=0x40, Inhibit=0xd0, ForceDischarge=0xc1.
+        // Values observed live on the HP EC (board 849A): the discharge bit
+        // (0x01) is a power-path status, not a charge command.
+        assert_eq!(parse_bst0("0x00"), HpChargeMode::Auto);
         assert_eq!(parse_bst0("0x40"), HpChargeMode::Auto);
-        assert_eq!(parse_bst0("0xd0"), HpChargeMode::InhibitCharge);
-        assert_eq!(parse_bst0("0xc1"), HpChargeMode::ForceDischarge);
+        assert_eq!(parse_bst0("0x41"), HpChargeMode::Auto);
+        assert_eq!(parse_bst0("0x80"), HpChargeMode::Auto);
         assert_eq!(parse_bst0("0xc0"), HpChargeMode::Auto);
+        assert_eq!(parse_bst0("0xc8"), HpChargeMode::Auto);
+        assert_eq!(parse_bst0("0x90"), HpChargeMode::InhibitCharge);
     }
 
     #[test]
@@ -201,7 +211,7 @@ mod tests {
         // `/proc/acpi/call` returns e.g. "0x90\0" verbatim.
         assert_eq!(parse_bst0("0x90\0"), HpChargeMode::InhibitCharge);
         assert_eq!(parse_bst0("0x40\0"), HpChargeMode::Auto);
-        assert_eq!(parse_bst0("0x41\0"), HpChargeMode::ForceDischarge);
+        assert_eq!(parse_bst0("0x41\0"), HpChargeMode::Auto);
         assert_eq!(parse_bst0("0x90\0\n"), HpChargeMode::InhibitCharge);
         assert_eq!(parse_bst0("0x90\0trailing"), HpChargeMode::InhibitCharge);
     }
