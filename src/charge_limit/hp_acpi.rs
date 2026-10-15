@@ -82,6 +82,7 @@ pub fn call_acpi(call_str: &str) -> Result<String> {
 /// - `0x42` -> AC present, charging
 /// - `0x80` -> `SBCO 0x0100` applied
 /// - `0x90` -> charge inhibited (`SBCO 0x0500`)
+/// - `0xd0` -> charge inhibited while AC idle (live at the 60% limit)
 /// - `0xc0`/`0xc8` -> `SBCO 0x0300` applied
 ///
 /// Only bit `0x10` is a charge-inhibit signal. Bit `0x01` merely means the pack
@@ -204,6 +205,7 @@ mod tests {
         assert_eq!(parse_bst0("0xc0"), HpChargeMode::Auto);
         assert_eq!(parse_bst0("0xc8"), HpChargeMode::Auto);
         assert_eq!(parse_bst0("0x90"), HpChargeMode::InhibitCharge);
+        assert_eq!(parse_bst0("0xd0"), HpChargeMode::InhibitCharge);
     }
 
     #[test]
