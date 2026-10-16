@@ -52,7 +52,7 @@ pub(crate) struct SeedrCloudTorrent {
     pub(crate) id: u64,
     pub(crate) name: String,
     #[serde(default)]
-    progress: Option<f64>,
+    pub(crate) progress: Option<f64>,
     #[serde(default)]
     size: Option<u64>,
     #[serde(default)]
@@ -202,6 +202,12 @@ fn notify_stale(task: &SeedrTaskState) {
         ],
     );
     let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+}
+
+/// Normalized comparison key: lowercased, trimmed, without a `folder-` prefix.
+pub(crate) fn base_key(name: &str) -> String {
+    let n = normalize(name);
+    n.strip_prefix("folder-").unwrap_or(&n).to_string()
 }
 
 #[must_use]

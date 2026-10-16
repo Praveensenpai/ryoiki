@@ -147,7 +147,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn get_disk_info (path : & str) -> Option < (u64 , u64 , u64) >
   ```
 
-### `src/bot/torrents.rs` (Role: general, Lines: 348)
+### `src/bot/torrents.rs` (Role: general, Lines: 357)
 - **Responsibility**: Core general logic in src/bot/torrents.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: modules :: torrent :: notify , use crate :: modules :: torrent :: report :: format_status_report , use crate :: modules :: torrent :: seedr , use crate :: notify :: config :: TelegramConfig , use crate :: modules :: torrent :: dedup :: { self , Availability } , use crate :: modules :: torrent :: scheduler :: { self , SubmitOutcome } 
 - **Types & Enums**:
@@ -1200,9 +1200,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_status_report (torrents : & [TorrentInfo]) -> String
   ```
 
-### `src/modules/torrent/scheduler.rs` (Role: general, Lines: 397)
+### `src/modules/torrent/scheduler.rs` (Role: general, Lines: 338)
 - **Responsibility**: Core general logic in src/modules/torrent/scheduler.rs
-- **Imports**: use std :: path :: { Path , PathBuf } , use super :: api , use super :: queue :: { self , QueueEntry , QueuePolicy , QueueState } , use super :: seedr , use crate :: notify :: config :: TelegramConfig 
+- **Imports**: use std :: path :: { Path , PathBuf } , use super :: api , use super :: queue :: { self , QueueEntry , QueuePolicy , QueueState } , use super :: seedr , use super :: seedr_reaper , use crate :: notify :: config :: TelegramConfig 
 - **Types & Enums**:
   ```rust
   pub enum SubmitOutcome
@@ -1235,6 +1235,22 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_seedr_failure (hash : Option < & str > , error : & str , config : & TelegramConfig ,) -> Result < () >
   ```
 
+### `src/modules/torrent/scheduler/tests.rs` (Role: general, Lines: 70)
+- **Responsibility**: Seedr single-slot promotion and space-guard tests
+- **Imports**: use super :: *
+
+### `src/modules/torrent/seedr_reaper.rs` (Role: general, Lines: 123)
+- **Responsibility**: Reaps untracked Seedr cloud items before the space guard
+- **Imports**: use std :: collections :: HashSet , use super :: seedr_tasks :: { base_key , fetch_live_list , load_local_tasks , tasks_dir }
+- **Public Functions & Signatures**:
+  ```rust
+  fn tracked_names () -> HashSet < String >
+  fn tracked_names_from (entries : & [super :: queue :: QueueEntry]) -> HashSet < String >
+  fn reap_untracked_cloud () -> Option < Vec < String > >
+  fn reap_untracked_cloud_with (tracked : & HashSet < String >) -> Option < Vec < String > >
+  fn notify_reaped (names : & [String])
+  ```
+
 ### `src/modules/torrent/seedr_health.rs` (Role: general, Lines: 108)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_health.rs
 - **Imports**: use anyhow :: Context , use reqwest :: blocking :: Client , use std :: time :: Duration , use super :: api , use super :: queue :: { self , QueueState } , use super :: scheduler , use super :: seedr :: { load_pending_magnet , remove_pending_magnet } , use super :: seedr_tasks , use crate :: notify :: config :: TelegramConfig 
@@ -1247,7 +1263,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks/tests.rs
 - **Imports**: use super :: * 
 
-### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 322)
+### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 328)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks.rs
 - **Imports**: use serde :: Deserialize , use std :: collections :: HashSet , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
@@ -1271,7 +1287,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn configure_autorun (lines : & mut Vec < String > , enabled : bool)
   ```
 
-### `src/modules/torrent.rs` (Role: general, Lines: 394)
+### `src/modules/torrent.rs` (Role: general, Lines: 395)
 - **Responsibility**: Core general logic in src/modules/torrent.rs
 - **Imports**: use crate :: runner :: Runner , use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: Path 
 - **Public Functions & Signatures**:

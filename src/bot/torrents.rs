@@ -88,6 +88,15 @@ pub fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> 
 
     let name = magnet_display_name(magnet).unwrap_or_else(|| hash.clone());
 
+    // Free Seedr quota held by torrents added manually on the Seedr site; they
+    // are invisible to our queue, so without this the space guard below sees a
+    // full account and reroutes every magnet to qBittorrent.
+    if let Some(removed) = crate::modules::torrent::seedr_reaper::reap_untracked_cloud() {
+        if !removed.is_empty() {
+            crate::modules::torrent::seedr_reaper::notify_reaped(&removed);
+        }
+    }
+
     if let Some(size) = seedr::extract_magnet_size(magnet) {
         if let Some(avail) = crate::modules::torrent::seedr_tasks::seedr_available_bytes() {
             if size > avail {

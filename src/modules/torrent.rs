@@ -15,6 +15,7 @@ pub mod report;
 pub mod scheduler;
 pub mod seedr;
 pub mod seedr_health;
+pub mod seedr_reaper;
 pub mod seedr_tasks;
 pub mod telegram;
 

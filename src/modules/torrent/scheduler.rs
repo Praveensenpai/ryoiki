@@ -158,6 +158,16 @@ pub(crate) fn promote_next_locked(config: &TelegramConfig) -> Option<String> {
     let mut q = queue::load();
     let policy = QueuePolicy::parse(&config.seedr_queue_policy);
 
+    // Clear manual Seedr entries before probing free space. This function runs
+    // with the queue lock held, so the tracked set is derived from the queue we
+    // already loaded instead of re-entering the non-reentrant lock.
+    let tracked = super::seedr_reaper::tracked_names_from(&q.entries);
+    if let Some(removed) = super::seedr_reaper::reap_untracked_cloud_with(&tracked) {
+        if !removed.is_empty() {
+            super::seedr_reaper::notify_reaped(&removed);
+        }
+    }
+
     let Promotion::Start(candidate) = pick_promotion(&q.entries, policy, None, None) else {
         return None;
     };
@@ -325,73 +335,4 @@ fn notify_space_blocked(name: &str, needed: u64, free: u64) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn entry(hash: &str, seq: u64, state: QueueState) -> QueueEntry {
-        QueueEntry {
-            hash: hash.to_string(),
-            magnet: format!("magnet:?xt=urn:btih:{hash}"),
-            name: hash.to_string(),
-            seq,
-            state,
-            activated_at: None,
-            slow_since: None,
-        }
-    }
-
-    #[test]
-    fn test_pick_promotion_idle_when_active() {
-        let entries = vec![
-            entry("a", 1, QueueState::Active),
-            entry("b", 2, QueueState::Queued),
-        ];
-        assert!(matches!(
-            pick_promotion(&entries, QueuePolicy::Fifo, None, None),
-            Promotion::Idle
-        ));
-    }
-
-    #[test]
-    fn test_pick_promotion_fifo_and_lifo() {
-        let entries = vec![
-            entry("a", 1, QueueState::Queued),
-            entry("b", 2, QueueState::Queued),
-        ];
-        let Promotion::Start(f) = pick_promotion(&entries, QueuePolicy::Fifo, None, None) else {
-            panic!("expected start");
-        };
-        assert_eq!(f, "a");
-        let Promotion::Start(l) = pick_promotion(&entries, QueuePolicy::Lifo, None, None) else {
-            panic!("expected start");
-        };
-        assert_eq!(l, "b");
-    }
-
-    #[test]
-    fn test_pick_promotion_space_blocks() {
-        let entries = vec![entry("a", 1, QueueState::Queued)];
-        assert!(matches!(
-            pick_promotion(&entries, QueuePolicy::Fifo, Some(100), Some(500)),
-            Promotion::SpaceBlocked { .. }
-        ));
-    }
-
-    #[test]
-    fn test_pick_promotion_allows_when_fits() {
-        let entries = vec![entry("a", 1, QueueState::Queued)];
-        assert!(matches!(
-            pick_promotion(&entries, QueuePolicy::Fifo, Some(500), Some(100)),
-            Promotion::Start(_)
-        ));
-    }
-
-    #[test]
-    fn test_pick_promotion_ignores_space_when_unknown() {
-        let entries = vec![entry("a", 1, QueueState::Queued)];
-        assert!(matches!(
-            pick_promotion(&entries, QueuePolicy::Fifo, None, Some(100)),
-            Promotion::Start(_)
-        ));
-    }
-}
+mod tests;
