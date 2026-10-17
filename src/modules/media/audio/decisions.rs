@@ -14,8 +14,10 @@ use std::{fs, time};
 pub const PENDING_DAYS: u64 = 7;
 
 const STORE_FILENAME: &str = "audio-decisions.json";
-/// Seconds in one day, shared with the reminder scheduler.
+/// Seconds in one day, shared with the grace-window maths.
 pub const SECS_PER_DAY: u64 = 86_400;
+/// Reminder cadence: one prompt per pending title every hour.
+pub const SECS_PER_HOUR: u64 = 3_600;
 
 /// A language choice that is waiting on the user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +56,10 @@ pub struct DecisionRecord {
     /// True when the 7-day grace window applied the recommendation.
     #[serde(default)]
     pub auto: bool,
+    /// True when the user asked to stop being prompted. The `[Multi]` file is
+    /// left untouched and the title is never queued again.
+    #[serde(default)]
+    pub silenced: bool,
 }
 
 /// On-disk collection of pending decisions and resolved history.
@@ -155,6 +161,20 @@ pub fn find_history<'a>(store: &'a DecisionStore, id: &str) -> Option<&'a Decisi
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_silenced_flag_roundtrips() {
+        let json =
+            r#"{"id":"a","title":"t","chosen":"kept [Multi]","decided_secs":1,"silenced":true}"#;
+        let record: DecisionRecord = serde_json::from_str(json).unwrap_or_else(|e| panic!("{e}"));
+        assert!(record.silenced);
+        assert!(!record.auto);
+
+        // Older records without the field must still load as not silenced.
+        let legacy = r#"{"id":"a","title":"t","chosen":"Tamil","decided_secs":1}"#;
+        let old: DecisionRecord = serde_json::from_str(legacy).unwrap_or_else(|e| panic!("{e}"));
+        assert!(!old.silenced);
+    }
 
     #[test]
     fn test_decision_key_strips_tags() {

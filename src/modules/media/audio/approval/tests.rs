@@ -38,6 +38,43 @@ fn test_render_prompt_marks_recommendation() {
 }
 
 #[test]
+fn test_register_rejects_single_distinct_language() {
+    // Two streams tagged Kannada (5.1 + stereo) offer no language choice, so
+    // registration must not create an unanswerable pending entry.
+    let probe = MediaProbe {
+        audio_stream_count: 2,
+        audio_languages: vec!["Kannada".to_string()],
+        ..Default::default()
+    };
+    assert!(!probe::needs_language_decision(&probe));
+
+    // Untagged streams still prompt: the language is unknown, not absent.
+    let untagged = MediaProbe {
+        audio_stream_count: 2,
+        audio_languages: Vec::new(),
+        ..Default::default()
+    };
+    assert!(probe::needs_language_decision(&untagged));
+}
+
+#[test]
+fn test_language_keyboard_has_silence_row() {
+    let kb = crate::bot::keyboards::language_keyboard(
+        "abc",
+        &["Tamil".to_string(), "Telugu".to_string()],
+        Some("Telugu"),
+    );
+    assert_eq!(kb.inline_keyboard.len(), 3);
+    let silence_row = kb.inline_keyboard.last().and_then(|r| r.first());
+    assert!(
+        silence_row.is_some(),
+        "silence row must exist in the keyboard"
+    );
+    let data = silence_row.and_then(|b| b.callback_data.as_deref());
+    assert_eq!(data, Some("cb:al:abc:silent"));
+}
+
+#[test]
 fn test_store_roundtrip_serialization() {
     let store = DecisionStore::default();
     let json = serde_json::to_string(&store).unwrap_or_default();

@@ -42,11 +42,17 @@ pub enum AudioSubcommand {
     },
     /// Process the pending strip retry queue (runs hourly via systemd)
     Retry,
-    /// List in-progress language decisions, or send daily reminders (`--notify`)
+    /// List in-progress language decisions, or send hourly reminders (`--notify`)
     Pending {
         /// Send Telegram prompts and apply overdue decisions
         #[arg(long)]
         notify: bool,
+        /// Scan the Jellyfin library for unprompted `[Multi]` files and stage them
+        #[arg(long)]
+        scan: bool,
+        /// Stop prompting for one pending decision id (keeps the [Multi] file)
+        #[arg(long)]
+        silence: Option<String>,
     },
 }
 
@@ -54,7 +60,11 @@ pub enum AudioSubcommand {
 pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
     match sub {
         AudioSubcommand::Retry => return handle_retry(),
-        AudioSubcommand::Pending { notify } => return handle_pending(notify),
+        AudioSubcommand::Pending {
+            notify,
+            scan,
+            silence,
+        } => return handle_pending(notify, scan, silence.as_deref()),
         AudioSubcommand::Inspect { .. }
         | AudioSubcommand::Strip { .. }
         | AudioSubcommand::Sweep { .. } => {}
@@ -104,7 +114,20 @@ pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
     Ok(())
 }
 
-fn handle_pending(notify: bool) -> Result<()> {
+fn handle_pending(notify: bool, scan: bool, silence: Option<&str>) -> Result<()> {
+    if let Some(id) = silence {
+        let msg = super::approval::silence(id)?;
+        println!("  {} {msg}", "🔕".cyan());
+    }
+    if scan {
+        let root = crate::modules::media::organizer::pathing::get_jellyfin_media_dir();
+        let staged = super::approval::scan_library(&root)?;
+        println!(
+            "  {} {staged} unprompted [Multi] file(s) staged from {}",
+            "🔍".cyan(),
+            root.display()
+        );
+    }
     if notify {
         let config = crate::notify::config::TelegramConfig::load()
             .context("Failed to load Telegram config for pending reminders")?;

@@ -14,10 +14,19 @@ use super::{approval, decisions, StripOutcome};
 /// as a `[Multi]` file. When false (anime), only the stripped original is kept and
 /// no sidecar is written.
 pub fn strip_and_preserve(bin: &Path, path: &Path, preserve_multi: bool) -> StripOutcome {
-    let orig_stream_count = probe(path).as_ref().map_or(0, |p| p.audio_stream_count);
+    let orig_probe = probe(path);
+    let orig_stream_count = orig_probe.as_ref().map_or(0, |p| p.audio_stream_count);
     if orig_stream_count <= 1 {
         return StripOutcome::Preserved;
     }
+
+    // Several streams of one language (e.g. 5.1 + stereo) leave nothing to
+    // choose: keep stripping the redundant track, but write no `[Multi]`
+    // sidecar and stage no language decision.
+    let preserve_multi = preserve_multi
+        && orig_probe
+            .as_ref()
+            .is_none_or(probe::needs_language_decision);
 
     let Some(parent_dir) = path.parent() else {
         return StripOutcome::Failed;
@@ -158,7 +167,7 @@ pub fn stage_language_decision(stripped_path: &Path, multi_path: &Path) {
         approval::StageOutcome::Duplicate(reason) => {
             println!("  {} {reason}", "•".dimmed());
         }
-        approval::StageOutcome::Failed => {}
+        approval::StageOutcome::Unnecessary | approval::StageOutcome::Failed => {}
     }
 }
 
@@ -256,7 +265,10 @@ fn stage_preserved_if_multi(path: &Path, preserve_multi: bool) -> bool {
     if !preserve_multi {
         return false;
     }
-    if probe(path).as_ref().map_or(0, |p| p.audio_stream_count) > 1 {
+    let needs_choice = probe(path)
+        .as_ref()
+        .is_some_and(probe::needs_language_decision);
+    if needs_choice {
         stage_language_decision(path, path);
         return true;
     }

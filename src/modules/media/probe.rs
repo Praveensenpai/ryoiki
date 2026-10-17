@@ -260,6 +260,18 @@ pub fn map_language_code(code: &str) -> String {
     }
 }
 
+/// True when a file genuinely needs a human original-language decision.
+///
+/// Multiple streams only imply a choice when they carry more than one distinct
+/// language. A 5.1 + stereo pair tagged with the same language (common in WEB-DL
+/// releases) still has a single language, so no prompt is warranted. Untagged
+/// streams (`audio_languages` empty) keep the prompt: the language is unknown,
+/// not absent, and the tracks may genuinely differ.
+#[must_use]
+pub fn needs_language_decision(probe: &MediaProbe) -> bool {
+    probe.audio_stream_count > 1 && probe.audio_languages.len() != 1
+}
+
 fn resolve_primary_language(languages: &[String]) -> Option<String> {
     if languages.is_empty() {
         return None;

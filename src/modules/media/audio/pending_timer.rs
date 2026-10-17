@@ -1,4 +1,4 @@
-//! Daily systemd user timer that sends audio language reminders and applies
+//! Hourly systemd user timer that sends audio language reminders and applies
 //! expired decisions.
 
 use anyhow::{Context, Result};
@@ -20,18 +20,18 @@ ExecStart=%h/.local/bin/ryoiki audio pending --notify
 ";
 
 const TIMER_CONTENT: &str = r"[Unit]
-Description=Send Ryoiki audio language reminders daily
+Description=Send Ryoiki audio language reminders hourly
 
 [Timer]
 OnBootSec=10min
-OnUnitActiveSec=24h
+OnUnitActiveSec=1h
 Persistent=true
 
 [Install]
 WantedBy=timers.target
 ";
 
-/// Deploys and activates the daily audio language reminder timer.
+/// Deploys and activates the hourly audio language reminder timer.
 pub fn deploy_pending_timer(home: &str) -> Result<()> {
     let systemd_dir = Path::new(home).join(".config/systemd/user");
     fs::create_dir_all(&systemd_dir)
@@ -55,7 +55,7 @@ pub fn deploy_pending_timer(home: &str) -> Result<()> {
 
     if status.success() {
         println!(
-            "  {} Audio language reminder timer enabled (daily)",
+            "  {} Audio language reminder timer enabled (hourly)",
             "✔".green().bold()
         );
     } else {
@@ -67,7 +67,7 @@ pub fn deploy_pending_timer(home: &str) -> Result<()> {
     Ok(())
 }
 
-/// Checks whether the daily audio language reminder timer is active.
+/// Checks whether the hourly audio language reminder timer is active.
 #[must_use]
 pub fn is_timer_active() -> bool {
     Command::new("systemctl")
@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_pending_timer_cadence() {
-        assert!(TIMER_CONTENT.contains("OnUnitActiveSec=24h"));
+        assert!(TIMER_CONTENT.contains("OnUnitActiveSec=1h"));
     }
 
     #[test]

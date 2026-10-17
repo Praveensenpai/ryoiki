@@ -46,14 +46,21 @@ fn handle_language_callback(
     let Some(rest) = data.strip_prefix("cb:al:") else {
         return Ok(false);
     };
-    let Some((id, idx)) = rest.split_once(':') else {
-        return Ok(false);
-    };
-    let Ok(index) = idx.parse::<usize>() else {
+    let Some((id, action)) = rest.split_once(':') else {
         return Ok(false);
     };
 
-    let text = resolve_language_text(id, index);
+    let text = if action == "silent" {
+        match crate::modules::media::audio::approval::silence(id) {
+            Ok(msg) => format!("🔕 <b>{msg}</b>"),
+            Err(e) => format!("⚠️ <b>Failed:</b> {e}"),
+        }
+    } else {
+        let Ok(index) = action.parse::<usize>() else {
+            return Ok(false);
+        };
+        resolve_language_text(id, index)
+    };
 
     edit_message(
         client,

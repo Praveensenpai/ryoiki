@@ -30,6 +30,41 @@ fn test_parse_ffprobe_json() {
 }
 
 #[test]
+fn test_needs_language_decision() {
+    // Two streams, two languages -> real choice.
+    let multi = MediaProbe {
+        audio_stream_count: 2,
+        audio_languages: vec!["Tamil".to_string(), "Telugu".to_string()],
+        ..Default::default()
+    };
+    assert!(needs_language_decision(&multi));
+
+    // Two streams, one distinct language (5.1 + stereo) -> no choice.
+    let same_lang = MediaProbe {
+        audio_stream_count: 2,
+        audio_languages: vec!["Kannada".to_string()],
+        ..Default::default()
+    };
+    assert!(!needs_language_decision(&same_lang));
+
+    // Single stream can never need a choice.
+    let single = MediaProbe {
+        audio_stream_count: 1,
+        audio_languages: vec!["Kannada".to_string()],
+        ..Default::default()
+    };
+    assert!(!needs_language_decision(&single));
+
+    // Untagged streams keep the prompt: language is unknown, not absent.
+    let untagged = MediaProbe {
+        audio_stream_count: 2,
+        audio_languages: Vec::new(),
+        ..Default::default()
+    };
+    assert!(needs_language_decision(&untagged));
+}
+
+#[test]
 fn test_resolve_primary_language() {
     assert_eq!(
         resolve_primary_language(&["Malayalam".to_string()]).as_deref(),

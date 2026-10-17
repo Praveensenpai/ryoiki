@@ -6,7 +6,7 @@ use reqwest::blocking::Client;
 use serde::Deserialize;
 use std::path::Path;
 
-use super::super::probe::MediaProbe;
+use super::super::probe::{self, MediaProbe};
 use super::decisions::{self, days_left, find_history, now_secs, DecisionRecord, PendingDecision};
 use super::remux::apply_language;
 use crate::bot::keyboards::language_keyboard;
@@ -14,6 +14,13 @@ use crate::notify::client::{escape_html, format_card, send_alert};
 use crate::notify::config::TelegramConfig;
 
 const MAX_CANDIDATES: usize = 6;
+
+mod scan;
+
+#[cfg(test)]
+mod tests;
+
+pub use scan::{scan_library, silence};
 
 #[derive(Debug, Deserialize)]
 struct LangVerdict {
@@ -78,6 +85,8 @@ pub enum StageOutcome {
     Pending,
     /// The title was already decided; carries the human-readable reason.
     Duplicate(String),
+    /// The file carries no genuine language choice (one distinct language).
+    Unnecessary,
     /// The decision could not be persisted (store error).
     Failed,
 }
@@ -103,10 +112,11 @@ pub fn register(
     };
 
     if let Some(rec) = find_history(&store, &id) {
-        return StageOutcome::Duplicate(format!(
-            "already selected as [{}] — skipping duplicate",
-            rec.chosen
-        ));
+        return StageOutcome::Duplicate(if rec.silenced {
+            "prompting silenced for this title — keeping the [Multi] copy".to_string()
+        } else {
+            format!("already selected as [{}] — skipping duplicate", rec.chosen)
+        });
     }
 
     if let Some(existing) = store.pending.iter_mut().find(|p| p.id == id) {
@@ -115,6 +125,13 @@ pub fn register(
         existing.title = name.to_string();
         let _ = decisions::save(&store);
         return StageOutcome::Pending;
+    }
+
+    // A choice only exists when the file carries more than one distinct
+    // language. Guard here as well so stale or odd probe data cannot create an
+    // unanswerable prompt (for example two Kannada streams: 5.1 + stereo).
+    if probe.is_some_and(|p| !probe::needs_language_decision(p)) {
+        return StageOutcome::Unnecessary;
     }
 
     store.pending.push(PendingDecision {
@@ -168,6 +185,7 @@ pub fn resolve(id: &str, chosen: &str, auto: bool) -> Result<String> {
         chosen: chosen.to_string(),
         decided_secs: now_secs(),
         auto,
+        silenced: false,
     });
     decisions::save(&store)?;
 
@@ -233,10 +251,22 @@ pub fn notify_pending(config: &TelegramConfig) -> Result<usize> {
             store.pending[idx].recommended = recommend_language(&client, &title, Some(&probe));
         }
 
-        // Re-remind daily: only skip when a prompt went out within the last day.
+        // Re-remind hourly: only skip when a prompt went out within the last hour.
         let last = store.pending[idx].last_reminded_secs;
-        if last > 0 && now.saturating_sub(last) < decisions::SECS_PER_DAY {
+        if last > 0 && now.saturating_sub(last) < decisions::SECS_PER_HOUR {
             continue;
+        }
+
+        // Replace the previous prompt instead of stacking a new one. Deleting
+        // first keeps exactly one live message per pending title; a failed
+        // delete (message already gone) must not block the fresh prompt.
+        if let Some(old_id) = store.pending[idx].prompt_msg_id {
+            let _ = crate::bot::client::delete_message(
+                &client,
+                &config.bot_token,
+                &config.chat_id,
+                old_id,
+            );
         }
 
         let card = render_prompt(&store.pending[idx]);
@@ -336,6 +366,3 @@ pub fn find_pending(id: &str) -> Option<PendingDecision> {
         .into_iter()
         .find(|p| p.id == id)
 }
-
-#[cfg(test)]
-mod tests;

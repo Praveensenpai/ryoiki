@@ -101,6 +101,18 @@ pub fn edit_message(
     Ok(())
 }
 
+/// Deletes a previously sent message. Missing or already-deleted messages are
+/// not an error: the caller only cares that the message is gone.
+pub fn delete_message(client: &Client, token: &str, chat_id: &str, message_id: i64) -> Result<()> {
+    let url = format!("https://api.telegram.org/bot{token}/deleteMessage");
+    let payload = json!({
+        "chat_id": chat_id,
+        "message_id": message_id,
+    });
+    let _ = client.post(&url).json(&payload).send()?;
+    Ok(())
+}
+
 pub fn answer_callback(
     client: &Client,
     token: &str,

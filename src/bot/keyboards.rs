@@ -109,7 +109,7 @@ pub fn language_keyboard(
     candidates: &[String],
     recommended: Option<&str>,
 ) -> InlineKeyboardMarkup {
-    let rows = candidates
+    let mut rows: Vec<Vec<InlineKeyboardButton>> = candidates
         .iter()
         .enumerate()
         .map(|(idx, lang)| {
@@ -125,6 +125,10 @@ pub fn language_keyboard(
             )]
         })
         .collect();
+    rows.push(vec![InlineKeyboardButton::callback(
+        "🔕 Stop asking",
+        &format!("cb:al:{id}:silent"),
+    )]);
     InlineKeyboardMarkup {
         inline_keyboard: rows,
     }
