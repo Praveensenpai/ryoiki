@@ -18,9 +18,15 @@ pub struct Message {
     #[serde(rename = "message_id")]
     pub id: i64,
     pub from: Option<User>,
+    pub chat: Option<Chat>,
     pub text: Option<String>,
     pub caption: Option<String>,
     pub document: Option<Document>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Chat {
+    pub id: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -34,6 +40,27 @@ pub struct CallbackQuery {
 #[derive(Debug, Deserialize)]
 pub struct User {
     pub id: i64,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
+    pub username: Option<String>,
+}
+
+impl User {
+    /// Human-readable label for access-request prompts.
+    #[must_use]
+    pub fn display_name(&self) -> String {
+        let full = [self.first_name.as_deref(), self.last_name.as_deref()]
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>()
+            .join(" ");
+        match (&self.username, full.is_empty()) {
+            (Some(handle), false) => format!("@{handle} ({full})"),
+            (Some(handle), true) => format!("@{handle}"),
+            (None, false) => full,
+            (None, true) => "unknown user".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]

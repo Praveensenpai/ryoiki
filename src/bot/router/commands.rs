@@ -193,6 +193,13 @@ fn dispatch_control(
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/help" | "/start" => send_help(client, config).map(|()| true),
+        "/request" => reply(
+            client,
+            &config.bot_token,
+            &config.chat_id,
+            "✅ <b>Access already granted.</b> No approval needed.",
+        )
+        .map(|()| true),
         _ => Ok(false),
     }
 }
@@ -265,6 +272,7 @@ fn send_help(client: &Client, config: &TelegramConfig) -> Result<()> {
         /poweroff — Graceful server shutdown (with confirmation)\n\
         /check — Audit system tools & dev runtimes\n\
         /update — Update ryoiki to latest release\n\
+        /request — Ask the owner for access (non-owners only)\n\
         ━━━━━━━━━━━━━━━━━━━━━━━";
     reply(client, &config.bot_token, &config.chat_id, help_text)
 }

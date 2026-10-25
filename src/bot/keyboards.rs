@@ -143,6 +143,22 @@ pub fn seedr_queue_keyboard(hash: &str) -> InlineKeyboardMarkup {
     }
 }
 
+/// Owner-only Approve/Deny buttons for a pending access request.
+pub fn access_request_keyboard(user_id: i64) -> InlineKeyboardMarkup {
+    InlineKeyboardMarkup {
+        inline_keyboard: vec![
+            vec![InlineKeyboardButton::callback(
+                "✅ Approve",
+                &format!("cb:access:ok:{user_id}"),
+            )],
+            vec![InlineKeyboardButton::callback(
+                "✖ Deny",
+                &format!("cb:access:no:{user_id}"),
+            )],
+        ],
+    }
+}
+
 pub fn reboot_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![

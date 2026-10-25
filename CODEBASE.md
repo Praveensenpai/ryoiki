@@ -15,6 +15,27 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ## 3. Module & Interface Skeleton
 
+### `src/bot/access.rs` (Role: general, Lines: 216)
+- **Responsibility**: Core general logic in src/bot/access.rs
+- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: collections :: BTreeSet , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: sync :: { Arc , Mutex } 
+- **Types & Enums**:
+  ```rust
+  pub struct AccessControl
+  pub enum AccessAction
+  ```
+- **Public Functions & Signatures**:
+  ```rust
+  fn load () -> Self
+  fn with_path (path : PathBuf) -> Self
+  fn is_authorized (& self , user_id : i64) -> bool
+  fn is_pending (& self , user_id : i64) -> bool
+  fn mark_pending (& self , user_id : i64) -> bool
+  fn clear_pending (& self , user_id : i64)
+  fn approve (& self , user_id : i64) -> Result < () >
+  fn state_path () -> PathBuf
+  fn parse_callback (data : & str) -> Option < (AccessAction , i64) >
+  ```
+
 ### `src/bot/actions.rs` (Role: general, Lines: 112)
 - **Responsibility**: Core general logic in src/bot/actions.rs
 - **Imports**: use anyhow :: { bail , Result } , use std :: process :: Command 
@@ -49,7 +70,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn download_telegram_file (client : & Client , token : & str , file_id : & str ,) -> Result < (String , Vec < u8 >) >
   ```
 
-### `src/bot/keyboards.rs` (Role: general, Lines: 168)
+### `src/bot/keyboards.rs` (Role: general, Lines: 184)
 - **Responsibility**: Core general logic in src/bot/keyboards.rs
 - **Imports**: use super :: types :: { InlineKeyboardButton , InlineKeyboardMarkup } 
 - **Public Functions & Signatures**:
@@ -63,6 +84,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn maintenance_keyboard () -> InlineKeyboardMarkup
   fn language_keyboard (id : & str , candidates : & [String] , recommended : Option < & str > ,) -> InlineKeyboardMarkup
   fn seedr_queue_keyboard (hash : & str) -> InlineKeyboardMarkup
+  fn access_request_keyboard (user_id : i64) -> InlineKeyboardMarkup
   fn reboot_keyboard () -> InlineKeyboardMarkup
   fn poweroff_keyboard () -> InlineKeyboardMarkup
   ```
@@ -94,17 +116,17 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn spawn_timeout < F > (prompts : & Prompts , hash : & str , timeout_secs : u64 , on_timeout : F) where F : FnOnce (i64) + Send + 'static ,
   ```
 
-### `src/bot/router/commands.rs` (Role: general, Lines: 270)
+### `src/bot/router/commands.rs` (Role: general, Lines: 278)
 - **Responsibility**: Core general logic in src/bot/router/commands.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: keyboards :: torrents_keyboard , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig 
 
-### `src/bot/router.rs` (Role: general, Lines: 236)
+### `src/bot/router.rs` (Role: general, Lines: 366)
 - **Responsibility**: Core general logic in src/bot/router.rs
-- **Imports**: use reqwest :: blocking :: Client , use super :: callbacks :: handle_callback_query , use super :: client :: { download_telegram_file , reply } , use super :: torrents :: { handle_magnet , handle_torrent_file , MagnetOutcome } , use super :: types :: { CallbackQuery , Message } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use commands :: dispatch_command 
+- **Imports**: use reqwest :: blocking :: Client , use super :: access :: { self , AccessAction , AccessControl } , use super :: callbacks :: handle_callback_query , use super :: client :: { download_telegram_file , reply , reply_with_keyboard } , use super :: keyboards :: access_request_keyboard , use super :: torrents :: { handle_magnet , handle_torrent_file , MagnetOutcome } , use super :: types :: { CallbackQuery , Message , User } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use commands :: dispatch_command 
 - **Public Functions & Signatures**:
   ```rust
-  fn route_message (client : & Client , config : & TelegramConfig , prompts : & crate :: bot :: prompts :: Prompts , msg : Message ,)
-  fn route_callback (client : & Client , config : & TelegramConfig , prompts : & crate :: bot :: prompts :: Prompts , cb : CallbackQuery ,)
+  fn route_message (client : & Client , config : & TelegramConfig , prompts : & crate :: bot :: prompts :: Prompts , access : & AccessControl , msg : Message ,)
+  fn route_callback (client : & Client , config : & TelegramConfig , prompts : & crate :: bot :: prompts :: Prompts , access : & AccessControl , cb : CallbackQuery ,)
   fn extract_command (text : & str) -> Option < (& str , & str) >
   fn extract_magnet (text : & str) -> Option < String >
   ```
@@ -167,7 +189,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn start_torrent_monitor (config : TelegramConfig)
   ```
 
-### `src/bot/types.rs` (Role: general, Lines: 122)
+### `src/bot/types.rs` (Role: general, Lines: 149)
 - **Responsibility**: Core general logic in src/bot/types.rs
 - **Imports**: use serde :: { Deserialize , Serialize } 
 - **Types & Enums**:
@@ -175,6 +197,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   pub struct TelegramResponse
   pub struct Update
   pub struct Message
+  pub struct Chat
   pub struct CallbackQuery
   pub struct User
   pub struct Document
@@ -184,6 +207,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 - **Public Functions & Signatures**:
   ```rust
+  fn display_name (& self) -> String
   fn callback (text : & str , data : & str) -> Self
   ```
 
@@ -203,7 +227,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn make_progress_bar (pct : u8 , width : usize) -> String
   ```
 
-### `src/bot.rs` (Role: general, Lines: 53)
+### `src/bot.rs` (Role: general, Lines: 55)
 - **Responsibility**: Core general logic in src/bot.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: time :: Duration , use crate :: notify :: config :: TelegramConfig 
 - **Public Functions & Signatures**:

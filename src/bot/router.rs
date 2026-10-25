@@ -1,9 +1,11 @@
 use reqwest::blocking::Client;
 
+use super::access::{self, AccessAction, AccessControl};
 use super::callbacks::handle_callback_query;
-use super::client::{download_telegram_file, reply};
+use super::client::{download_telegram_file, reply, reply_with_keyboard};
+use super::keyboards::access_request_keyboard;
 use super::torrents::{handle_magnet, handle_torrent_file, MagnetOutcome};
-use super::types::{CallbackQuery, Message};
+use super::types::{CallbackQuery, Message, User};
 use crate::notify::client::escape_html;
 use crate::notify::config::TelegramConfig;
 
@@ -15,17 +17,28 @@ pub fn route_message(
     client: &Client,
     config: &TelegramConfig,
     prompts: &crate::bot::prompts::Prompts,
+    access: &AccessControl,
     msg: Message,
 ) {
-    let Ok(auth_id) = config.chat_id.parse::<i64>() else {
+    let Ok(owner_id) = config.chat_id.parse::<i64>() else {
         return;
     };
-    if msg.from.is_none_or(|u| u.id != auth_id) {
+    let Some(user) = msg.from.as_ref() else {
+        return;
+    };
+    let is_owner = user.id == owner_id;
+
+    if !is_owner && !access.is_authorized(user.id) {
+        handle_untrusted_message(client, config, access, &msg, user);
         return;
     }
 
-    if let Some(doc) = msg.document {
-        handle_torrent_document(client, config, &doc);
+    if is_owner {
+        if let Some(doc) = msg.document {
+            handle_torrent_document(client, config, &doc);
+            return;
+        }
+    } else if msg.document.is_some() {
         return;
     }
 
@@ -47,6 +60,62 @@ pub fn route_message(
     if let Some(magnet) = extract_magnet(trimmed) {
         handle_magnet_message(client, config, prompts, &magnet);
     }
+}
+
+/// Answers a stranger: `/request` notifies the owner, anything else is refused.
+fn handle_untrusted_message(
+    client: &Client,
+    config: &TelegramConfig,
+    access: &AccessControl,
+    msg: &Message,
+    user: &User,
+) {
+    let chat_id = msg.chat.as_ref().map_or(user.id, |c| c.id).to_string();
+    let is_request = msg
+        .text
+        .as_deref()
+        .and_then(extract_command)
+        .is_some_and(|(cmd, _)| cmd == "/request");
+
+    if !is_request {
+        let _ = reply(
+            client,
+            &config.bot_token,
+            &chat_id,
+            "🔒 <b>Access required.</b>\nSend /request to ask the owner for permission.",
+        );
+        return;
+    }
+
+    if access.is_pending(user.id) {
+        let _ = reply(
+            client,
+            &config.bot_token,
+            &chat_id,
+            "⏳ <b>Request already pending.</b> The owner has not answered yet.",
+        );
+        return;
+    }
+
+    access.mark_pending(user.id);
+    let _ = reply(
+        client,
+        &config.bot_token,
+        &chat_id,
+        "⏳ <b>Request sent.</b> You will get access once the owner approves.",
+    );
+
+    let name = escape_html(&user.display_name());
+    let prompt = format!(
+        "🔐 <b>Access Request</b>\n\
+        ━━━━━━━━━━━━━━━━━━━━━━━\n\
+        User: {name}\n\
+        ID: <code>{}</code>\n\n\
+        Approve this user?",
+        user.id
+    );
+    let kb = access_request_keyboard(user.id);
+    let _ = reply_with_keyboard(client, &config.bot_token, &config.chat_id, &prompt, &kb);
 }
 
 pub(crate) fn handle_magnet_message(
@@ -113,18 +182,32 @@ pub fn route_callback(
     client: &Client,
     config: &TelegramConfig,
     prompts: &crate::bot::prompts::Prompts,
+    access: &AccessControl,
     cb: CallbackQuery,
 ) {
-    let Ok(auth_id) = config.chat_id.parse::<i64>() else {
+    let Ok(owner_id) = config.chat_id.parse::<i64>() else {
         return;
     };
-    if cb.from.id != auth_id {
+    let is_owner = cb.from.id == owner_id;
+    if !is_owner && !access.is_authorized(cb.from.id) {
         return;
     }
 
     let Some(data) = cb.data else {
         return;
     };
+
+    // Only the owner may grant or revoke access.
+    if is_owner {
+        if let Some((action, target)) = access::parse_callback(&data) {
+            let _ = super::client::answer_callback(client, &config.bot_token, &cb.id, None);
+            handle_access_callback(client, config, access, action, target, cb.message.as_ref());
+            return;
+        }
+    } else if data.starts_with(access::CALLBACK_PREFIX) {
+        return;
+    }
+
     let Some(msg) = cb.message else {
         return;
     };
@@ -132,6 +215,53 @@ pub fn route_callback(
     let _ = super::client::answer_callback(client, &config.bot_token, &cb.id, None);
     if let Err(e) = handle_callback_query(client, config, prompts, &data, msg.id) {
         eprintln!("[bot] Callback error ({data}): {e}");
+    }
+}
+
+/// Applies an owner Approve/Deny decision and rewrites the prompt message.
+fn handle_access_callback(
+    client: &Client,
+    config: &TelegramConfig,
+    access: &AccessControl,
+    action: AccessAction,
+    target: i64,
+    msg: Option<&Message>,
+) {
+    let target_chat = target.to_string();
+    let text = match action {
+        AccessAction::Approve => match access.approve(target) {
+            Ok(()) => {
+                let _ = reply(
+                    client,
+                    &config.bot_token,
+                    &target_chat,
+                    "✅ <b>Access granted.</b> You now have full control of this bot.",
+                );
+                format!("✅ <b>Approved</b> user <code>{target}</code>.")
+            }
+            Err(e) => format!("⚠️ <b>Failed to persist approval:</b> {e}"),
+        },
+        AccessAction::Deny => {
+            access.clear_pending(target);
+            let _ = reply(
+                client,
+                &config.bot_token,
+                &target_chat,
+                "❌ <b>Access denied</b> by the owner.",
+            );
+            format!("✖ <b>Denied</b> user <code>{target}</code>.")
+        }
+    };
+
+    if let Some(msg) = msg {
+        let _ = super::client::edit_message(
+            client,
+            &config.bot_token,
+            &config.chat_id,
+            msg.id,
+            &text,
+            None,
+        );
     }
 }
 

@@ -1,3 +1,4 @@
+pub mod access;
 pub mod actions;
 pub mod callbacks;
 pub mod client;
@@ -31,6 +32,7 @@ pub fn run_bot() -> Result<()> {
     crate::notify::server::spawn_background_server(config.clone(), config.api_port);
     torrents::start_torrent_monitor(config.clone());
     let prompts = prompts::new_registry();
+    let access = access::AccessControl::load();
 
     let mut offset: i64 = 0;
 
@@ -43,10 +45,10 @@ pub fn run_bot() -> Result<()> {
         for u in updates {
             offset = u.id + 1;
             if let Some(msg) = u.message {
-                router::route_message(&client, &config, &prompts, msg);
+                router::route_message(&client, &config, &prompts, &access, msg);
             }
             if let Some(cb) = u.callback_query {
-                router::route_callback(&client, &config, &prompts, cb);
+                router::route_callback(&client, &config, &prompts, &access, cb);
             }
         }
     }
