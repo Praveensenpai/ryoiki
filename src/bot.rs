@@ -2,6 +2,7 @@ pub mod access;
 pub mod actions;
 pub mod callbacks;
 pub mod client;
+pub mod gate;
 pub mod keyboards;
 pub mod maintenance;
 pub mod prompts;

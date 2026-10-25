@@ -82,6 +82,18 @@ pub struct TelegramConfig {
 }
 
 impl TelegramConfig {
+    /// Returns a copy of this config that replies to `chat_id`.
+    ///
+    /// Access is enforced in the router, so downstream handlers only use
+    /// `chat_id` as a reply target. Repointing it lets approved non-owner
+    /// users receive their own command output instead of the owner's chat.
+    #[must_use]
+    pub fn with_chat_id(&self, chat_id: &str) -> Self {
+        let mut cfg = self.clone();
+        cfg.chat_id = chat_id.to_string();
+        cfg
+    }
+
     #[must_use]
     pub fn primary_config_path() -> PathBuf {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());

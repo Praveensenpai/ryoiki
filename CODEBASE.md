@@ -70,6 +70,10 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn download_telegram_file (client : & Client , token : & str , file_id : & str ,) -> Result < (String , Vec < u8 >) >
   ```
 
+### `src/bot/gate.rs` (Role: general, Lines: 113)
+- **Responsibility**: Core general logic in src/bot/gate.rs
+- **Imports**: use reqwest :: blocking :: Client , use super :: access :: AccessControl , use super :: client :: { reply , reply_with_keyboard } , use super :: keyboards :: access_request_keyboard , use super :: router :: extract_command , use super :: types :: { Message , User } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig 
+
 ### `src/bot/keyboards.rs` (Role: general, Lines: 184)
 - **Responsibility**: Core general logic in src/bot/keyboards.rs
 - **Imports**: use super :: types :: { InlineKeyboardButton , InlineKeyboardMarkup } 
@@ -120,9 +124,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/bot/router/commands.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: keyboards :: torrents_keyboard , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig 
 
-### `src/bot/router.rs` (Role: general, Lines: 366)
+### `src/bot/router.rs` (Role: general, Lines: 329)
 - **Responsibility**: Core general logic in src/bot/router.rs
-- **Imports**: use reqwest :: blocking :: Client , use super :: access :: { self , AccessAction , AccessControl } , use super :: callbacks :: handle_callback_query , use super :: client :: { download_telegram_file , reply , reply_with_keyboard } , use super :: keyboards :: access_request_keyboard , use super :: torrents :: { handle_magnet , handle_torrent_file , MagnetOutcome } , use super :: types :: { CallbackQuery , Message , User } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use commands :: dispatch_command 
+- **Imports**: use reqwest :: blocking :: Client , use super :: access :: { self , AccessAction , AccessControl } , use super :: callbacks :: handle_callback_query , use super :: client :: { download_telegram_file , reply } , use super :: gate :: handle_untrusted_message , use super :: torrents :: { handle_magnet , handle_torrent_file , MagnetOutcome } , use super :: types :: { CallbackQuery , Message } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use commands :: dispatch_command 
 - **Public Functions & Signatures**:
   ```rust
   fn route_message (client : & Client , config : & TelegramConfig , prompts : & crate :: bot :: prompts :: Prompts , access : & AccessControl , msg : Message ,)
@@ -227,7 +231,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn make_progress_bar (pct : u8 , width : usize) -> String
   ```
 
-### `src/bot.rs` (Role: general, Lines: 55)
+### `src/bot.rs` (Role: general, Lines: 56)
 - **Responsibility**: Core general logic in src/bot.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: time :: Duration , use crate :: notify :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
@@ -1367,7 +1371,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_card (category : & str , badge : & str , fields : & [(& str , & str)]) -> String
   ```
 
-### `src/notify/config.rs` (Role: general, Lines: 169)
+### `src/notify/config.rs` (Role: general, Lines: 181)
 - **Responsibility**: Core general logic in src/notify/config.rs
 - **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
@@ -1376,6 +1380,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```
 - **Public Functions & Signatures**:
   ```rust
+  fn with_chat_id (& self , chat_id : & str) -> Self
   fn primary_config_path () -> PathBuf
   fn legacy_config_path () -> PathBuf
   fn candidate_paths () -> Vec < PathBuf >
