@@ -4,6 +4,7 @@ pub mod config;
 pub mod disk;
 pub mod heuristic;
 pub mod interactive;
+pub mod library;
 pub mod organizer;
 pub mod probe;
 pub mod prune_timer;

@@ -93,12 +93,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn poweroff_keyboard () -> InlineKeyboardMarkup
   ```
 
-### `src/bot/maintenance.rs` (Role: general, Lines: 243)
+### `src/bot/maintenance.rs` (Role: general, Lines: 250)
 - **Responsibility**: Core general logic in src/bot/maintenance.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
   ```rust
   fn handle_bot_organize (config : & TelegramConfig) -> Result < String >
+  fn handle_bot_library () -> String
   fn handle_bot_prune () -> Result < String >
   fn handle_bot_sync () -> String
   fn handle_bot_audio (action : & str) -> Result < String >
@@ -120,9 +121,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn spawn_timeout < F > (prompts : & Prompts , hash : & str , timeout_secs : u64 , on_timeout : F) where F : FnOnce (i64) + Send + 'static ,
   ```
 
-### `src/bot/router/commands.rs` (Role: general, Lines: 278)
+### `src/bot/router/commands.rs` (Role: general, Lines: 284)
 - **Responsibility**: Core general logic in src/bot/router/commands.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: keyboards :: torrents_keyboard , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig 
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: keyboards :: torrents_keyboard , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_library , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig 
 
 ### `src/bot/router.rs` (Role: general, Lines: 329)
 - **Responsibility**: Core general logic in src/bot/router.rs
@@ -763,6 +764,23 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn run_interactive_tui (local : Vec < MediaItem > , remote : Vec < MediaItem > , dir : TransferDirection , local_disk : Option < DiskUsage > , home_path : & Path ,) -> Result < Option < (TransferDirection , Vec < MediaItem >) > >
   ```
 
+### `src/modules/media/library.rs` (Role: general, Lines: 301)
+- **Responsibility**: Core general logic in src/modules/media/library.rs
+- **Imports**: use std :: fs , use std :: path :: { Path , PathBuf } , use super :: organizer :: pathing :: is_video_file , use crate :: notify :: client :: escape_html 
+- **Types & Enums**:
+  ```rust
+  pub struct SectionStats
+  pub struct LibraryReport
+  ```
+- **Public Functions & Signatures**:
+  ```rust
+  fn total_titles (& self) -> usize
+  fn total_videos (& self) -> usize
+  fn empty_folders (& self) -> Vec < & str >
+  fn render_html (& self) -> String
+  fn scan_library (base : & Path) -> LibraryReport
+  ```
+
 ### `src/modules/media/organizer/cli.rs` (Role: cli, Lines: 194)
 - **Responsibility**: Core cli logic in src/modules/media/organizer/cli.rs
 - **Imports**: use anyhow :: Result , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: path :: Path , use super :: { organize_path , organize_torrent } , use crate :: modules :: media :: OrganizeResult , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: runner :: Runner 
@@ -1007,7 +1025,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn are_some_seasons_selected (& self) -> bool
   ```
 
-### `src/modules/media.rs` (Role: general, Lines: 125)
+### `src/modules/media.rs` (Role: general, Lines: 126)
 - **Responsibility**: Core general logic in src/modules/media.rs
 - **Imports**: use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: io :: IsTerminal , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:

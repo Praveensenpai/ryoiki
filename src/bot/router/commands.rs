@@ -5,7 +5,8 @@ use super::super::actions::{handle_charge_limit, handle_self_update};
 use super::super::client::{reply, reply_with_keyboard};
 use super::super::keyboards::torrents_keyboard;
 use super::super::maintenance::{
-    handle_bot_audio, handle_bot_check, handle_bot_organize, handle_bot_prune, handle_bot_sync,
+    handle_bot_audio, handle_bot_check, handle_bot_library, handle_bot_organize, handle_bot_prune,
+    handle_bot_sync,
 };
 use super::super::services::{
     get_docker_containers, get_docker_logs, get_managed_services, restart_docker_container,
@@ -159,6 +160,10 @@ fn dispatch_media(
             let text = handle_bot_audio(arg)?;
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
+        "/movies" | "/library" => {
+            let text = handle_bot_library();
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+        }
         _ => Ok(false),
     }
 }
@@ -262,6 +267,7 @@ fn send_help(client: &Client, config: &TelegramConfig) -> Result<()> {
         /magnet &lt;magnet&gt; — Queue magnet (dual-pipeline)\n\
         /seedr [magnet] — Offload torrent to Seedr cloud\n\
         /pause • /resume — Torrent controls\n\
+        /movies — Count movies, shows &amp; anime, flag empty folders\n\
         /organize — Classify & move media to Jellyfin\n\
         /prune — Evict watched media to Google Drive\n\
         /sync — Jellyfin refresh & cloud sync\n\

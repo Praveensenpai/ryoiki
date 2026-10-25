@@ -106,6 +106,13 @@ fn format_organize_report(
     lines.join("\n")
 }
 
+pub fn handle_bot_library() -> String {
+    let report = crate::modules::media::library::scan_library(
+        &crate::modules::media::organizer::pathing::get_jellyfin_media_dir(),
+    );
+    report.render_html()
+}
+
 pub fn handle_bot_prune() -> Result<String> {
     crate::modules::media::pruner::handle_bot_prune()
 }
