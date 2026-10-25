@@ -62,6 +62,27 @@ pub fn route_message(
     }
 }
 
+/// Message shown to untrusted users who have not requested access yet.
+const ACCESS_REQUIRED_TEXT: &str =
+    "🔒 <b>Access required.</b>\nSend /request to ask the owner for permission.";
+
+/// What an untrusted user's message should trigger.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UntrustedAction {
+    /// `/request`: forward an approval prompt to the owner.
+    RequestAccess,
+    /// Any other command, including `/start`: explain how to request access.
+    Deny,
+}
+
+/// Classifies an untrusted user's text into a gate action.
+fn classify_untrusted(text: Option<&str>) -> UntrustedAction {
+    match text.and_then(extract_command) {
+        Some(("/request", _)) => UntrustedAction::RequestAccess,
+        _ => UntrustedAction::Deny,
+    }
+}
+
 /// Answers a stranger: `/request` notifies the owner, anything else is refused.
 fn handle_untrusted_message(
     client: &Client,
@@ -71,19 +92,10 @@ fn handle_untrusted_message(
     user: &User,
 ) {
     let chat_id = msg.chat.as_ref().map_or(user.id, |c| c.id).to_string();
-    let is_request = msg
-        .text
-        .as_deref()
-        .and_then(extract_command)
-        .is_some_and(|(cmd, _)| cmd == "/request");
+    let text = msg.text.as_deref().or(msg.caption.as_deref());
 
-    if !is_request {
-        let _ = reply(
-            client,
-            &config.bot_token,
-            &chat_id,
-            "🔒 <b>Access required.</b>\nSend /request to ask the owner for permission.",
-        );
+    if classify_untrusted(text) == UntrustedAction::Deny {
+        let _ = reply(client, &config.bot_token, &chat_id, ACCESS_REQUIRED_TEXT);
         return;
     }
 
@@ -308,6 +320,31 @@ pub fn extract_magnet(text: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_untrusted_start_and_plain_text_are_denied() {
+        assert_eq!(classify_untrusted(Some("/start")), UntrustedAction::Deny);
+        assert_eq!(
+            classify_untrusted(Some("/start@ryoikiServerBot")),
+            UntrustedAction::Deny
+        );
+        assert_eq!(classify_untrusted(Some("/status")), UntrustedAction::Deny);
+        assert_eq!(classify_untrusted(Some("hello")), UntrustedAction::Deny);
+        assert_eq!(classify_untrusted(None), UntrustedAction::Deny);
+        assert!(ACCESS_REQUIRED_TEXT.contains("/request"));
+    }
+
+    #[test]
+    fn test_untrusted_request_command() {
+        assert_eq!(
+            classify_untrusted(Some("/request")),
+            UntrustedAction::RequestAccess
+        );
+        assert_eq!(
+            classify_untrusted(Some(" /request@ryoikiServerBot ")),
+            UntrustedAction::RequestAccess
+        );
+    }
 
     #[test]
     fn test_extract_command_standard() {
