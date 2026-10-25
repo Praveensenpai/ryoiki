@@ -63,11 +63,21 @@ pub fn run_prune(opts: PruneOptions) -> Result<()> {
 
     print_disk_header(usage, opts);
 
-    let bytes_to_free = disk::compute_bytes_to_free(usage, opts.target_pct);
-    if bytes_to_free == 0 && !opts.dry_run {
+    if !disk::should_prune(usage, opts.threshold_pct) {
         println!(
-            "  {} Local SSD is within safe limit. No pruning required.\n",
-            "✔".green().bold()
+            "  {} Local SSD is within safe limit (below {}% trigger). No pruning required.\n",
+            "✔".green().bold(),
+            opts.threshold_pct
+        );
+        return Ok(());
+    }
+
+    let bytes_to_free = disk::compute_bytes_to_free(usage, opts.target_pct);
+    if bytes_to_free == 0 {
+        println!(
+            "  {} Already at or below {}% target. No pruning required.\n",
+            "✔".green().bold(),
+            opts.target_pct
         );
         return Ok(());
     }
@@ -101,18 +111,17 @@ pub fn handle_bot_prune() -> Result<String> {
         dry_run: false,
     };
 
-    let bytes_to_free = disk::compute_bytes_to_free(usage, opts.target_pct);
     let used_str = disk::format_bytes(usage.used_bytes);
     let total_str = disk::format_bytes(usage.total_bytes);
 
-    if bytes_to_free == 0 {
+    if !disk::should_prune(usage, opts.threshold_pct) {
         return Ok(format!(
             "🌊 <b>領域 RYOIKI • Media Pruner</b>\n\
             ━━━━━━━━━━━━━━━━━━━━━━━\n\
             💾 <b>SSD Usage:</b> {}% ({} / {})\n\
-            🛡️ <b>Status:</b> Safe (<80% threshold). No pruning required.\n\
+            🛡️ <b>Status:</b> Safe (below {}% threshold). No pruning required.\n\
             ━━━━━━━━━━━━━━━━━━━━━━━",
-            usage.used_pct, used_str, total_str
+            usage.used_pct, used_str, total_str, opts.threshold_pct
         ));
     }
 

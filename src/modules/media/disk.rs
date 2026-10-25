@@ -41,6 +41,16 @@ pub fn get_disk_usage(path: &Path) -> Result<DiskUsage> {
     }
 }
 
+/// Returns whether disk usage has crossed the high-water trigger.
+///
+/// Pruning only starts at or above `threshold_pct`; once triggered it drains
+/// down to the lower `target_pct`. This hysteresis prevents the pruner from
+/// evicting media while the SSD still has comfortable headroom.
+#[must_use]
+pub fn should_prune(usage: DiskUsage, threshold_pct: u8) -> bool {
+    usage.used_pct >= threshold_pct
+}
+
 /// Calculates how many bytes must be freed to reach a target disk percentage.
 #[must_use]
 pub fn compute_bytes_to_free(usage: DiskUsage, target_pct: u8) -> u64 {
@@ -70,6 +80,39 @@ pub fn format_bytes(bytes: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_should_prune_below_threshold() {
+        let usage = DiskUsage {
+            total_bytes: 1000,
+            used_bytes: 730,
+            free_bytes: 270,
+            used_pct: 73,
+        };
+        assert!(!should_prune(usage, 80));
+    }
+
+    #[test]
+    fn test_should_prune_at_threshold() {
+        let usage = DiskUsage {
+            total_bytes: 1000,
+            used_bytes: 800,
+            free_bytes: 200,
+            used_pct: 80,
+        };
+        assert!(should_prune(usage, 80));
+    }
+
+    #[test]
+    fn test_should_prune_above_threshold() {
+        let usage = DiskUsage {
+            total_bytes: 1000,
+            used_bytes: 850,
+            free_bytes: 150,
+            used_pct: 85,
+        };
+        assert!(should_prune(usage, 80));
+    }
 
     #[test]
     fn test_compute_bytes_to_free_when_under_target() {

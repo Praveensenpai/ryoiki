@@ -97,7 +97,7 @@ enum Commands {
         #[arg(long)]
         dry_run: bool,
 
-        /// Enable and activate the 6-hour automated prune timer
+        /// Enable and activate the hourly automated prune timer
         #[arg(long)]
         schedule: bool,
     },

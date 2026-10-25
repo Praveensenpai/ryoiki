@@ -649,7 +649,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_ai_enabled () -> bool
   ```
 
-### `src/modules/media/disk.rs` (Role: general, Lines: 95)
+### `src/modules/media/disk.rs` (Role: general, Lines: 138)
 - **Responsibility**: Core general logic in src/modules/media/disk.rs
 - **Imports**: use anyhow :: { bail , Result } , use std :: ffi :: CString , use std :: path :: Path 
 - **Types & Enums**:
@@ -659,6 +659,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Public Functions & Signatures**:
   ```rust
   fn get_disk_usage (path : & Path) -> Result < DiskUsage >
+  fn should_prune (usage : DiskUsage , threshold_pct : u8) -> bool
   fn compute_bytes_to_free (usage : DiskUsage , target_pct : u8) -> u64
   fn format_bytes (bytes : u64) -> String
   ```
@@ -930,7 +931,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn tag_watched_status (candidates : & mut [PruneCandidate])
   ```
 
-### `src/modules/media/pruner.rs` (Role: general, Lines: 231)
+### `src/modules/media/pruner.rs` (Role: general, Lines: 240)
 - **Responsibility**: Core general logic in src/modules/media/pruner.rs
 - **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: time :: SystemTime , use super :: disk :: { self , DiskUsage } 
 - **Types & Enums**:
