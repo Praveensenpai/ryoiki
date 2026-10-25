@@ -141,3 +141,33 @@ fn test_adjust_multi_audio_ensures_multi_tag() {
     assert_eq!(info.language.as_deref(), Some("Multi"));
     assert_eq!(info.clean_name, "Blockbuster (2024) [Multi] [1080p].mkv");
 }
+
+/// Two audio tracks that share one language (a WEB-DL 5.1 + stereo pair, or
+/// here an E-AC3 + AAC pair) are not `[Multi]`: nothing needs a language choice.
+#[test]
+fn test_same_language_dual_track_is_not_multi() {
+    let mut info = super::super::MediaInfo {
+        media_type: MediaType::Movie,
+        title: "Video".to_string(),
+        year: Some(2026),
+        season: None,
+        episode: None,
+        resolution: Some("1080p".to_string()),
+        language: Some("Multi".to_string()),
+        clean_name: "Video (2026) [Multi] [1080p].mkv".to_string(),
+        is_extra: false,
+        engine: ClassificationEngine::Ai,
+    };
+
+    let probe = MediaProbe {
+        duration_mins: Some(120),
+        resolution: Some("1080p".to_string()),
+        audio_stream_count: 2,
+        audio_languages: vec!["Kannada".to_string()],
+        primary_language: Some("Kannada".to_string()),
+    };
+
+    adjust_media_info_post_classify(&mut info, Some(&probe));
+    assert_eq!(info.language.as_deref(), Some("Kannada"));
+    assert_eq!(info.clean_name, "Video (2026) [Kannada] [1080p].mkv");
+}

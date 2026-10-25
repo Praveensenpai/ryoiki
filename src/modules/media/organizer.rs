@@ -90,7 +90,10 @@ fn classify_video_files(
 
 fn adjust_media_info_post_classify(info: &mut super::MediaInfo, probe: Option<&MediaProbe>) {
     if let Some(p) = probe {
-        if p.audio_stream_count <= 1 {
+        if super::probe::needs_language_decision(p) {
+            info.language = Some("Multi".to_string());
+            info.clean_name = super::ai::ensure_language_in_clean_name(&info.clean_name, "Multi");
+        } else {
             let lang = p
                 .primary_language
                 .as_deref()
@@ -106,9 +109,6 @@ fn adjust_media_info_post_classify(info: &mut super::MediaInfo, probe: Option<&M
 
             info.clean_name = super::ai::ensure_language_in_clean_name(&info.clean_name, &lang);
             info.language = Some(lang);
-        } else {
-            info.language = Some("Multi".to_string());
-            info.clean_name = super::ai::ensure_language_in_clean_name(&info.clean_name, "Multi");
         }
 
         if let Some(res) = &p.resolution {
@@ -167,7 +167,7 @@ pub fn execute_file_organize(
 
     perform_move(file_path, &dest_path)?;
 
-    let has_multiple_audio = probe.is_none_or(|p| p.audio_stream_count > 1);
+    let has_multiple_audio = probe.is_none_or(super::probe::needs_language_decision);
     let is_anime = matches!(media_info.media_type, MediaType::Anime);
     let (final_dest, multi_path, audio_summary) = if has_multiple_audio {
         let outcome = super::audio::strip_audio_auto(&dest_path, !is_anime);
@@ -179,7 +179,8 @@ pub fn execute_file_organize(
                 multi_path,
                 ..
             } => (original_path, multi_path, summary),
-            _ => (dest_path, None, summary),
+            super::audio::StripOutcome::Preserved { path } => (path, None, summary),
+            super::audio::StripOutcome::Failed => (dest_path, None, summary),
         }
     } else {
         (dest_path, None, super::audio::AudioStripSummary::default())

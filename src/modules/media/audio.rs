@@ -40,7 +40,9 @@ pub enum StripOutcome {
         multi_path: Option<PathBuf>,
         reclaimed_bytes: u64,
     },
-    Preserved,
+    Preserved {
+        path: PathBuf,
+    },
     Failed,
 }
 
@@ -67,7 +69,7 @@ impl AudioStripSummary {
                 self.stripped += 1;
                 self.reclaimed_bytes += reclaimed_bytes;
             }
-            StripOutcome::Preserved => self.preserved += 1,
+            StripOutcome::Preserved { .. } => self.preserved += 1,
             StripOutcome::Failed => self.failed += 1,
         }
     }
@@ -132,7 +134,9 @@ fn format_reclaimed(bytes: u64) -> String {
 /// retry (up to 24 attempts).
 pub fn strip_audio_auto(path: &Path, preserve_multi: bool) -> StripOutcome {
     let Some(bin) = find_dubstrip_bin() else {
-        return StripOutcome::Preserved;
+        return StripOutcome::Preserved {
+            path: path.to_path_buf(),
+        };
     };
 
     println!(
@@ -166,7 +170,7 @@ pub fn strip_audio_auto(path: &Path, preserve_multi: bool) -> StripOutcome {
                 strip::stage_language_decision(original_path, multi);
             }
         }
-        StripOutcome::Preserved => {
+        StripOutcome::Preserved { .. } => {
             println!(
                 "  {} Audio preserved (single track or preserved multi)",
                 "•".dimmed()

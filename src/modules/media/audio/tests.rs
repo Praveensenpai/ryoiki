@@ -14,7 +14,9 @@ fn test_audio_summary_records_and_merges() {
         multi_path: None,
         reclaimed_bytes: 1024 * 1024,
     });
-    a.record(&StripOutcome::Preserved);
+    a.record(&StripOutcome::Preserved {
+        path: PathBuf::from("/a.mkv"),
+    });
     a.record(&StripOutcome::Failed);
 
     assert_eq!(a.stripped, 1);

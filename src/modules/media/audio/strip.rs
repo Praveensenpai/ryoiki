@@ -17,7 +17,9 @@ pub fn strip_and_preserve(bin: &Path, path: &Path, preserve_multi: bool) -> Stri
     let orig_probe = probe(path);
     let orig_stream_count = orig_probe.as_ref().map_or(0, |p| p.audio_stream_count);
     if orig_stream_count <= 1 {
-        return StripOutcome::Preserved;
+        return StripOutcome::Preserved {
+            path: path.to_path_buf(),
+        };
     }
 
     // Several streams of one language (e.g. 5.1 + stereo) leave nothing to
@@ -127,10 +129,14 @@ fn finalize_stripped(
 fn preserved(path: &Path, preserve_multi: bool) -> StripOutcome {
     // Only retag when the file is truly single-track. A still-multi-track file
     // keeps its `[Multi]` marker and is staged for a language choice.
-    if !stage_preserved_if_multi(path, preserve_multi) {
-        sync_filename_after_strip(path);
+    if stage_preserved_if_multi(path, preserve_multi) {
+        return StripOutcome::Preserved {
+            path: path.to_path_buf(),
+        };
     }
-    StripOutcome::Preserved
+    StripOutcome::Preserved {
+        path: sync_filename_after_strip(path),
+    }
 }
 
 fn probe(path: &Path) -> Option<MediaProbe> {
@@ -225,33 +231,38 @@ fn finalize_dual_versions(
     }
 }
 
-/// Synchronizes the file's language tag with the probed native audio language after stripping.
-fn sync_filename_after_strip(path: &Path) {
+/// Synchronizes the file's language tag with the probed native audio language
+/// after stripping, returning the path the file now lives at.
+fn sync_filename_after_strip(path: &Path) -> PathBuf {
     let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     if filename.is_empty() {
-        return;
+        return path.to_path_buf();
     }
     let Some(probe) = probe(path) else {
-        return;
+        return path.to_path_buf();
     };
     let Some(ref primary) = probe.primary_language else {
-        return;
+        return path.to_path_buf();
     };
     if primary.is_empty() {
-        return;
+        return path.to_path_buf();
     }
 
     let new_filename = crate::modules::media::ai::ensure_language_in_clean_name(filename, primary);
-    if new_filename != filename {
-        let new_path = path.with_file_name(&new_filename);
-        if let Ok(()) = std::fs::rename(path, &new_path) {
-            println!(
-                "  {} Updated media tag: {} -> [{primary}]",
-                "✔".green().bold(),
-                filename
-            );
-        }
+    if new_filename == filename {
+        return path.to_path_buf();
     }
+
+    let new_path = path.with_file_name(&new_filename);
+    if std::fs::rename(path, &new_path).is_ok() {
+        println!(
+            "  {} Updated media tag: {} -> [{primary}]",
+            "✔".green().bold(),
+            filename
+        );
+        return new_path;
+    }
+    path.to_path_buf()
 }
 
 /// Stages a language decision when dubstrip preserved a still-multi-track file.

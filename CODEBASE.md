@@ -590,7 +590,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_timer_active () -> bool
   ```
 
-### `src/modules/media/audio/strip.rs` (Role: general, Lines: 339)
+### `src/modules/media/audio/strip.rs` (Role: general, Lines: 350)
 - **Responsibility**: Core general logic in src/modules/media/audio/strip.rs
 - **Imports**: use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use super :: super :: probe :: { self , MediaProbe } , use super :: { approval , decisions , StripOutcome } 
 - **Public Functions & Signatures**:

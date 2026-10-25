@@ -137,12 +137,12 @@ fn process_single_entry(
             }
             (None, outcome)
         }
-        super::StripOutcome::Preserved => {
+        super::StripOutcome::Preserved { path } => {
             println!(
                 "  {} Audio preserved after {} attempt(s): {}",
                 "✔".green().bold(),
                 entry.attempts,
-                entry.path.display()
+                path.display()
             );
             (None, outcome)
         }

@@ -184,7 +184,15 @@ pub(crate) fn render_organized_message(
     ts_ip: &str,
     qb_cleared: bool,
 ) -> String {
-    let clean_name = escape_html(&org.media_info.clean_name);
+    // Derive the title from the file that actually landed on disk. `clean_name`
+    // is the pre-strip classification and can be stale when the audio stage
+    // retags a file, which previously let the card disagree with the filesystem.
+    let final_name = org
+        .dest_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&org.media_info.clean_name);
+    let clean_name = escape_html(final_name);
     let dest = escape_html(&org.dest_path.display().to_string());
     let qb_status = if qb_cleared {
         "History cleared"
@@ -219,4 +227,47 @@ pub(crate) fn send_telegram_alert(
     text: &str,
 ) -> Result<()> {
     crate::notify::client::send_telegram_alert(client, token, chat_id, text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::modules::media::audio::AudioStripSummary;
+    use crate::modules::media::{ClassificationEngine, MediaInfo, MediaType};
+    use std::path::PathBuf;
+
+    fn result(clean_name: &str, dest: &str) -> OrganizeResult {
+        OrganizeResult {
+            source_path: PathBuf::from("/src/input.mkv"),
+            dest_path: PathBuf::from(dest),
+            multi_path: None,
+            media_info: MediaInfo {
+                media_type: MediaType::Movie,
+                title: "Video".to_string(),
+                year: Some(2026),
+                season: None,
+                episode: None,
+                resolution: Some("1080p".to_string()),
+                language: Some("Multi".to_string()),
+                clean_name: clean_name.to_string(),
+                is_extra: false,
+                engine: ClassificationEngine::Ai,
+            },
+            audio_summary: AudioStripSummary::default(),
+        }
+    }
+
+    /// The audio stage can retag a file after classification. The card must
+    /// report the name that actually landed on disk, never the stale one.
+    #[test]
+    fn test_card_title_uses_final_destination_name() {
+        let org = result(
+            "Video (2026) [Multi] [1080p].mkv",
+            "/media/movies/Video (2026)/Video (2026) [Kannada] [1080p].mkv",
+        );
+        let msg = render_organized_message(&org, "mochi", "10.0.0.1", false);
+
+        assert!(msg.contains("Video (2026) [Kannada] [1080p].mkv"));
+        assert!(!msg.contains("[Multi]"));
+    }
 }
