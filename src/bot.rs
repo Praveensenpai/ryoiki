@@ -32,6 +32,7 @@ pub fn run_bot() -> Result<()> {
     println!("  ⚡ Ryoiki Pure-Rust Command Center & Bot active (Listening for commands)...");
     crate::notify::server::spawn_background_server(config.clone(), config.api_port);
     torrents::start_torrent_monitor(config.clone());
+    maintenance::start_trash_reaper();
     let prompts = prompts::new_registry();
     let access = access::AccessControl::load();
 

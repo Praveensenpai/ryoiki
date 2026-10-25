@@ -1,6 +1,9 @@
 pub mod events;
 pub mod selection;
+pub mod trash;
 pub mod ui;
+
+pub use trash::ConfirmState;
 
 use anyhow::Result;
 use crossterm::{
@@ -74,6 +77,11 @@ pub struct AppState {
     pub view_mode: ViewMode,
     pub local_disk: Option<DiskUsage>,
     pub warning_msg: Option<String>,
+    /// True while the third tab (Trash) is showing.
+    pub trash_open: bool,
+    pub trash_entries: Vec<crate::modules::media::trash::TrashEntry>,
+    pub trash_cursor: usize,
+    pub modal: Option<ConfirmState>,
 }
 
 impl AppState {
@@ -98,7 +106,27 @@ impl AppState {
             view_mode: ViewMode::Main,
             local_disk,
             warning_msg: None,
+            trash_open: false,
+            trash_entries: crate::modules::media::trash::list_all(),
+            trash_cursor: 0,
+            modal: None,
         }
+    }
+
+    /// Reloads lists, disk usage and trash after a destructive action.
+    pub fn refresh_after_mutation(&mut self) {
+        self.reload_libraries();
+        self.trash_entries = crate::modules::media::trash::list_all();
+        self.trash_cursor = self
+            .trash_cursor
+            .min(self.trash_entries.len().saturating_sub(1));
+        let media_base = self.home_path.join("jellyfin/media");
+        let probe = if media_base.exists() {
+            media_base
+        } else {
+            self.home_path.clone()
+        };
+        self.local_disk = super::disk::get_disk_usage(&probe).ok();
     }
 
     pub fn current_items(&self) -> &[MediaItem] {
@@ -223,6 +251,12 @@ pub fn run_interactive_tui(
     let mut terminal = Terminal::new(backend)?;
 
     let mut state = AppState::new(local, remote, dir, local_disk, home_path.to_path_buf());
+    // Purge anything past the 7-day retention window before showing the UI.
+    if let Ok(purged) = crate::modules::media::trash::purge_expired() {
+        if purged > 0 {
+            state.warning_msg = Some(format!("🧹 Auto-purged {purged} expired trash item(s)"));
+        }
+    }
     let confirmed = run_event_loop(&mut terminal, &mut state)?;
 
     disable_raw_mode()?;

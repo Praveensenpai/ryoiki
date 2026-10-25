@@ -12,6 +12,7 @@ pub mod pruner;
 pub mod status;
 pub mod sync;
 pub mod transfer;
+pub mod trash;
 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};

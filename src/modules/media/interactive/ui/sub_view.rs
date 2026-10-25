@@ -310,6 +310,7 @@ fn render_subview_footer(f: &mut Frame, area: Rect) {
     let shortcuts = [
         ("[Space]", "Toggle Season"),
         ("[v]", "View Files"),
+        ("[d]", "Trash"),
         ("[a]", "Select All"),
         ("[n]", "Deselect All"),
         ("[Esc]/[Enter]", "Done (Back to Main)"),

@@ -161,8 +161,10 @@ fn dispatch_media(
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
         "/movies" | "/library" => {
-            let text = handle_bot_library();
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+            for page in handle_bot_library() {
+                reply(client, &config.bot_token, &config.chat_id, &page)?;
+            }
+            Ok(true)
         }
         _ => Ok(false),
     }
@@ -267,7 +269,7 @@ fn send_help(client: &Client, config: &TelegramConfig) -> Result<()> {
         /magnet &lt;magnet&gt; — Queue magnet (dual-pipeline)\n\
         /seedr [magnet] — Offload torrent to Seedr cloud\n\
         /pause • /resume — Torrent controls\n\
-        /movies — Count movies, shows &amp; anime, flag empty folders\n\
+        /movies — List movies, shows &amp; anime with audio languages\n\
         /organize — Classify & move media to Jellyfin\n\
         /prune — Evict watched media to Google Drive\n\
         /sync — Jellyfin refresh & cloud sync\n\

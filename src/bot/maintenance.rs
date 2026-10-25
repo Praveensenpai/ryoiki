@@ -7,6 +7,20 @@ use crate::notify::client::escape_html;
 use crate::notify::config::TelegramConfig;
 use crate::runner::Runner;
 
+const TRASH_REAP_INTERVAL: Duration = Duration::from_hours(1);
+
+/// Background reaper that purges trash entries older than the retention window.
+pub fn start_trash_reaper() {
+    std::thread::spawn(|| loop {
+        match crate::modules::media::trash::purge_expired() {
+            Ok(0) => {}
+            Ok(n) => println!("  🧹 Purged {n} expired trash item(s)"),
+            Err(e) => eprintln!("  ⚠ Trash reaper failed: {e:#}"),
+        }
+        std::thread::sleep(TRASH_REAP_INTERVAL);
+    });
+}
+
 pub fn handle_bot_organize(config: &TelegramConfig) -> Result<String> {
     let http_client = Client::builder().timeout(Duration::from_secs(30)).build()?;
     let api_key = config.gemini_api_key.as_deref();
@@ -106,11 +120,11 @@ fn format_organize_report(
     lines.join("\n")
 }
 
-pub fn handle_bot_library() -> String {
+pub fn handle_bot_library() -> Vec<String> {
     let report = crate::modules::media::library::scan_library(
         &crate::modules::media::organizer::pathing::get_jellyfin_media_dir(),
     );
-    report.render_html()
+    report.render_pages()
 }
 
 pub fn handle_bot_prune() -> Result<String> {

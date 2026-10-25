@@ -374,6 +374,7 @@ fn render_main_footer(f: &mut Frame, area: Rect) {
         ("[Space]", "Toggle"),
         ("[Enter]", "Open"),
         ("[v]", "Files"),
+        ("[d]", "Trash"),
         ("[r]", "Refresh"),
         ("[p]", "Transfer"),
         ("[Tab]", "Mode"),

@@ -238,6 +238,7 @@ fn render_files_footer(f: &mut Frame, area: Rect) {
     let shortcuts = [
         ("[Esc]/[q]/[Enter]", "Back to List"),
         ("[↑/k, ↓/j]", "Navigate"),
+        ("[d]", "Trash"),
     ];
     super::footer::render_footer(f, area, &shortcuts);
 }
@@ -282,6 +283,10 @@ pub fn handle_files_key(
                 season_idx,
                 cursor,
             };
+            None
+        }
+        KeyCode::Char('d') => {
+            crate::modules::media::interactive::trash::request_from_current(state);
             None
         }
         KeyCode::Enter | KeyCode::Esc | KeyCode::Left | KeyCode::Char('q') => {

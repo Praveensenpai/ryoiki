@@ -1,10 +1,17 @@
 use crossterm::event::KeyCode;
 
 use super::ui::files_view::handle_files_key;
-use super::{AppState, MediaItem, TransferDirection, ViewMode};
+use super::ui::trash_view::handle_trash_key;
+use super::{trash, AppState, MediaItem, TransferDirection, ViewMode};
 use crate::modules::media::disk;
 
 pub fn handle_key(code: KeyCode, state: &mut AppState) -> Option<bool> {
+    if state.modal.is_some() {
+        return trash::handle_modal_key(code, state);
+    }
+    if state.trash_open {
+        return handle_trash_key(code, state);
+    }
     match state.view_mode {
         ViewMode::FilesView {
             item_idx,
@@ -72,6 +79,10 @@ fn handle_subview_key(
                 season_idx: Some(cursor),
                 cursor: 0,
             };
+            None
+        }
+        KeyCode::Char('d') => {
+            trash::request_from_current(state);
             None
         }
         KeyCode::Enter | KeyCode::Esc | KeyCode::Left | KeyCode::Char('q') => {
@@ -244,12 +255,16 @@ fn handle_main_key(code: KeyCode, state: &mut AppState) -> Option<bool> {
         }
         KeyCode::Char('p') => Some(true),
         KeyCode::Tab => {
-            state.direction = match state.direction {
-                TransferDirection::Push => TransferDirection::Pull,
-                TransferDirection::Pull => TransferDirection::Push,
-            };
-            state.cursor = 0;
+            cycle_tab(state);
+            None
+        }
+        KeyCode::Char('t') => {
+            state.trash_open = true;
             state.warning_msg = None;
+            None
+        }
+        KeyCode::Char('d') => {
+            trash::request_from_current(state);
             None
         }
         KeyCode::Char('a') => {
@@ -273,6 +288,16 @@ fn handle_main_key(code: KeyCode, state: &mut AppState) -> Option<bool> {
         KeyCode::Char('q') | KeyCode::Esc => Some(false),
         _ => None,
     }
+}
+
+/// Cycles Push → Pull → Trash → Push, resetting the cursor each time.
+fn cycle_tab(state: &mut AppState) {
+    match state.direction {
+        TransferDirection::Push => state.direction = TransferDirection::Pull,
+        TransferDirection::Pull => state.trash_open = true,
+    }
+    state.cursor = 0;
+    state.warning_msg = None;
 }
 
 fn select_all_main_items(state: &mut AppState, indices: &[usize]) {
