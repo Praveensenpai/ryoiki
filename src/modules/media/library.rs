@@ -295,7 +295,7 @@ mod tests {
         let base = temp_base("missing");
         let report = scan_library(&base);
         assert!(report.sections.iter().all(|s| !s.exists));
-        assert!(report.empty_folders().is_empty());
+        assert_eq!(report.empty_folders(), Vec::<&str>::new());
         assert!(report.render_html().contains("Media Library"));
     }
 }
