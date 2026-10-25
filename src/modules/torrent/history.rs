@@ -138,6 +138,49 @@ pub fn record_download_history(
     Ok(())
 }
 
+/// Rewrites recorded paths after a file was renamed in place.
+///
+/// The audio-strip stage retags filenames (`[Multi]` becomes `[Kannada]`), which
+/// leaves history pointing at a path that no longer exists. Dedup reads that as
+/// "media gone" and re-downloads, so callers heal the record when they find the
+/// renamed file on disk.
+pub fn heal_record_paths(hash: &str, pairs: &[(PathBuf, PathBuf)]) -> Result<()> {
+    if pairs.is_empty() {
+        return Ok(());
+    }
+    let mut history = load_history();
+    let Some(record) = history.entries.get_mut(hash) else {
+        return Ok(());
+    };
+    let mut changed = false;
+    for (old, new) in pairs {
+        for path in &mut record.paths {
+            if path == old {
+                path.clone_from(new);
+                changed = true;
+            }
+        }
+        for file in &mut record.files {
+            if &file.path == old {
+                file.path.clone_from(new);
+                changed = true;
+            }
+        }
+        if let (Some(old_name), Some(new_name)) = (old.file_name(), new.file_name()) {
+            if record.clean_name == old_name.to_string_lossy().as_ref() {
+                record.clean_name = new_name.to_string_lossy().into_owned();
+                changed = true;
+            }
+        }
+    }
+    if !changed {
+        return Ok(());
+    }
+    let path = history_file_path()?;
+    fs::write(path, serde_json::to_string_pretty(&history)?)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

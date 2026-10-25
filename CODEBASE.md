@@ -1244,11 +1244,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_seedr_cli (target : & str) -> Result < () >
   ```
 
-### `src/modules/torrent/dedup/tests.rs` (Role: general, Lines: 173)
+### `src/modules/torrent/dedup/tests.rs` (Role: general, Lines: 320)
 - **Responsibility**: Core general logic in src/modules/torrent/dedup/tests.rs
 - **Imports**: use super :: * , use std :: sync :: Mutex 
 
-### `src/modules/torrent/dedup.rs` (Role: general, Lines: 242)
+### `src/modules/torrent/dedup.rs` (Role: general, Lines: 327)
 - **Responsibility**: Core general logic in src/modules/torrent/dedup.rs
 - **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
@@ -1264,7 +1264,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn restore_from_cloud (pairs : & [(PathBuf , PathBuf)]) -> Result < Vec < PathBuf > >
   ```
 
-### `src/modules/torrent/history.rs` (Role: general, Lines: 164)
+### `src/modules/torrent/history.rs` (Role: general, Lines: 207)
 - **Responsibility**: Core general logic in src/modules/torrent/history.rs
 - **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use std :: fs , use std :: hash :: { Hash , Hasher } , use std :: io :: { Read , Seek , SeekFrom } , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: MediaInfo 
 - **Types & Enums**:

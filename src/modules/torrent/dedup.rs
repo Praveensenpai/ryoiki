@@ -106,12 +106,20 @@ pub fn check_already_available(magnet_or_url: &str) -> Availability {
 
     let mut local_paths = Vec::new();
     let mut missing = Vec::new();
+    let mut healed: Vec<(PathBuf, PathBuf)> = Vec::new();
     for path in &tracked_files {
         if path.exists() {
             local_paths.push(path.clone());
+        } else if let Some(found) = find_renamed_sibling(path) {
+            local_paths.push(found.clone());
+            healed.push((path.clone(), found));
         } else {
             missing.push(path.clone());
         }
+    }
+
+    if !healed.is_empty() {
+        let _ = super::history::heal_record_paths(h, &healed);
     }
 
     if !local_paths.is_empty() {
@@ -153,6 +161,83 @@ pub fn check_already_available(magnet_or_url: &str) -> Availability {
         hash,
         display_name: dn,
     }
+}
+
+/// Returns the first bracket tag that denotes a language, if any.
+///
+/// Only these tags are interchangeable across a retag: `[1080p]` must stay part
+/// of the comparison key so a 720p sibling never stands in for a 1080p file.
+fn language_tag(name: &str) -> Option<&str> {
+    let mut rest = name;
+    while let Some(start) = rest.find('[') {
+        let after = &rest[start + 1..];
+        let end = after.find(']')?;
+        let tag = &after[..end];
+        if is_language_tag(tag) {
+            return Some(tag);
+        }
+        rest = &after[end + 1..];
+    }
+    None
+}
+
+fn is_language_tag(tag: &str) -> bool {
+    tag == "Multi" || tag == "Original" || super::super::media::probe::KNOWN_LANGUAGES.contains(&tag)
+}
+
+/// Removes language tags so two names can be compared on their stable parts.
+///
+/// Non-language tags such as `[1080p]` survive, which keeps a 720p sibling from
+/// ever matching a 1080p record.
+fn without_language_tags(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    let mut rest = name;
+    while let Some(start) = rest.find('[') {
+        out.push_str(&rest[..start]);
+        let tagged = &rest[start..];
+        let Some(end) = tagged.find(']') else {
+            out.push_str(tagged);
+            rest = "";
+            break;
+        };
+        if !is_language_tag(&tagged[1..end]) {
+            out.push_str(&tagged[..=end]);
+        }
+        rest = &tagged[end + 1..];
+    }
+    out.push_str(rest);
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Finds the file that `path` was renamed to after its tags changed.
+///
+/// Returns `Some` only for an unambiguous match in the same directory. The
+/// candidate must carry a language tag too, so an untagged sibling (a separate
+/// variant) is never claimed, and non-language tags stay in the comparison key.
+fn find_renamed_sibling(path: &Path) -> Option<PathBuf> {
+    let parent = path.parent()?;
+    let name = path.file_name()?.to_str()?;
+    // A name with no language tag was never retagged, so nothing to heal.
+    language_tag(name)?;
+    let target = without_language_tags(name);
+
+    let mut matches = fs::read_dir(parent)
+        .ok()?
+        .flatten()
+        .filter(|entry| entry.path().is_file())
+        .filter(|entry| {
+            entry.file_name().to_str().is_some_and(|candidate| {
+                language_tag(candidate).is_some()
+                    && without_language_tags(candidate) == target
+            })
+        })
+        .map(|entry| entry.path());
+
+    let first = matches.next()?;
+    if matches.next().is_some() {
+        return None;
+    }
+    Some(first)
 }
 
 /// Google Drive mount root.

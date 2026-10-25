@@ -171,3 +171,150 @@ fn test_find_in_google_drive_remaps_movies_category() -> Result<()> {
     let _ = fs::remove_dir_all(&tmp);
     Ok(())
 }
+
+#[test]
+fn test_without_language_tags_keeps_resolution() {
+    assert_eq!(
+        without_language_tags("Video (2026) [Multi] [1080p].mkv"),
+        without_language_tags("Video (2026) [Kannada] [1080p].mkv")
+    );
+    assert_ne!(
+        without_language_tags("Video (2026) [Kannada] [1080p].mkv"),
+        without_language_tags("Video (2026) [Kannada] [720p].mkv")
+    );
+    // An untagged sibling is a different variant, not a retag of this one.
+    assert_ne!(
+        without_language_tags("Show - S01E01 [1080p] [Multi].mkv"),
+        without_language_tags("Show - S01E01 [1080p].mkv")
+    );
+}
+
+/// A retag rename must not make dedup think the media vanished: history is
+/// healed in place and the record then points at the real file.
+#[test]
+fn test_dedup_heals_renamed_file() -> Result<()> {
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let tmp = std::env::temp_dir().join(format!("ryoiki_heal_{}", std::process::id()));
+    std::env::set_var("RYOIKI_DATA_DIR", tmp.join("data"));
+    // Keep the cloud fallback inert; nothing here may touch a real mount.
+    std::env::set_var("RYOIKI_GDRIVE_DIR", tmp.join("absent-gdrive"));
+
+    let dir = tmp.join("jellyfin/media/movies/Video (2026)");
+    fs::create_dir_all(&dir)?;
+    let stale = dir.join("Video (2026) [Multi] [1080p].mkv");
+    fs::write(&stale, "video")?;
+
+    let tracked = vec![crate::modules::torrent::history::create_tracked_file(
+        stale.clone(),
+        "original",
+    )];
+    let info = crate::modules::media::heuristic::classify_media_heuristic(
+        "Video (2026) [Multi] [1080p].mkv",
+    );
+    let hash = "7777777777777777777777777777777777777777";
+    crate::modules::torrent::history::record_download_history(Some(hash), &info, tracked)?;
+
+    // The strip stage retags the file on disk after history was written.
+    let renamed = dir.join("Video (2026) [Kannada] [1080p].mkv");
+    fs::rename(&stale, &renamed)?;
+
+    let magnet = format!("magnet:?xt=urn:btih:{hash}&dn=Video+2026.mkv");
+    match check_already_available(&magnet) {
+        Availability::Local { paths, .. } => assert_eq!(paths, vec![renamed.clone()]),
+        other => panic!("expected healed Local availability, got {other:?}"),
+    }
+
+    let record = crate::modules::torrent::history::load_history();
+    let Some(healed) = record.entries.get(hash) else {
+        return Err(anyhow::anyhow!("history record vanished after heal"));
+    };
+    assert_eq!(healed.paths, vec![renamed.clone()]);
+    assert_eq!(healed.files[0].path, renamed);
+    assert_eq!(healed.clean_name, "Video (2026) [Kannada] [1080p].mkv");
+
+    std::env::remove_var("RYOIKI_GDRIVE_DIR");
+    std::env::remove_var("RYOIKI_DATA_DIR");
+    let _ = fs::remove_dir_all(&tmp);
+    Ok(())
+}
+
+/// Two files differing only by tags are not a safe heal target.
+#[test]
+fn test_dedup_refuses_ambiguous_rename() -> Result<()> {
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let tmp = std::env::temp_dir().join(format!("ryoiki_ambiguous_{}", std::process::id()));
+    std::env::set_var("RYOIKI_DATA_DIR", tmp.join("data"));
+    std::env::set_var("RYOIKI_GDRIVE_DIR", tmp.join("absent-gdrive"));
+
+    let dir = tmp.join("jellyfin/media/movies/Show (2025)");
+    fs::create_dir_all(&dir)?;
+    let stale = dir.join("Show (2025) [Multi] [1080p].mkv");
+    fs::write(&stale, "video")?;
+
+    let tracked = vec![crate::modules::torrent::history::create_tracked_file(
+        stale.clone(),
+        "original",
+    )];
+    let info = crate::modules::media::heuristic::classify_media_heuristic(
+        "Show (2025) [Multi] [1080p].mkv",
+    );
+    let hash = "6666666666666666666666666666666666666666";
+    crate::modules::torrent::history::record_download_history(Some(hash), &info, tracked)?;
+
+    fs::remove_file(&stale)?;
+    fs::write(dir.join("Show (2025) [Kannada] [1080p].mkv"), "a")?;
+    fs::write(dir.join("Show (2025) [Hindi] [1080p].mkv"), "b")?;
+
+    let magnet = format!("magnet:?xt=urn:btih:{hash}&dn=Show+2025.mkv");
+    assert!(matches!(
+        check_already_available(&magnet),
+        Availability::NotAvailable { .. }
+    ));
+
+    std::env::remove_var("RYOIKI_GDRIVE_DIR");
+    std::env::remove_var("RYOIKI_DATA_DIR");
+    let _ = fs::remove_dir_all(&tmp);
+    Ok(())
+}
+
+/// A genuinely deleted file must stay unavailable so it can be re-acquired.
+#[test]
+fn test_dedup_deleted_file_stays_unavailable() -> Result<()> {
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let tmp = std::env::temp_dir().join(format!("ryoiki_deleted_{}", std::process::id()));
+    std::env::set_var("RYOIKI_DATA_DIR", tmp.join("data"));
+    std::env::set_var("RYOIKI_GDRIVE_DIR", tmp.join("absent-gdrive"));
+
+    let dir = tmp.join("jellyfin/media/movies/Gone (2024)");
+    fs::create_dir_all(&dir)?;
+    let path = dir.join("Gone (2024) [Kannada] [1080p].mkv");
+    fs::write(&path, "video")?;
+
+    let tracked = vec![crate::modules::torrent::history::create_tracked_file(
+        path.clone(),
+        "original",
+    )];
+    let info =
+        crate::modules::media::heuristic::classify_media_heuristic("Gone (2024) [Kannada] [1080p].mkv");
+    let hash = "5555555555555555555555555555555555555555";
+    crate::modules::torrent::history::record_download_history(Some(hash), &info, tracked)?;
+
+    fs::remove_file(&path)?;
+
+    let magnet = format!("magnet:?xt=urn:btih:{hash}&dn=Gone+2024.mkv");
+    assert!(matches!(
+        check_already_available(&magnet),
+        Availability::NotAvailable { .. }
+    ));
+
+    std::env::remove_var("RYOIKI_GDRIVE_DIR");
+    std::env::remove_var("RYOIKI_DATA_DIR");
+    let _ = fs::remove_dir_all(&tmp);
+    Ok(())
+}
