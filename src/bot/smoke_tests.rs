@@ -27,7 +27,7 @@ fn dummy_config() -> TelegramConfig {
         enable_deepseek: None,
         jellyfin_url: "http://localhost:8096".to_string(),
         jellyfin_api_key: None,
-        session_cooldown_mins: 60,
+        session_cooldown_mins: crate::notify::config::DEFAULT_LOGIN_WINDOW_MINS,
         timezone: None,
         seedr_queue_policy: "fifo".to_string(),
         seedr_prompt_timeout_secs: 120,

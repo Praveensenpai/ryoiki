@@ -67,13 +67,20 @@ pub fn send_login_notification(
 
     let resolved_user = resolve_user(user);
     let resolved_ip = resolve_ip(ip);
+    let resolved_srv = service.unwrap_or("sshd");
+    let resolved_tty = tty.unwrap_or("pts/0");
 
     if super::session::is_session_suppressed(&resolved_ip, config.session_cooldown_mins) {
+        super::session::log_login(
+            &resolved_user,
+            &resolved_ip,
+            resolved_srv,
+            resolved_tty,
+            super::session::LoginOutcome::Suppressed,
+        );
         return Ok(());
     }
 
-    let resolved_srv = service.unwrap_or("sshd");
-    let resolved_tty = tty.unwrap_or("pts/0");
     let host = get_hostname(config);
     let srv_label = format!("{resolved_srv} ({resolved_tty})");
 
@@ -85,8 +92,29 @@ pub fn send_login_notification(
     ];
 
     let card = format_card("Security Alert", "🔐 <b>NEW SESSION OPENED</b>", &fields);
-    send_alert(&config.bot_token, &config.chat_id, &card)?;
-    super::session::record_session_login(&resolved_ip);
+    let outcome = match send_alert(&config.bot_token, &config.chat_id, &card) {
+        Ok(()) => {
+            super::session::record_session_login(&resolved_ip);
+            super::session::LoginOutcome::Alerted
+        }
+        Err(err) => {
+            super::session::log_login(
+                &resolved_user,
+                &resolved_ip,
+                resolved_srv,
+                resolved_tty,
+                super::session::LoginOutcome::SendFailed,
+            );
+            return Err(err);
+        }
+    };
+    super::session::log_login(
+        &resolved_user,
+        &resolved_ip,
+        resolved_srv,
+        resolved_tty,
+        outcome,
+    );
     Ok(())
 }
 

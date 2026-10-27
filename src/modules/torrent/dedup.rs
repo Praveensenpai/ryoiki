@@ -182,7 +182,9 @@ fn language_tag(name: &str) -> Option<&str> {
 }
 
 fn is_language_tag(tag: &str) -> bool {
-    tag == "Multi" || tag == "Original" || super::super::media::probe::KNOWN_LANGUAGES.contains(&tag)
+    tag == "Multi"
+        || tag == "Original"
+        || super::super::media::probe::KNOWN_LANGUAGES.contains(&tag)
 }
 
 /// Removes language tags so two names can be compared on their stable parts.
@@ -227,8 +229,7 @@ fn find_renamed_sibling(path: &Path) -> Option<PathBuf> {
         .filter(|entry| entry.path().is_file())
         .filter(|entry| {
             entry.file_name().to_str().is_some_and(|candidate| {
-                language_tag(candidate).is_some()
-                    && without_language_tags(candidate) == target
+                language_tag(candidate).is_some() && without_language_tags(candidate) == target
             })
         })
         .map(|entry| entry.path());

@@ -335,7 +335,7 @@ The notification subsystem provides unified system telemetry, login alerts, powe
   "gemini_api_key": "AIzaSy...",
   "jellyfin_url": "http://localhost:8096",
   "jellyfin_api_key": "abc123def...",
-  "session_cooldown_mins": 60
+  "session_cooldown_mins": 10080
 }
 ```
 
@@ -344,7 +344,9 @@ The notification subsystem provides unified system telemetry, login alerts, powe
   - `send_telegram_card(config, title, lines, level) -> Result<()>`: Constructs styled HTML message cards with header badges (`🌸 INFO`, `✔ SUCCESS`, `⚠ WARN`, `✖ ALERT`) and transmits to Telegram Bot API.
   - `escape_html(raw: &str) -> String`: Sanitizes `<`, `>`, `&` characters.
 - **`src/notify/session.rs`**:
-  - `is_session_suppressed(ip: &str, cooldown_mins: u64) -> bool`: Prevents spamming Telegram on every new terminal, SSH connection, or IDE remote window. Stores timestamp files in `/tmp/ryoiki_session_{uid}_{sanitized_ip}`. If an IP has connected within `session_cooldown_mins` (default: 60m), the notification is silently suppressed. Distinct or unknown IPs immediately fire alerts.
+  - `is_session_suppressed(ip: &str, window_mins: u64) -> bool`: One Telegram alert per client IP per window (`session_cooldown_mins`, default `10080` = 7 days; `0` disables). Markers live in `<state>/sessions/<sanitized_ip>` as the epoch second of the last *delivered* alert, so they survive reboots. State dir resolution: `RYOIKI_STATE_DIR` → `/var/lib/ryoiki` (shared, mode `1777`, created by `notify install-hooks` so the root PAM hook and unprivileged shell hooks share one memory) → `$XDG_STATE_HOME/ryoiki` → `~/.local/state/ryoiki`. Legacy `/tmp/ryoiki_session_{uid}_{ip}` mtimes are still honoured once, so upgrading does not re-alert.
+  - `record_session_login(ip: &str)`: stamps the alert time; only called after a successful Telegram send, so failed sends never silence an IP.
+  - `log_login(user, ip, service, tty, outcome)`: appends one tab-separated line to `<state>/login.log` for every login, with outcome `alerted`, `suppressed`, or `send-failed`.
 - **`src/notify/power.rs`**:
   - `run_battery_watch() -> Result<()>`: Long-running battery monitor daemon. Reads `/sys/class/power_supply/*/capacity` and `status`. Fires alerts at descending thresholds (20%, 10%, 5%). Alerts auto-reset once battery charges back above threshold + 5%.
 - **`src/notify/hooks.rs`**:

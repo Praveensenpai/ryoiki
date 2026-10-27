@@ -15,8 +15,11 @@ fn default_jellyfin_url() -> String {
     "http://localhost:8096".to_string()
 }
 
+/// Seven days: one Telegram alert per client IP per week.
+pub const DEFAULT_LOGIN_WINDOW_MINS: u64 = 10_080;
+
 const fn default_session_cooldown_mins() -> u64 {
-    60
+    DEFAULT_LOGIN_WINDOW_MINS
 }
 
 fn default_seedr_queue_policy() -> String {
@@ -65,7 +68,12 @@ pub struct TelegramConfig {
     pub jellyfin_url: String,
     #[serde(default)]
     pub jellyfin_api_key: Option<String>,
-    #[serde(default = "default_session_cooldown_mins")]
+    /// Login alert window in minutes. A client IP alerts once per window; `0`
+    /// alerts on every login. Legacy name kept so existing configs load.
+    #[serde(
+        default = "default_session_cooldown_mins",
+        alias = "login_alert_window_mins"
+    )]
     pub session_cooldown_mins: u64,
     #[serde(default)]
     pub timezone: Option<String>,

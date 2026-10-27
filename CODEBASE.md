@@ -612,11 +612,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn process_queue (dubstrip_bin : & Path) -> Result < super :: AudioStripSummary >
   ```
 
-### `src/modules/media/audio/tests.rs` (Role: general, Lines: 43)
+### `src/modules/media/audio/tests.rs` (Role: general, Lines: 45)
 - **Responsibility**: Core general logic in src/modules/media/audio/tests.rs
 - **Imports**: use super :: * 
 
-### `src/modules/media/audio.rs` (Role: general, Lines: 184)
+### `src/modules/media/audio.rs` (Role: general, Lines: 188)
 - **Responsibility**: Core general logic in src/modules/media/audio.rs
 - **Imports**: pub use cli :: { handle_cli , AudioSubcommand } , use colored :: Colorize , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
@@ -863,11 +863,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn assign_unique_special_numbers (classified : & mut [(PathBuf , MediaInfo , Option < MediaProbe >)])
   ```
 
-### `src/modules/media/organizer/tests.rs` (Role: general, Lines: 143)
+### `src/modules/media/organizer/tests.rs` (Role: general, Lines: 173)
 - **Responsibility**: Core general logic in src/modules/media/organizer/tests.rs
 - **Imports**: use super :: * , use crate :: modules :: media :: ClassificationEngine 
 
-### `src/modules/media/organizer.rs` (Role: general, Lines: 394)
+### `src/modules/media/organizer.rs` (Role: general, Lines: 395)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
 - **Imports**: pub use cli :: { run_organize_cli , setup } , use junk :: is_skippable_extra , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use specials :: assign_unique_special_numbers , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
 - **Public Functions & Signatures**:
@@ -1279,9 +1279,10 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn compute_file_signature (path : & Path) -> Result < String >
   fn create_tracked_file (path : PathBuf , variant : & str) -> TrackedFile
   fn record_download_history (hash : Option < & str > , info : & MediaInfo , files : Vec < TrackedFile > ,) -> Result < () >
+  fn heal_record_paths (hash : & str , pairs : & [(PathBuf , PathBuf)]) -> Result < () >
   ```
 
-### `src/modules/torrent/notify.rs` (Role: general, Lines: 222)
+### `src/modules/torrent/notify.rs` (Role: general, Lines: 273)
 - **Responsibility**: Core general logic in src/modules/torrent/notify.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: thread :: sleep , use std :: time :: Duration , use super :: api :: { self , TorrentInfo } , use super :: telegram :: TelegramConfig , use crate :: modules :: media :: OrganizeResult , use crate :: notify :: client :: escape_html 
 - **Public Functions & Signatures**:
@@ -1467,7 +1468,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_card (category : & str , badge : & str , fields : & [(& str , & str)]) -> String
   ```
 
-### `src/notify/config.rs` (Role: general, Lines: 181)
+### `src/notify/config.rs` (Role: general, Lines: 189)
 - **Responsibility**: Core general logic in src/notify/config.rs
 - **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
@@ -1485,7 +1486,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn save_to (& self , config_dir : & Path) -> Result < () >
   ```
 
-### `src/notify/hooks.rs` (Role: general, Lines: 350)
+### `src/notify/hooks.rs` (Role: general, Lines: 357)
 - **Responsibility**: Core general logic in src/notify/hooks.rs
 - **Imports**: use std :: fmt :: Write as _ , use std :: fs , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
@@ -1520,13 +1521,19 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn run_server (config : TelegramConfig , port : u16) -> Result < () >
   ```
 
-### `src/notify/session.rs` (Role: general, Lines: 85)
+### `src/notify/session.rs` (Role: general, Lines: 275)
 - **Responsibility**: Core general logic in src/notify/session.rs
-- **Imports**: use std :: fs , use std :: time :: Duration 
+- **Imports**: use std :: ffi :: CString , use std :: fs , use std :: io :: Write as _ , use std :: os :: unix :: ffi :: OsStrExt , use std :: path :: { Path , PathBuf } , use std :: time :: { SystemTime , UNIX_EPOCH } 
+- **Types & Enums**:
+  ```rust
+  pub enum LoginOutcome
+  ```
 - **Public Functions & Signatures**:
   ```rust
-  fn is_session_suppressed (ip : & str , cooldown_mins : u64) -> bool
+  fn ensure_shared_state_dir () -> bool
+  fn is_session_suppressed (ip : & str , window_mins : u64) -> bool
   fn record_session_login (ip : & str)
+  fn log_login (user : & str , ip : & str , service : & str , tty : & str , outcome : LoginOutcome)
   ```
 
 ### `src/notify/shutdown.rs` (Role: general, Lines: 78)
@@ -1537,7 +1544,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn send_shutdown_notification (config : & TelegramConfig) -> Result < () >
   ```
 
-### `src/notify/system.rs` (Role: general, Lines: 364)
+### `src/notify/system.rs` (Role: general, Lines: 392)
 - **Responsibility**: Core general logic in src/notify/system.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: mem :: MaybeUninit , use std :: process :: Command , use std :: time :: Duration , use super :: client :: { escape_html , format_card , send_alert } , use super :: config :: TelegramConfig 
 - **Public Functions & Signatures**:

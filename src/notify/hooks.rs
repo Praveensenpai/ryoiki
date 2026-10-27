@@ -4,6 +4,13 @@ use std::path::Path;
 use std::process::Command;
 
 pub fn install_hooks(bin_path: &Path) {
+    if super::session::ensure_shared_state_dir() {
+        println!("  ✔ Prepared shared login state at /var/lib/ryoiki");
+    } else {
+        println!(
+            "  ⚠ Could not prepare /var/lib/ryoiki; login state falls back to per-user state dirs"
+        );
+    }
     install_boot_service(bin_path);
     install_pam_hook(bin_path);
     install_profile_hook(bin_path);

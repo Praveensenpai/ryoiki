@@ -300,8 +300,9 @@ fn test_dedup_deleted_file_stays_unavailable() -> Result<()> {
         path.clone(),
         "original",
     )];
-    let info =
-        crate::modules::media::heuristic::classify_media_heuristic("Gone (2024) [Kannada] [1080p].mkv");
+    let info = crate::modules::media::heuristic::classify_media_heuristic(
+        "Gone (2024) [Kannada] [1080p].mkv",
+    );
     let hash = "5555555555555555555555555555555555555555";
     crate::modules::torrent::history::record_download_history(Some(hash), &info, tracked)?;
 
