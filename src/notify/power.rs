@@ -1,20 +1,29 @@
 use anyhow::Result;
 use std::fs;
+use std::io::Write;
 use std::path::Path;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use super::client::{format_card, send_alert};
 use super::config::TelegramConfig;
+use crate::settings::Settings;
 
 mod lock;
+mod sensors;
 use lock::acquire_pid_lock;
-
-/// Battery thresholds that trigger a low-battery alert (descending order).
-const LOW_BATTERY_THRESHOLDS: &[u8] = &[50, 40, 30, 25, 15, 5, 1];
+pub use sensors::{
+    is_ac_online, read_battery_percent, read_battery_status, read_cpu_temp, read_cpu_usage,
+};
 
 /// How often the battery watcher polls (seconds).
 const POLL_INTERVAL_SECS: u64 = 60;
+
+/// File under `~/.local/state/ryoiki` that records shutdown decisions.
+const POWEROFF_LOG: &str = "power.log";
+
+/// Environment escape hatch used by smoke tests to suppress a real shutdown.
+const NO_POWEROFF_ENV: &str = "RYOIKI_NO_POWEROFF";
 
 // ── Public entry points ──────────────────────────────────────────────────────
 
@@ -28,54 +37,153 @@ pub fn send_power_event(config: &TelegramConfig, status: &str) -> Result<()> {
 /// Long-running daemon: polls battery every minute.
 /// - When on HP ACPI hardware, actively regulates charging to keep battery at target limit.
 /// - When charging on AC without ACPI hooks, fires an alert when target limit is reached.
-/// - When on battery, fires a Telegram alert at each low-battery threshold.
+/// - When on battery, fires a Telegram alert at each configured low-battery threshold.
+/// - When enabled, powers the host off once the configured critical threshold is reached.
 ///
 /// Acquires an exclusive PID lock file on startup. A second instance will detect the lock
 /// and exit cleanly, preventing duplicate Telegram notifications.
 pub fn run_battery_watch(config: &TelegramConfig) -> Result<()> {
     let _pid_guard = acquire_pid_lock()?;
-
-    let mut fired_low: Vec<u8> = Vec::new();
-    let mut fired_high = false;
-    let mut last_hp_mode: Option<crate::charge_limit::hp_acpi::HpChargeMode> = None;
+    let mut state = WatchState::default();
 
     loop {
-        let pct_opt = read_battery_percent();
-        let ac_online = is_ac_online();
-
-        if let Some(pct) = pct_opt {
-            let target_limit = crate::charge_limit::load_configured_limit().unwrap_or(60);
-
-            if crate::charge_limit::hp_acpi::is_hp_acpi_supported() {
-                if let Ok(new_mode) =
-                    crate::charge_limit::hp_acpi::regulate_hp_battery(target_limit, pct, ac_online)
-                {
-                    if last_hp_mode != Some(new_mode) {
-                        last_hp_mode = Some(new_mode);
-                        let card = build_hp_acpi_card(config, pct, target_limit, new_mode);
-                        let _ = send_alert(&config.bot_token, &config.chat_id, &card);
-                    }
-                }
-            } else if ac_online && pct >= target_limit && !fired_high {
-                fired_high = true;
-                let card = build_high_charge_card(config, pct, target_limit);
-                let _ = send_alert(&config.bot_token, &config.chat_id, &card);
-            }
-
-            if ac_online {
-                fired_low.retain(|&t| pct <= t);
-            } else {
-                fired_high = false;
-                for &threshold in LOW_BATTERY_THRESHOLDS {
-                    if pct <= threshold && !fired_low.contains(&threshold) {
-                        fired_low.push(threshold);
-                        let card = build_battery_alert_card(config, pct, threshold);
-                        let _ = send_alert(&config.bot_token, &config.chat_id, &card);
-                    }
-                }
-            }
+        let settings = crate::settings::load_or_default();
+        if let Some(pct) = read_battery_percent() {
+            update_charge_state(config, &settings, pct, is_ac_online(), &mut state);
         }
         thread::sleep(Duration::from_secs(POLL_INTERVAL_SECS));
+    }
+}
+
+#[derive(Default)]
+struct WatchState {
+    fired_low: Vec<u8>,
+    fired_high: bool,
+    poweroff_fired: bool,
+    last_hp_mode: Option<crate::charge_limit::hp_acpi::HpChargeMode>,
+}
+
+fn update_charge_state(
+    config: &TelegramConfig,
+    settings: &Settings,
+    pct: u8,
+    ac_online: bool,
+    state: &mut WatchState,
+) {
+    let target_limit = settings.battery.max_charge_percent;
+
+    if crate::charge_limit::hp_acpi::is_hp_acpi_supported() {
+        regulate_hp(config, pct, ac_online, target_limit, state);
+    } else if ac_online && pct >= target_limit && !state.fired_high {
+        state.fired_high = true;
+        let card = build_high_charge_card(config, pct, target_limit);
+        let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+    }
+
+    if ac_online {
+        state.fired_low.retain(|&threshold| pct <= threshold);
+        state.poweroff_fired = false;
+        return;
+    }
+
+    state.fired_high = false;
+    fire_low_alerts(
+        config,
+        pct,
+        &settings.battery.alert_thresholds,
+        &mut state.fired_low,
+    );
+    maybe_power_off(config, pct, settings, state);
+}
+
+fn regulate_hp(
+    config: &TelegramConfig,
+    pct: u8,
+    ac_online: bool,
+    target_limit: u8,
+    state: &mut WatchState,
+) {
+    let Ok(new_mode) =
+        crate::charge_limit::hp_acpi::regulate_hp_battery(target_limit, pct, ac_online)
+    else {
+        return;
+    };
+    if state.last_hp_mode == Some(new_mode) {
+        return;
+    }
+    state.last_hp_mode = Some(new_mode);
+    let card = build_hp_acpi_card(config, pct, target_limit, new_mode);
+    let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+}
+
+fn maybe_power_off(config: &TelegramConfig, pct: u8, settings: &Settings, state: &mut WatchState) {
+    if !should_power_off(pct, false, settings, state.poweroff_fired) {
+        return;
+    }
+    state.poweroff_fired = true;
+    let threshold = settings.power.poweroff_percent;
+    let card = build_poweroff_card(config, pct, threshold);
+    let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+    execute_poweroff(pct, threshold);
+}
+
+/// Emits one alert per configured threshold while the battery is discharging.
+fn fire_low_alerts(config: &TelegramConfig, pct: u8, thresholds: &[u8], fired_low: &mut Vec<u8>) {
+    for &threshold in thresholds {
+        if pct <= threshold && !fired_low.contains(&threshold) {
+            fired_low.push(threshold);
+            let card = build_battery_alert_card(config, pct, threshold);
+            let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+        }
+    }
+}
+
+/// Pure decision predicate so the shutdown behaviour is unit-testable.
+#[must_use]
+pub fn should_power_off(
+    pct: u8,
+    ac_online: bool,
+    settings: &Settings,
+    already_fired: bool,
+) -> bool {
+    settings.power.poweroff_on_low
+        && !already_fired
+        && !ac_online
+        && pct <= settings.power.poweroff_percent
+}
+
+fn execute_poweroff(pct: u8, threshold: u8) {
+    log_poweroff(pct, threshold);
+    if std::env::var_os(NO_POWEROFF_ENV).is_some() {
+        return;
+    }
+    let direct = std::process::Command::new("systemctl")
+        .arg("poweroff")
+        .output();
+    if direct.is_ok_and(|out| out.status.success()) {
+        return;
+    }
+    let _ = std::process::Command::new("sudo")
+        .args(["-n", "systemctl", "poweroff"])
+        .output();
+}
+
+fn log_poweroff(pct: u8, threshold: u8) {
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let dir = Path::new(&home).join(".local/state/ryoiki");
+    if fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let line = format!(
+        "{:?} battery={pct}% threshold={threshold}% action=poweroff\n",
+        SystemTime::now()
+    );
+    if let Ok(mut file) = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join(POWEROFF_LOG))
+    {
+        let _ = file.write_all(line.as_bytes());
     }
 }
 
@@ -160,6 +268,23 @@ fn build_high_charge_card(config: &TelegramConfig, pct: u8, limit: u8) -> String
     format_card("Charge Limit Alert", badge, &fields)
 }
 
+fn build_poweroff_card(config: &TelegramConfig, pct: u8, threshold: u8) -> String {
+    let host = get_hostname(config);
+    let pct_str = format!("{pct}%");
+    let threshold_str = format!("{threshold}%");
+    let batt_status = read_battery_status().unwrap_or_else(|| "unknown".to_string());
+
+    let fields = [
+        ("🖥 Host:", host.as_str()),
+        ("⚡ Action:", "Powering off to protect the battery"),
+        ("🔋 Battery:", pct_str.as_str()),
+        ("🎯 Shutdown Threshold:", threshold_str.as_str()),
+        ("📊 Batt Status:", batt_status.as_str()),
+    ];
+
+    format_card("Critical Battery", "🛑 <b>EMERGENCY SHUTDOWN</b>", &fields)
+}
+
 fn build_hp_acpi_card(
     config: &TelegramConfig,
     pct: u8,
@@ -190,132 +315,6 @@ fn build_hp_acpi_card(
     )
 }
 
-// ── System readers ────────────────────────────────────────────────────────────
-
-pub fn is_ac_online() -> bool {
-    let base = Path::new("/sys/class/power_supply");
-    let Ok(entries) = fs::read_dir(base) else {
-        return true;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let is_mains = fs::read_to_string(path.join("type"))
-            .is_ok_and(|k| k.trim().eq_ignore_ascii_case("mains"));
-        if is_mains {
-            return fs::read_to_string(path.join("online")).is_ok_and(|o| o.trim() == "1");
-        }
-    }
-    false
-}
-
-/// Read battery percentage from the first battery found in `/sys/class/power_supply`/.
-pub fn read_battery_percent() -> Option<u8> {
-    let base = "/sys/class/power_supply";
-    for entry in fs::read_dir(base).ok()?.flatten() {
-        let path = entry.path();
-        let type_path = path.join("type");
-        let kind = fs::read_to_string(&type_path)
-            .map(|s| s.trim().to_lowercase())
-            .unwrap_or_default();
-        if kind != "battery" {
-            continue;
-        }
-        let cap = fs::read_to_string(path.join("capacity"))
-            .ok()
-            .and_then(|s| s.trim().parse::<u8>().ok());
-        return cap;
-    }
-    None
-}
-
-/// Read battery charge status ("Charging", "Discharging", "Full", …).
-pub fn read_battery_status() -> Option<String> {
-    let base = "/sys/class/power_supply";
-    for entry in fs::read_dir(base).ok()?.flatten() {
-        let path = entry.path();
-        let type_path = path.join("type");
-        let kind = fs::read_to_string(&type_path)
-            .map(|s| s.trim().to_lowercase())
-            .unwrap_or_default();
-        if kind != "battery" {
-            continue;
-        }
-        let status = fs::read_to_string(path.join("status"))
-            .map(|s| s.trim().to_string())
-            .ok();
-        return status;
-    }
-    None
-}
-
-/// Read CPU temperature from hwmon or `thermal_zone` sysfs.
-pub fn read_cpu_temp() -> Option<f64> {
-    // Try hwmon first (more accurate on most systems)
-    if let Some(t) = read_hwmon_temp() {
-        return Some(t);
-    }
-    // Fall back to thermal_zone
-    for i in 0..10 {
-        let path = format!("/sys/class/thermal/thermal_zone{i}/temp");
-        if let Ok(s) = fs::read_to_string(&path) {
-            if let Ok(millic) = s.trim().parse::<u32>() {
-                return Some(f64::from(millic) / 1000.0);
-            }
-        }
-    }
-    None
-}
-
-fn read_hwmon_temp() -> Option<f64> {
-    let base = "/sys/class/hwmon";
-    for entry in fs::read_dir(base).ok()?.flatten() {
-        let path = entry.path();
-        // Look for temp1_input (primary CPU sensor)
-        let temp_path = path.join("temp1_input");
-        if let Ok(s) = fs::read_to_string(&temp_path) {
-            if let Ok(millic) = s.trim().parse::<u32>() {
-                let t = f64::from(millic) / 1000.0;
-                // Sanity check: plausible CPU temp
-                if (0.0..150.0).contains(&t) {
-                    return Some(t);
-                }
-            }
-        }
-    }
-    None
-}
-
-/// Read instantaneous CPU usage by sampling /proc/stat twice with a 200 ms gap.
-pub fn read_cpu_usage() -> Option<f64> {
-    let (idle1, total1) = parse_cpu_stat()?;
-    thread::sleep(Duration::from_millis(200));
-    let (idle2, total2) = parse_cpu_stat()?;
-
-    let delta_total = total2.saturating_sub(total1);
-    let delta_idle = idle2.saturating_sub(idle1);
-
-    if delta_total == 0 {
-        return Some(0.0);
-    }
-    #[allow(clippy::cast_precision_loss)]
-    let usage = 100.0 * (1.0 - delta_idle as f64 / delta_total as f64);
-    Some(usage.clamp(0.0, 100.0))
-}
-
-fn parse_cpu_stat() -> Option<(u64, u64)> {
-    let content = fs::read_to_string("/proc/stat").ok()?;
-    let line = content.lines().next()?; // first line: "cpu  ..."
-    let mut parts = line.split_whitespace();
-    parts.next(); // skip "cpu" label
-    let values: Vec<u64> = parts.filter_map(|v| v.parse().ok()).collect();
-    if values.len() < 4 {
-        return None;
-    }
-    let idle = values[3]; // idle jiffies
-    let total: u64 = values.iter().sum();
-    Some((idle, total))
-}
-
 fn get_hostname(config: &super::config::TelegramConfig) -> String {
     if let Some(name) = &config.server_name {
         return name.clone();
@@ -332,27 +331,29 @@ mod tests {
 
     #[test]
     fn test_low_battery_thresholds_descending() {
+        let settings = Settings::default();
         let mut prev = 255u8;
-        for &t in LOW_BATTERY_THRESHOLDS {
+        for &t in &settings.battery.alert_thresholds {
             assert!(t < prev, "Thresholds must be in descending order");
             prev = t;
         }
     }
 
     #[test]
-    fn test_parse_cpu_stat_reads_proc() {
-        // /proc/stat is always present on Linux
-        let result = parse_cpu_stat();
-        assert!(result.is_some(), "parse_cpu_stat should succeed on Linux");
-        if let Some((idle, total)) = result {
-            assert!(total >= idle, "total must be >= idle jiffies");
-        }
+    fn test_should_power_off_disabled_by_default() {
+        let settings = Settings::default();
+        assert!(!should_power_off(1, false, &settings, false));
     }
 
     #[test]
-    fn test_cpu_usage_in_range() {
-        if let Some(usage) = read_cpu_usage() {
-            assert!((0.0..=100.0).contains(&usage));
-        }
+    fn test_should_power_off_only_when_on_battery_and_crossed() {
+        let mut settings = Settings::default();
+        settings.power.poweroff_on_low = true;
+        settings.power.poweroff_percent = 10;
+        assert!(should_power_off(10, false, &settings, false));
+        assert!(should_power_off(3, false, &settings, false));
+        assert!(!should_power_off(11, false, &settings, false));
+        assert!(!should_power_off(5, true, &settings, false));
+        assert!(!should_power_off(5, false, &settings, true));
     }
 }

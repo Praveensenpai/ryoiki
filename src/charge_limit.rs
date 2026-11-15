@@ -62,7 +62,11 @@ pub fn detect_backend() -> Result<Backend> {
 
 pub fn run(yes: bool) -> Result<()> {
     let backend = detect_backend()?;
-    let limit = if yes { 60 } else { prompt_limit()? };
+    let limit = if yes {
+        crate::settings::effective_charge_limit()
+    } else {
+        prompt_limit()?
+    };
 
     match backend {
         Backend::Sysfs(battery) => {

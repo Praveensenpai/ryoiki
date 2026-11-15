@@ -2,7 +2,7 @@
 
 # 🌸 領域 (Ryoiki)
 
-**Minimalist, zero-clutter Ubuntu server provisioning orchestrator written in Rust.**
+**Aesthetic Ubuntu server control center: provision, tune battery health, inspect services, and update from one terminal.**
 
 [![Release](https://img.shields.io/github/v/release/Praveensenpai/ryoiki?style=flat-square&color=cba6f7)](https://github.com/Praveensenpai/ryoiki/releases/latest)
 [![CI Status](https://img.shields.io/github/actions/workflow/status/Praveensenpai/ryoiki/ci.yml?branch=main&label=CI&style=flat-square&color=a6e3a1)](https://github.com/Praveensenpai/ryoiki/actions)
@@ -14,28 +14,26 @@
 </div>
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│  領域 (Ryoiki) — Ubuntu Server Provisioning                             │
-└─────────────────────────────────────────────────────────────────────────┘
-
-Select modules to install: (Space to toggle, Enter to run)
-
-  [✓]  1. Git & SSH Key Setup        Ed25519 key generation & GitHub link
-  [✓]  2. System Essentials          git, tmux, neovim, adb, and GitHub CLI (gh)
-  [✓]  3. Modern CLI Suite           eza, bat, zoxide, fzf, and ble.sh
-  [✓]  4. Dev Runtimes               Go, Rust (rustup), Python (uv), Bun
-  [✓]  5. Server Security            UFW Firewall (ports 22, 80, 443)
-  [✓]  6. Docker Platform            Docker Engine CE & Docker Compose plugin
-  [ ]  7. Jellyfin Media Server      Dockerized media streaming with Intel GPU
-  [ ]  8. qBittorrent Server         Dockerized BitTorrent client with Web UI
-  [✓]  9. Shell Prompt               Starship cross-shell prompt & Fastfetch CLI
-  [✓] 10. Trash Manager              toss-rs (FreeDesktop trash TUI & rm alias)
-  [✓] 11. Tailscale Mesh VPN         WireGuard mesh & MagicDNS (hostname SSH)
-  [✓] 12. Aesthetic Dotfiles         Deploy embedded dotfiles (tmux, aliases)
-  [✓] 13. AI Media Organizer         Auto-classify & move downloads to Jellyfin (DeepSeek/Gemini/Regex)
-
-  [↑/↓/j/k] Navigate   [Space] Toggle   [a] All   [n] None   [Enter] Launch   [q] Quit
+┌──────────────────────────────────────────────────────────────────────────┐
+│  領域 Ryoiki · Control Center                              v0.1.118      │
+│  ● mochi   │  AC connected  │  62%  │  up 1h  │  Battery                   │
+├──────────────────┬───────────────────────────────────────────────────────┤
+│ Menu             │ Battery  Charge ceiling and low-battery policy        │
+│  1 Dashboard     │  Max charge ceiling            ● on                   │
+│  2 Provision     │  Ceiling percent               ◀ 60% ▶                │
+│  3 Battery       │  ─────────────────────────────────────────────────    │
+│  4 Notifications │  Auto poweroff                 ● on                   │
+│  5 Services      │  Shutdown at                   ◀ 5% ▶                 │
+│  6 Media         │  ─────────────────────────────────────────────────    │
+│  7 Updates       │  Apply ceiling to hardware     enter ↵                │
+│  8 Settings      │  Restart battery watcher       enter ↵                │
+│                  │  Edit alert thresholds         enter ↵                │
+│  5s auto-refresh │  Alert thresholds  50% · 40% · 30% · 25% · 15% · 5%   │
+├──────────────────┴───────────────────────────────────────────────────────┤
+│ j/k move · h/l tabs · ←/→ adjust · Enter · Tab pane · ? help · q quit    │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
+
 
 ---
 
@@ -54,14 +52,18 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 2. **Downloads the pre-compiled binary** — straight from the latest GitHub Release, no compilation
 3. **Installs to `~/.local/bin/ryoiki`** — no root required for the binary itself
 4. **Installs system hooks** — udev power rule, battery-watch service, boot & login notifications
-5. **Launches the interactive TUI** — pick exactly what you want provisioned
+5. **Launches the control center** — live system dashboard with provisioning, battery health, services, media, updates, and settings
 
 ---
 
 ## ✨ Features
 
+- 🎛️ **Persistent Control Center** — An eight-tab Ratatui interface for live metrics, provisioning, battery policy, Telegram notifications, systemd services, media, updates, and local settings.
+- 🔋 **Battery Health Guardrails** — Set a charge ceiling and optionally power the host off at a chosen battery percentage, once per discharge cycle. The watcher reads settings live and logs every shutdown decision.
+- 🖥️ **Live Dashboard** — CPU, memory, disk, battery gauge, AC state, charge backend, watcher health, and managed-service counts in one glance.
+- 🛡️ **Safe Provisioning Routing** — Bare non-interactive `ryoiki` only prints a plain dashboard. Installing modules always requires an explicit `ryoiki install`, `--all`, or `--yes`.
+- ⚙️ **Unified Settings Store** — One validated `~/.config/ryoiki/settings.json` for charge ceiling, alert ladder, auto poweroff, and UI refresh, written atomically.
 - 🔇 **Zero Visual Clutter** — Hides noisy `apt`, `dpkg`, and compiler scroll walls behind clean, single-line spinners. Full execution logs are saved quietly to `~/.local/state/ryoiki/install.log`.
-- 🖥️ **Interactive Ratatui TUI** — Lightweight, keyboard-driven terminal checklist. Effortlessly select exactly what you want installed.
 - 🌐 **Tailscale & MagicDNS** — Built-in WireGuard mesh. Connect via `ssh user@hostname` from anywhere without static IPs, port forwarding, or firewall holes.
 - ⏱️ **Granular Adaptive Timers** — Section, subsection, and overall total duration timings with dynamic unit formatting (`<1ms`, `420ms`, `12.4s`, `1m 24s`).
 - 📦 **Zero-Clone Embedded Dotfiles** — All configuration templates (`.tmux.conf`, `.bash_aliases`, `starship.toml`) are compiled directly into the binary with `include_str!`.
@@ -69,7 +71,7 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 - 📥 **qBittorrent Web UI** — Remote torrent management out of the box via Docker Compose on port 6881 and UFW firewall configuration.
 - 🛡️ **Hardened Server Security** — Automated UFW firewall configuration (SSH, HTTP, HTTPS) and unneeded daemon cleanup.
 - 🚀 **Dual Architecture Releases** — Native static binaries built for both `x86_64` and `aarch64` (AWS Graviton, Ampere, Raspberry Pi).
-- 🦀 **Strict Rust Standards** — Built under strict quality gates: `<300` LOC per file, `<40` LOC per function, zero unhandled `unwrap()` calls, and zero Clippy warnings.
+- 🦀 **Strict Rust Standards** — Built under strict quality gates: `<400` LOC per file, `<60` LOC per function, zero unhandled `unwrap()` calls, and zero Clippy warnings.
 
 ---
 
@@ -94,37 +96,53 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 
 ---
 
-## ⌨️ TUI Keybindings
+## ⌨️ Control Center Keybindings
 
 | Key | Action |
 |:---:|:---|
-| <kbd>↑</kbd> / <kbd>k</kbd> | Move selection up |
-| <kbd>↓</kbd> / <kbd>j</kbd> | Move selection down |
-| <kbd>Space</kbd> | Toggle selected module on/off |
-| <kbd>a</kbd> | Select all modules |
-| <kbd>n</kbd> | Deselect all modules |
-| <kbd>Enter</kbd> | Confirm selection and begin provisioning |
-| <kbd>q</kbd> / <kbd>Esc</kbd> | Cancel and exit |
+| <kbd>q</kbd> / <kbd>Ctrl-C</kbd> | Quit and restore the terminal |
+| <kbd>?</kbd> | Toggle the help overlay |
+| <kbd>Tab</kbd> | Switch focus between the menu and content panes |
+| <kbd>1</kbd>–<kbd>8</kbd> | Jump to Dashboard, Provision, Battery, Notifications, Services, Media, Updates, or Settings |
+| <kbd>j</kbd> / <kbd>k</kbd> / <kbd>↑</kbd> / <kbd>↓</kbd> | Move the cursor |
+| <kbd>h</kbd> / <kbd>l</kbd> / <kbd>←</kbd> / <kbd>→</kbd> | Previous/next tab in the menu, or adjust a stepper in content |
+| <kbd>Enter</kbd> / <kbd>Space</kbd> | Activate the focused row or toggle a module/toggle |
+| <kbd>g</kbd> / <kbd>G</kbd> | Jump to the first/last selectable row |
+| <kbd>r</kbd> / <kbd>s</kbd> | Refresh the snapshot / save settings |
+| <kbd>Ctrl-U</kbd> | Clear the active text input |
+| <kbd>y</kbd> / <kbd>n</kbd> | Confirm or cancel a privileged action |
+
+> Modals take over the keyboard: <kbd>Esc</kbd> cancels an input or confirmation, <kbd>Enter</kbd> saves an input, and any key closes the help overlay.
 
 ---
 
 ## 🛠️ CLI Usage & Commands
 
 ```bash
-# Launch interactive TUI checklist (default)
+# Open the control center dashboard (interactive terminal)
 ryoiki
 
-# Run all modules automatically without prompts (ideal for headless setups)
+# Open the provisioning checklist tab
+ryoiki install
+
+# Explicit dashboard subcommand (same as bare ryoiki)
+ryoiki tui
+
+# Preview provisioning without changing the system
+ryoiki --dry-run
+
+# Headless provisioning: all modules / defaults for prompts
 ryoiki --all
+ryoiki --yes
+
+# Piped or redirected output never provisions; it prints a plain dashboard
+ryoiki < /dev/null
 
 # Audit the host system and report which tools are installed
 ryoiki check
 
 # Deploy or update embedded dotfiles only (~/.tmux.conf, ~/.bash_aliases, starship.toml)
 ryoiki dotfiles
-
-# Dry-run simulation (prints all planned actions without modifying system state)
-ryoiki --dry-run
 
 # Run specific modules by identifier
 ryoiki run dev_runtimes docker security
@@ -165,6 +183,46 @@ ryoiki seedr "magnet:?xt=urn:btih:..."   # Offload torrent to Seedr cloud with a
 ryoiki media /path/to/downloads --dry-run # Preview media classification without moving
 ryoiki media /path/to/downloads           # Classify and organize media files into Movies/Shows/Anime
 ```
+
+### 🎛️ Control Center & Battery Policy
+
+Bare `ryoiki` opens an eight-tab control center:
+
+| Tab | What it controls |
+|:---|:---|
+| **Dashboard** | Host, kernel, CPU temperature, memory, disk, battery gauge, AC state, charge backend, watcher health |
+| **Provision** | Module checklist with installed markers, per-module details, and an explicit run action |
+| **Battery** | Charge ceiling, auto poweroff threshold, alert ladder, hardware apply, watcher start/stop |
+| **Notifications** | Telegram token, chat id, server name, timezone, test card, system hooks |
+| **Services** | Managed systemd units and Docker containers with restart actions |
+| **Media** | Jellyfin library state, storage report, prune preview, interactive media manager |
+| **Updates** | Current binary path, latest release check, in-place self-update |
+| **Settings** | Config paths, UI refresh rate, notification timezone, save/reload, resume reset |
+
+Battery policy lives in `~/.config/ryoiki/settings.json`:
+
+```json
+{
+  "battery": {
+    "max_charge_enabled": true,
+    "max_charge_percent": 60,
+    "alert_thresholds": [50, 40, 30, 25, 15, 5, 1]
+  },
+  "power": {
+    "poweroff_on_low": false,
+    "poweroff_percent": 5
+  },
+  "ui": {
+    "refresh_secs": 5
+  }
+}
+```
+
+- **Charge ceiling** is written to the battery controller with `ryoiki charge-limit` or the Battery tab. The watcher also reads it for HP ACPI firmware regulation.
+- **Auto poweroff** is off by default. When enabled, the watcher fires once per discharge cycle at `poweroff_percent` or below, sends a Telegram card, then runs `systemctl poweroff`. Plugging in resets the latch. `RYOIKI_NO_POWEROFF=1` suppresses the shutdown for testing.
+- **Alert ladder** fires each threshold once per discharge cycle. Edit it in the Battery tab or change `alert_thresholds` directly.
+- **Power decisions** are appended to `~/.local/state/ryoiki/power.log`.
+- **System services** run as root with `Environment=HOME=<your home>` so the watcher reads the same settings and Telegram config as the TUI. Reinstall hooks from the Notifications tab after upgrading a rootless install.
 
 ### 🎬 AI Media Organizer & Dual-Tier AI
 
@@ -223,7 +281,20 @@ ryoiki/
 │   ├── modules.rs            # Module registry, dependency resolver & dispatcher
 │   ├── runner.rs             # Subprocess runner, elapsed timers & quiet output logging
 │   ├── state.rs              # Run state persistence & resume-on-interruption
-│   ├── tui.rs                # Ratatui interactive checklist interface ([Space], [a], [n])
+│   ├── tui.rs                # Control center entry, terminal guard & plain dashboard
+│   ├── tui/                  # Ratatui control center
+│   │   ├── app.rs            # Tabs, focus, actions, modals, state
+│   │   ├── app/forms.rs      # Text input and Telegram editing forms
+│   │   ├── actions.rs        # Privileged/long task execution and suspension
+│   │   ├── input.rs          # Key dispatch and navigation
+│   │   ├── render.rs         # Header, menu, footer, help/confirm/input overlays
+│   │   ├── run.rs            # Event loop, terminal restoration, plain fallback
+│   │   ├── system.rs         # Host snapshot and managed-service probes
+│   │   ├── views.rs          # Tab row/action router
+│   │   ├── views/            # Eight tab views
+│   │   └── widgets/          # Theme, row renderer, gauges, modal layout
+│   ├── settings.rs           # Unified settings schema and persistence entry
+│   ├── settings/             # Battery/power/UI model, validation & atomic store
 │   ├── updater.rs            # In-place binary self-update from GitHub releases
 │   ├── configs.rs            # Embedded dotfile deployment routines
 │   ├── notify.rs             # Central notification dispatcher & CLI handler
@@ -231,7 +302,8 @@ ryoiki/
 │   │   ├── config.rs         # Telegram config loader with legacy fallback
 │   │   ├── client.rs         # Telegram HTTP API client & HTML card generator
 │   │   ├── system.rs         # Boot metrics, PAM login hook & custom alerts
-│   │   ├── power.rs          # AC plug/unplug events & battery watch daemon
+│   │   ├── power.rs          # AC events, battery watcher & auto-poweroff policy
+│   │   ├── power/            # Battery/CPU sensors and PID lock
 │   │   └── server.rs         # Embedded loopback HTTP webhook server (:9119)
 │   └── modules/              # Single-responsibility provisioning modules
 │       ├── cli_tools.rs      # eza, bat, zoxide, fzf, ble.sh

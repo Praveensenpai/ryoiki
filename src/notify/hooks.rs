@@ -172,7 +172,7 @@ fn render_udev_power_rule(bin: &str) -> String {
     )
 }
 
-fn render_battery_watch_service(bin: &str) -> String {
+fn render_battery_watch_service(bin: &str, home: &str) -> String {
     format!(
         "[Unit]\n\
         Description=Ryoiki Battery Watch Telegram Notification\n\
@@ -180,6 +180,7 @@ fn render_battery_watch_service(bin: &str) -> String {
         Wants=network-online.target\n\n\
         [Service]\n\
         Type=simple\n\
+        Environment=HOME={home}\n\
         ExecStart={bin} notify battery-watch\n\
         Restart=on-failure\n\
         RestartSec=30\n\n\
@@ -205,7 +206,8 @@ fn install_udev_power_rule(bin_path: &Path) {
 
 fn install_battery_watch_service(bin_path: &Path) {
     let bin = bin_path.display().to_string();
-    let unit = render_battery_watch_service(&bin);
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+    let unit = render_battery_watch_service(&bin, &home);
 
     // Try system-wide first, fall back to user unit
     let sys_path = Path::new("/etc/systemd/system/ryoiki-battery-watch.service");
@@ -341,8 +343,9 @@ mod tests {
 
     #[test]
     fn test_render_battery_watch_service() {
-        let unit = render_battery_watch_service("/usr/local/bin/ryoiki");
+        let unit = render_battery_watch_service("/usr/local/bin/ryoiki", "/home/tester");
         assert!(unit.contains("ExecStart=/usr/local/bin/ryoiki notify battery-watch"));
+        assert!(unit.contains("Environment=HOME=/home/tester"));
         assert!(unit.contains("WantedBy=default.target"));
     }
 

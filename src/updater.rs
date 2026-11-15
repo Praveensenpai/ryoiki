@@ -68,6 +68,17 @@ pub fn run_self_update(current_version: &str) -> Result<()> {
     Ok(())
 }
 
+/// Fetches the latest release tag without touching the installed binary.
+pub fn latest_version() -> Result<String> {
+    let client = Client::builder()
+        .user_agent("ryoiki-updater")
+        .timeout(std::time::Duration::from_secs(6))
+        .build()
+        .context("Failed to build HTTP client")?;
+    let release = fetch_latest_release(&client)?;
+    Ok(release.tag_name.trim_start_matches('v').to_string())
+}
+
 fn fetch_latest_release(client: &Client) -> Result<GithubRelease> {
     let url = format!("{API_BASE}/repos/{REPO}/releases/latest");
     client

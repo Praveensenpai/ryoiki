@@ -89,6 +89,33 @@ pub struct TelegramConfig {
     pub seedr_slow_grace_secs: u64,
 }
 
+impl Default for TelegramConfig {
+    fn default() -> Self {
+        Self {
+            bot_token: String::new(),
+            chat_id: String::new(),
+            qbittorrent_url: default_qbittorrent_url(),
+            server_name: None,
+            api_port: default_api_port(),
+            gemini_api_key: None,
+            gemini_model: None,
+            deepseek_url: None,
+            deepseek_model: None,
+            deepseek_api_key: None,
+            enable_deepseek: None,
+            jellyfin_url: default_jellyfin_url(),
+            jellyfin_api_key: None,
+            session_cooldown_mins: default_session_cooldown_mins(),
+            timezone: None,
+            seedr_queue_policy: default_seedr_queue_policy(),
+            seedr_prompt_timeout_secs: default_seedr_prompt_timeout_secs(),
+            seedr_max_active_secs: default_seedr_max_active_secs(),
+            seedr_slow_speed_bps: default_seedr_slow_speed_bps(),
+            seedr_slow_grace_secs: default_seedr_slow_grace_secs(),
+        }
+    }
+}
+
 impl TelegramConfig {
     /// Returns a copy of this config that replies to `chat_id`.
     ///

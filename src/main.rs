@@ -4,6 +4,7 @@ mod configs;
 mod modules;
 mod notify;
 mod runner;
+mod settings;
 mod state;
 mod summary;
 mod tui;
@@ -46,6 +47,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Open the control center provisioning checklist
+    Install,
+    /// Open the control center dashboard (same as bare ryoiki)
+    Tui,
     /// Deploy only embedded dotfiles (`~/.tmux.conf`, `~/.bash_aliases`, `starship.toml`)
     Dotfiles,
     /// Inspect current system status (check installed tools)
@@ -128,48 +133,59 @@ enum Commands {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let mut runner = Runner::new(cli.dry_run, cli.verbose)?;
+    let interactive = std::io::stdin().is_terminal() && std::io::stdout().is_terminal();
 
-    if !matches!(cli.command, Some(Commands::Notify(..))) {
+    match cli.command.as_ref() {
+        None => {
+            if interactive && !cli.all && !cli.yes {
+                return tui::run(tui::RunOptions {
+                    dry_run: cli.dry_run,
+                    verbose: cli.verbose,
+                    start: None,
+                });
+            }
+            if !cli.all && !cli.yes {
+                tui::print_plain();
+                return Ok(());
+            }
+            let mut runner = Runner::new(cli.dry_run, cli.verbose)?;
+            print_banner();
+            return run_all_modules(&mut runner, cli.all, cli.yes);
+        }
+        Some(Commands::Install) => {
+            if interactive && !cli.all && !cli.yes {
+                return tui::run(tui::RunOptions {
+                    dry_run: cli.dry_run,
+                    verbose: cli.verbose,
+                    start: Some(tui::Tab::Provision),
+                });
+            }
+            let mut runner = Runner::new(cli.dry_run, cli.verbose)?;
+            print_banner();
+            return run_all_modules(&mut runner, cli.all, cli.yes);
+        }
+        Some(Commands::Tui) => {
+            if interactive && !cli.all && !cli.yes {
+                return tui::run(tui::RunOptions {
+                    dry_run: cli.dry_run,
+                    verbose: cli.verbose,
+                    start: None,
+                });
+            }
+            tui::print_plain();
+            return Ok(());
+        }
+        _ => {}
+    }
+
+    let mut runner = Runner::new(cli.dry_run, cli.verbose)?;
+    if !matches!(cli.command.as_ref(), Some(Commands::Notify(..))) {
         print_banner();
     }
 
     if let Some(cmd) = cli.command {
         return handle_subcommand(cmd, &mut runner, cli.yes);
     }
-
-    let Some(chosen) = resolve_selected_modules(&cli)? else {
-        return Ok(());
-    };
-
-    let resolved = modules::resolve_dependencies(&chosen);
-    print_dependency_notes(&chosen, &resolved);
-
-    if modules::requires_sudo(&resolved) {
-        runner.ensure_sudo()?;
-    }
-
-    let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();
-    let (to_run, run_state) = state::resolve_resume(resolved.clone(), non_interactive)?;
-
-    if to_run.is_empty() {
-        println!(
-            "  {} All selected modules are completed.",
-            "✔".green().bold()
-        );
-        state::RunState::clear();
-        return Ok(());
-    }
-
-    println!(
-        "\n  {} Running {} selected modules...\n",
-        "▶".cyan().bold(),
-        to_run.len()
-    );
-    let mut state_opt = Some(run_state);
-    let (total_dur, timings) = run_modules(&to_run, &mut runner, non_interactive, &mut state_opt)?;
-    state::RunState::clear();
-    summary::print_summary(&resolved, total_dur, &timings);
     Ok(())
 }
 
@@ -190,124 +206,134 @@ fn print_dependency_notes(chosen: &[String], resolved: &[String]) {
 
 fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()> {
     match cmd {
-        Commands::Dotfiles => {
-            let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-            let start = std::time::Instant::now();
-            configs::deploy_dotfiles(&home)?;
-            let dur = runner::format_duration(start.elapsed());
-            println!(
-                "  {} Dotfiles deployed successfully to {} ({dur})",
-                "✔".green().bold(),
-                home.cyan()
-            );
-        }
+        Commands::Install | Commands::Tui => tui::print_plain(),
+        Commands::Dotfiles => deploy_dotfiles()?,
         Commands::Check => modules::run_system_check(),
-        Commands::Run { modules } => {
-            let resolved = modules::resolve_dependencies(&modules);
-            if modules::requires_sudo(&resolved) {
-                runner.ensure_sudo()?;
-            }
-            let (total_dur, timings) = run_modules(&resolved, runner, yes, &mut None)?;
-            summary::print_summary(&resolved, total_dur, &timings);
-        }
-        Commands::Update => {
-            updater::run_self_update(env!("CARGO_PKG_VERSION"))?;
-        }
-        Commands::Bot => {
-            bot::run_bot()?;
-        }
-        Commands::ChargeLimit => {
-            charge_limit::run(yes)?;
-        }
-        Commands::Notify(sub) => {
-            notify::handle_cli(sub)?;
-        }
-        Commands::Organize { path, dry_run } => {
-            let target = if path.is_empty() {
-                let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-                std::path::PathBuf::from(home).join("torrents")
-            } else {
-                std::path::PathBuf::from(path)
-            };
-            modules::media::organizer::run_organize_cli(&target, dry_run)?;
-        }
-        Commands::Rclone(sub) => {
-            modules::rclone::handle_cli(sub)?;
-        }
-        Commands::Backup(sub) => {
-            modules::jellyfin::backup::handle_cli(sub)?;
-        }
-        Commands::Kodi(sub) => {
-            modules::jellyfin::kodi::handle_cli(&sub)?;
-        }
+        Commands::Run { modules } => run_selected(&modules, runner, yes)?,
+        Commands::Update => updater::run_self_update(env!("CARGO_PKG_VERSION"))?,
+        Commands::Bot => bot::run_bot()?,
+        Commands::ChargeLimit => charge_limit::run(yes)?,
+        Commands::Notify(sub) => notify::handle_cli(sub)?,
+        Commands::Organize { path, dry_run } => organize(&path, dry_run)?,
+        Commands::Rclone(sub) => modules::rclone::handle_cli(sub)?,
+        Commands::Backup(sub) => modules::jellyfin::backup::handle_cli(sub)?,
+        Commands::Kodi(sub) => modules::jellyfin::kodi::handle_cli(&sub)?,
         Commands::Prune {
             threshold,
             target,
             dry_run,
             schedule,
-        } => {
-            if schedule {
-                let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-                modules::media::prune_timer::deploy_prune_timer(&home, threshold, target)?;
-            } else {
-                let opts = modules::media::pruner::PruneOptions {
-                    threshold_pct: threshold,
-                    target_pct: target,
-                    dry_run,
-                };
-                modules::media::pruner::run_prune(opts)?;
-            }
-        }
-        Commands::Storage => {
-            modules::media::status::show_storage_status();
-        }
-        Commands::Media { action, schedule } => {
-            if schedule || action.as_deref() == Some("schedule") {
-                let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-                modules::media::sync::deploy_sync_timer(&home)?;
-            } else if action.as_deref() == Some("sync") {
-                modules::media::sync::run_media_sync()?;
-            } else {
-                modules::media::handle_media_cli(action.as_deref())?;
-            }
-        }
-        Commands::Audio(sub) => {
-            modules::media::audio::handle_cli(sub)?;
-        }
-        Commands::Timezone(args) => {
-            if !args.status {
-                runner.ensure_sudo()?;
-            }
-            modules::timezone::handle_cli(args, runner)?;
-        }
-        Commands::Seedr { target } => {
-            modules::torrent::cli::handle_seedr_cli(&target)?;
-        }
+        } => handle_prune(threshold, target, dry_run, schedule)?,
+        Commands::Storage => modules::media::status::show_storage_status(),
+        Commands::Media { action, schedule } => handle_media(action.as_deref(), schedule)?,
+        Commands::Audio(sub) => modules::media::audio::handle_cli(sub)?,
+        Commands::Timezone(args) => handle_timezone(args, runner)?,
+        Commands::Seedr { target } => modules::torrent::cli::handle_seedr_cli(&target)?,
     }
     Ok(())
 }
 
-fn resolve_selected_modules(cli: &Cli) -> Result<Option<Vec<String>>> {
-    let non_interactive = cli.all || cli.yes || !std::io::stdin().is_terminal();
-    if non_interactive {
-        let all_ids = get_available_modules()
-            .into_iter()
-            .map(|m| m.id.to_string())
-            .collect();
-        return Ok(Some(all_ids));
-    }
+fn home_dir() -> String {
+    std::env::var("HOME").unwrap_or_else(|_| "/root".to_string())
+}
 
-    let Some(mods) = tui::select_modules()? else {
-        println!("\n  {} Setup cancelled.", "•".dimmed());
-        return Ok(None);
+fn deploy_dotfiles() -> Result<()> {
+    let home = home_dir();
+    let start = std::time::Instant::now();
+    configs::deploy_dotfiles(&home)?;
+    let dur = runner::format_duration(start.elapsed());
+    println!(
+        "  {} Dotfiles deployed successfully to {} ({dur})",
+        "✔".green().bold(),
+        home.cyan()
+    );
+    Ok(())
+}
+
+fn run_selected(selected: &[String], runner: &mut Runner, yes: bool) -> Result<()> {
+    let resolved = modules::resolve_dependencies(selected);
+    if modules::requires_sudo(&resolved) {
+        runner.ensure_sudo()?;
+    }
+    let (total_dur, timings) = run_modules(&resolved, runner, yes, &mut None)?;
+    summary::print_summary(&resolved, total_dur, &timings);
+    Ok(())
+}
+
+fn organize(path: &str, dry_run: bool) -> Result<()> {
+    let target = if path.is_empty() {
+        std::path::PathBuf::from(home_dir()).join("torrents")
+    } else {
+        std::path::PathBuf::from(path)
     };
+    modules::media::organizer::run_organize_cli(&target, dry_run)
+}
 
-    if mods.is_empty() {
-        println!("\n  {} No modules selected.", "•".dimmed());
-        return Ok(None);
+fn handle_prune(threshold: u8, target: u8, dry_run: bool, schedule: bool) -> Result<()> {
+    if schedule {
+        modules::media::prune_timer::deploy_prune_timer(&home_dir(), threshold, target)?;
+        return Ok(());
+    }
+    let opts = modules::media::pruner::PruneOptions {
+        threshold_pct: threshold,
+        target_pct: target,
+        dry_run,
+    };
+    modules::media::pruner::run_prune(opts)
+}
+
+fn handle_media(action: Option<&str>, schedule: bool) -> Result<()> {
+    if schedule || action == Some("schedule") {
+        modules::media::sync::deploy_sync_timer(&home_dir())?;
+    } else if action == Some("sync") {
+        modules::media::sync::run_media_sync()?;
+    } else {
+        modules::media::handle_media_cli(action)?;
+    }
+    Ok(())
+}
+
+fn handle_timezone(args: modules::timezone::TimezoneArgs, runner: &mut Runner) -> Result<()> {
+    if !args.status {
+        runner.ensure_sudo()?;
+    }
+    modules::timezone::handle_cli(args, runner)
+}
+
+fn run_all_modules(runner: &mut Runner, all: bool, yes: bool) -> Result<()> {
+    let chosen: Vec<String> = get_available_modules()
+        .into_iter()
+        .map(|module| module.id.to_string())
+        .collect();
+    let resolved = modules::resolve_dependencies(&chosen);
+    print_dependency_notes(&chosen, &resolved);
+
+    if modules::requires_sudo(&resolved) {
+        runner.ensure_sudo()?;
     }
 
-    Ok(Some(mods))
+    let non_interactive = all || yes || !std::io::stdin().is_terminal();
+    let (to_run, run_state) = state::resolve_resume(resolved.clone(), non_interactive)?;
+
+    if to_run.is_empty() {
+        println!(
+            "  {} All selected modules are completed.",
+            "✔".green().bold()
+        );
+        state::RunState::clear();
+        return Ok(());
+    }
+
+    println!(
+        "\n  {} Running {} selected modules...\n",
+        "▶".cyan().bold(),
+        to_run.len()
+    );
+    let mut state_opt = Some(run_state);
+    let (total_dur, timings) = run_modules(&to_run, runner, non_interactive, &mut state_opt)?;
+    state::RunState::clear();
+    summary::print_summary(&resolved, total_dur, &timings);
+    Ok(())
 }
 
 fn print_banner() {
