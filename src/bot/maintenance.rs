@@ -52,7 +52,7 @@ pub fn handle_bot_organize(config: &TelegramConfig) -> Result<String> {
         let res =
             crate::modules::media::organizer::organize_torrent(t, &http_client, api_key, false)?;
         if !res.is_empty()
-            && api::delete_torrent(&http_client, &config.qbittorrent_url, &t.hash, false).is_ok()
+            && api::delete_torrent(&http_client, &config.qbittorrent_url, &t.hash, true).is_ok()
         {
             cleared += 1;
         }

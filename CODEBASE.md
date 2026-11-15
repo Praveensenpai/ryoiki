@@ -816,7 +816,17 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn scan_library (base : & Path) -> LibraryReport
   ```
 
-### `src/modules/media/organizer/cli.rs` (Role: cli, Lines: 194)
+### `src/modules/media/organizer/cleanup.rs` (Role: general, Lines: 205)
+- **Responsibility**: Core general logic in src/modules/media/organizer/cleanup.rs
+- **Imports**: use std :: fs , use std :: path :: { Path , PathBuf } , use super :: junk :: is_skippable_extra_name , use crate :: modules :: media :: organizer :: find_videos_recursive , use crate :: modules :: torrent :: api :: TorrentInfo 
+- **Public Functions & Signatures**:
+  ```rust
+  fn resolve_torrent_source (torrent : & TorrentInfo , default_dl : & Path) -> PathBuf
+  fn cleanup_torrent_source (source : & Path , default_dl : & Path)
+  fn has_unorganized_videos (dir : & Path) -> bool
+  ```
+
+### `src/modules/media/organizer/cli.rs` (Role: cli, Lines: 192)
 - **Responsibility**: Core cli logic in src/modules/media/organizer/cli.rs
 - **Imports**: use anyhow :: Result , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: path :: Path , use super :: { organize_path , organize_torrent } , use crate :: modules :: media :: OrganizeResult , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
@@ -826,12 +836,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn setup (runner : & mut Runner , non_interactive : bool) -> Result < () >
   ```
 
-### `src/modules/media/organizer/junk.rs` (Role: general, Lines: 104)
+### `src/modules/media/organizer/junk.rs` (Role: general, Lines: 119)
 - **Responsibility**: Core general logic in src/modules/media/organizer/junk.rs
 - **Imports**: use crate :: modules :: media :: { MediaInfo , MediaType } 
 - **Public Functions & Signatures**:
   ```rust
   fn is_skippable_extra (info : & MediaInfo , raw_name : & str) -> bool
+  fn is_skippable_extra_name (path : & std :: path :: Path) -> bool
   ```
 
 ### `src/modules/media/organizer/pathing.rs` (Role: general, Lines: 290)
@@ -867,16 +878,15 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/media/organizer/tests.rs
 - **Imports**: use super :: * , use crate :: modules :: media :: ClassificationEngine 
 
-### `src/modules/media/organizer.rs` (Role: general, Lines: 395)
+### `src/modules/media/organizer.rs` (Role: general, Lines: 373)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
-- **Imports**: pub use cli :: { run_organize_cli , setup } , use junk :: is_skippable_extra , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use specials :: assign_unique_special_numbers , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
+- **Imports**: pub use cleanup :: { cleanup_torrent_source , resolve_torrent_source } , pub use cli :: { run_organize_cli , setup } , use junk :: is_skippable_extra , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use specials :: assign_unique_special_numbers , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
 - **Public Functions & Signatures**:
   ```rust
   fn organize_file (file_path : & Path , client : & Client , api_key : Option < & str > , dry_run : bool ,) -> Result < OrganizeResult >
   fn execute_file_organize (file_path : & Path , media_info : super :: MediaInfo , probe : Option < & MediaProbe > , dry_run : bool ,) -> Result < OrganizeResult >
   fn organize_path (target : & Path , client : & Client , api_key : Option < & str > , dry_run : bool ,) -> Result < Vec < OrganizeResult > >
   fn find_videos_recursive (dir : & Path , list : & mut Vec < PathBuf >) -> Result < () >
-  fn resolve_torrent_source (torrent : & TorrentInfo , default_dl : & Path) -> PathBuf
   fn organize_torrent (torrent : & TorrentInfo , client : & Client , api_key : Option < & str > , dry_run : bool ,) -> Result < Vec < OrganizeResult > >
   fn organize_completed_torrent (client : & Client , torrent : & TorrentInfo , api_key : Option < & str > ,) -> Result < Option < OrganizeResult > >
   ```

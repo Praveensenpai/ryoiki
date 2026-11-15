@@ -84,9 +84,7 @@ fn process_qbittorrent_organize(
     for t in &completed {
         println!("  • Ingesting completed torrent: {}", t.name.bold());
         let res = organize_torrent(t, client, api_key, dry_run)?;
-        if !res.is_empty()
-            && !dry_run
-            && api::delete_torrent(client, qb_url, &t.hash, false).is_ok()
+        if !res.is_empty() && !dry_run && api::delete_torrent(client, qb_url, &t.hash, true).is_ok()
         {
             cleared += 1;
         }
@@ -165,7 +163,7 @@ pub fn cleanup_matching_torrents(
         let source_missing = !default_dl.join(&t.name).exists();
 
         if (was_organized || source_missing)
-            && api::delete_torrent(client, base_url, &t.hash, false).is_ok()
+            && api::delete_torrent(client, base_url, &t.hash, true).is_ok()
         {
             cleared_count += 1;
         }

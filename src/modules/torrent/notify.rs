@@ -70,7 +70,7 @@ fn process_completed_media(
     }
 
     let cleared = if organized.is_some() {
-        api::delete_torrent(client, base_url, &t.hash, false).is_ok()
+        api::delete_torrent(client, base_url, &t.hash, true).is_ok()
     } else {
         false
     };

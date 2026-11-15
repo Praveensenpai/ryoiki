@@ -41,6 +41,21 @@ pub fn is_skippable_extra(info: &MediaInfo, raw_name: &str) -> bool {
         .any(|token| matches!(token, "op" | "ed"))
 }
 
+/// Returns true if a path matches skippable anime extra patterns (creditless
+/// OP/ED, menu, scans, previews) regardless of whether full `MediaInfo` is available.
+pub fn is_skippable_extra_name(path: &std::path::Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    let lower = name.to_ascii_lowercase();
+    if SKIP_MARKERS.iter().any(|m| lower.contains(m)) {
+        return true;
+    }
+    lower
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .any(|token| matches!(token, "op" | "ed"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::is_skippable_extra;

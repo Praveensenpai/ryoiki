@@ -1,9 +1,11 @@
+pub mod cleanup;
 pub mod cli;
 pub mod junk;
 pub mod pathing;
 pub mod resolution;
 pub mod specials;
 
+pub use cleanup::{cleanup_torrent_source, resolve_torrent_source};
 pub use cli::{run_organize_cli, setup};
 use junk::is_skippable_extra;
 pub use pathing::{calculate_dest_dir, is_video_file, perform_move, resolve_unique_dest_path};
@@ -337,34 +339,6 @@ fn group_videos_by_series(target: &Path, files: Vec<PathBuf>) -> BTreeMap<PathBu
     groups
 }
 
-pub fn resolve_torrent_source(torrent: &TorrentInfo, default_dl: &Path) -> PathBuf {
-    if let Some(content_path) = &torrent.content_path {
-        if !content_path.trim().is_empty() {
-            let rel = content_path
-                .trim_start_matches("/downloads/")
-                .trim_start_matches('/');
-            let p = default_dl.join(rel);
-            if p.exists() {
-                return p;
-            }
-        }
-    }
-
-    if let Some(save_path) = &torrent.save_path {
-        if !save_path.trim().is_empty() {
-            let rel = save_path
-                .trim_start_matches("/downloads/")
-                .trim_start_matches('/');
-            let p = default_dl.join(rel).join(&torrent.name);
-            if p.exists() {
-                return p;
-            }
-        }
-    }
-
-    default_dl.join(&torrent.name)
-}
-
 pub fn organize_torrent(
     torrent: &TorrentInfo,
     client: &Client,
@@ -379,7 +353,11 @@ pub fn organize_torrent(
         return Ok(Vec::new());
     }
 
-    organize_path(&source, client, api_key, dry_run)
+    let results = organize_path(&source, client, api_key, dry_run)?;
+    if !dry_run && !results.is_empty() {
+        cleanup_torrent_source(&source, &default_dl);
+    }
+    Ok(results)
 }
 
 pub fn organize_completed_torrent(
