@@ -17,7 +17,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/access.rs` (Role: general, Lines: 216)
 - **Responsibility**: Core general logic in src/bot/access.rs
-- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: collections :: BTreeSet , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: sync :: { Arc , Mutex }
+- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: collections :: BTreeSet , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: sync :: { Arc , Mutex } 
 - **Types & Enums**:
   ```rust
   pub struct AccessControl
@@ -38,7 +38,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/actions.rs` (Role: general, Lines: 112)
 - **Responsibility**: Core general logic in src/bot/actions.rs
-- **Imports**: use anyhow :: { bail , Result } , use std :: process :: Command
+- **Imports**: use anyhow :: { bail , Result } , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn handle_charge_limit (arg : & str) -> String
@@ -49,7 +49,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/callbacks.rs` (Role: general, Lines: 234)
 - **Responsibility**: Core general logic in src/bot/callbacks.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: actions :: { execute_poweroff , execute_reboot } , use super :: client :: edit_message , use super :: keyboards :: torrents_keyboard , use super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: services :: { get_docker_containers , get_managed_services } , use super :: system :: collect_system_metrics , use super :: torrents :: render_torrent_report , use super :: ui :: { render_docker_view , render_maintenance_view , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: config :: TelegramConfig
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: actions :: { execute_poweroff , execute_reboot } , use super :: client :: edit_message , use super :: keyboards :: torrents_keyboard , use super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: services :: { get_docker_containers , get_managed_services } , use super :: system :: collect_system_metrics , use super :: torrents :: render_torrent_report , use super :: ui :: { render_docker_view , render_maintenance_view , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn handle_callback_query (client : & Client , config : & TelegramConfig , prompts : & crate :: bot :: prompts :: Prompts , data : & str , msg_id : i64 ,) -> Result < () >
@@ -57,7 +57,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/client.rs` (Role: cli, Lines: 149)
 - **Responsibility**: Core cli logic in src/bot/client.rs
-- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use serde_json :: json , use super :: types :: { FileResult , InlineKeyboardMarkup , TelegramResponse , Update } , use crate :: notify :: client :: finalize_telegram_message
+- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use serde_json :: json , use super :: types :: { FileResult , InlineKeyboardMarkup , TelegramResponse , Update } , use crate :: notify :: client :: finalize_telegram_message 
 - **Public Functions & Signatures**:
   ```rust
   fn fetch_updates (client : & Client , token : & str , offset : i64) -> Result < Vec < Update > >
@@ -72,11 +72,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/gate.rs` (Role: general, Lines: 113)
 - **Responsibility**: Core general logic in src/bot/gate.rs
-- **Imports**: use reqwest :: blocking :: Client , use super :: access :: AccessControl , use super :: client :: { reply , reply_with_keyboard } , use super :: keyboards :: access_request_keyboard , use super :: router :: extract_command , use super :: types :: { Message , User } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig
+- **Imports**: use reqwest :: blocking :: Client , use super :: access :: AccessControl , use super :: client :: { reply , reply_with_keyboard } , use super :: keyboards :: access_request_keyboard , use super :: router :: extract_command , use super :: types :: { Message , User } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig 
 
 ### `src/bot/keyboards.rs` (Role: general, Lines: 184)
 - **Responsibility**: Core general logic in src/bot/keyboards.rs
-- **Imports**: use super :: types :: { InlineKeyboardButton , InlineKeyboardMarkup }
+- **Imports**: use super :: types :: { InlineKeyboardButton , InlineKeyboardMarkup } 
 - **Public Functions & Signatures**:
   ```rust
   fn status_keyboard () -> InlineKeyboardMarkup
@@ -95,7 +95,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/maintenance.rs` (Role: general, Lines: 264)
 - **Responsibility**: Core general logic in src/bot/maintenance.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use crate :: runner :: Runner
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
   ```rust
   fn start_trash_reaper ()
@@ -109,7 +109,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/prompts.rs` (Role: general, Lines: 110)
 - **Responsibility**: Core general logic in src/bot/prompts.rs
-- **Imports**: use std :: collections :: HashMap , use std :: sync :: { Arc , Mutex } , use std :: time :: Duration
+- **Imports**: use std :: collections :: HashMap , use std :: sync :: { Arc , Mutex } , use std :: time :: Duration 
 - **Types & Enums**:
   ```rust
   pub struct PendingPrompt
@@ -124,11 +124,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/router/commands.rs` (Role: general, Lines: 286)
 - **Responsibility**: Core general logic in src/bot/router/commands.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: keyboards :: torrents_keyboard , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_library , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: keyboards :: torrents_keyboard , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_library , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig 
 
 ### `src/bot/router.rs` (Role: general, Lines: 329)
 - **Responsibility**: Core general logic in src/bot/router.rs
-- **Imports**: use reqwest :: blocking :: Client , use super :: access :: { self , AccessAction , AccessControl } , use super :: callbacks :: handle_callback_query , use super :: client :: { download_telegram_file , reply } , use super :: gate :: handle_untrusted_message , use super :: torrents :: { handle_magnet , handle_torrent_file , MagnetOutcome } , use super :: types :: { CallbackQuery , Message } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use commands :: dispatch_command
+- **Imports**: use reqwest :: blocking :: Client , use super :: access :: { self , AccessAction , AccessControl } , use super :: callbacks :: handle_callback_query , use super :: client :: { download_telegram_file , reply } , use super :: gate :: handle_untrusted_message , use super :: torrents :: { handle_magnet , handle_torrent_file , MagnetOutcome } , use super :: types :: { CallbackQuery , Message } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use commands :: dispatch_command 
 - **Public Functions & Signatures**:
   ```rust
   fn route_message (client : & Client , config : & TelegramConfig , prompts : & crate :: bot :: prompts :: Prompts , access : & AccessControl , msg : Message ,)
@@ -139,7 +139,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/services.rs` (Role: general, Lines: 276)
 - **Responsibility**: Core general logic in src/bot/services.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use std :: process :: Command
+- **Imports**: use anyhow :: { bail , Context , Result } , use std :: process :: Command 
 - **Types & Enums**:
   ```rust
   pub struct ContainerInfo
@@ -157,11 +157,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/smoke_tests.rs` (Role: general, Lines: 197)
 - **Responsibility**: Core general logic in src/bot/smoke_tests.rs
-- **Imports**: use super :: actions :: handle_charge_limit , use super :: maintenance :: { handle_bot_audio , handle_bot_check } , use super :: router :: extract_command , use super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , resolve_managed_unit , } , use super :: system :: collect_system_metrics , use super :: torrents :: { handle_seedr_cmd , seedr_magnet_target } , use super :: ui :: { render_docker_view , render_maintenance_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , } , use crate :: notify :: config :: TelegramConfig
+- **Imports**: use super :: actions :: handle_charge_limit , use super :: maintenance :: { handle_bot_audio , handle_bot_check } , use super :: router :: extract_command , use super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , resolve_managed_unit , } , use super :: system :: collect_system_metrics , use super :: torrents :: { handle_seedr_cmd , seedr_magnet_target } , use super :: ui :: { render_docker_view , render_maintenance_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , } , use crate :: notify :: config :: TelegramConfig 
 
 ### `src/bot/system.rs` (Role: general, Lines: 265)
 - **Responsibility**: Core general logic in src/bot/system.rs
-- **Imports**: use std :: ffi :: CString , use std :: fs , use std :: mem :: MaybeUninit , use std :: path :: Path , use std :: process :: Command , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: power :: { is_ac_online , read_battery_percent , read_battery_status , read_cpu_temp , read_cpu_usage , } , use crate :: notify :: system :: { get_hostname , get_kernel , get_memory_stats , get_public_ip , get_tailscale_ip , get_uptime , }
+- **Imports**: use std :: ffi :: CString , use std :: fs , use std :: mem :: MaybeUninit , use std :: path :: Path , use std :: process :: Command , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: power :: { is_ac_online , read_battery_percent , read_battery_status , read_cpu_temp , read_cpu_usage , } , use crate :: notify :: system :: { get_hostname , get_kernel , get_memory_stats , get_public_ip , get_tailscale_ip , get_uptime , } 
 - **Types & Enums**:
   ```rust
   pub struct DiskMount
@@ -178,7 +178,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/torrents.rs` (Role: general, Lines: 357)
 - **Responsibility**: Core general logic in src/bot/torrents.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: modules :: torrent :: notify , use crate :: modules :: torrent :: report :: format_status_report , use crate :: modules :: torrent :: seedr , use crate :: notify :: config :: TelegramConfig , use crate :: modules :: torrent :: dedup :: { self , Availability } , use crate :: modules :: torrent :: scheduler :: { self , SubmitOutcome }
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: modules :: torrent :: notify , use crate :: modules :: torrent :: report :: format_status_report , use crate :: modules :: torrent :: seedr , use crate :: notify :: config :: TelegramConfig , use crate :: modules :: torrent :: dedup :: { self , Availability } , use crate :: modules :: torrent :: scheduler :: { self , SubmitOutcome } 
 - **Types & Enums**:
   ```rust
   pub enum MagnetOutcome
@@ -197,7 +197,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/types.rs` (Role: general, Lines: 149)
 - **Responsibility**: Core general logic in src/bot/types.rs
-- **Imports**: use serde :: { Deserialize , Serialize }
+- **Imports**: use serde :: { Deserialize , Serialize } 
 - **Types & Enums**:
   ```rust
   pub struct TelegramResponse
@@ -219,7 +219,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot/ui.rs` (Role: tui, Lines: 371)
 - **Responsibility**: Core tui logic in src/bot/ui.rs
-- **Imports**: use super :: keyboards :: { docker_keyboard , maintenance_keyboard , poweroff_keyboard , reboot_keyboard , services_keyboard , status_keyboard , storage_keyboard , system_keyboard , } , use super :: services :: { ContainerInfo , ServiceInfo } , use super :: system :: { DiskMount , SystemMetrics } , use super :: types :: InlineKeyboardMarkup , use crate :: modules :: media :: disk :: format_bytes
+- **Imports**: use super :: keyboards :: { docker_keyboard , maintenance_keyboard , poweroff_keyboard , reboot_keyboard , services_keyboard , status_keyboard , storage_keyboard , system_keyboard , } , use super :: services :: { ContainerInfo , ServiceInfo } , use super :: system :: { DiskMount , SystemMetrics } , use super :: types :: InlineKeyboardMarkup , use crate :: modules :: media :: disk :: format_bytes 
 - **Public Functions & Signatures**:
   ```rust
   fn render_unified_status (sys : & SystemMetrics , torrent_count : usize , active_containers : usize ,) -> (String , InlineKeyboardMarkup)
@@ -235,7 +235,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/bot.rs` (Role: general, Lines: 57)
 - **Responsibility**: Core general logic in src/bot.rs
-- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: time :: Duration , use crate :: notify :: config :: TelegramConfig
+- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: time :: Duration , use crate :: notify :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn run_bot () -> Result < () >
@@ -243,7 +243,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/charge_limit/guide.rs` (Role: tui, Lines: 117)
 - **Responsibility**: Core tui logic in src/charge_limit/guide.rs
-- **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf }
+- **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Public Functions & Signatures**:
   ```rust
   fn detect_vendor () -> String
@@ -256,7 +256,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/charge_limit/hp_acpi.rs` (Role: general, Lines: 277)
 - **Responsibility**: Core general logic in src/charge_limit/hp_acpi.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use std :: path :: Path , use std :: process :: Command , use super :: sysfs :: { read_privileged_file , write_privileged_file }
+- **Imports**: use anyhow :: { bail , Context , Result } , use std :: path :: Path , use std :: process :: Command , use super :: sysfs :: { read_privileged_file , write_privileged_file } 
 - **Types & Enums**:
   ```rust
   pub enum HpChargeMode
@@ -274,7 +274,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/charge_limit/sysfs.rs` (Role: general, Lines: 157)
 - **Responsibility**: Core general logic in src/charge_limit/sysfs.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use std :: fs , use std :: io :: Write , use std :: path :: Path , use std :: process :: Command
+- **Imports**: use anyhow :: { bail , Context , Result } , use std :: fs , use std :: io :: Write , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn apply_sysfs_limit (battery : & Path , limit : u8) -> Result < () >
@@ -287,7 +287,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/charge_limit/tlp.rs` (Role: general, Lines: 168)
 - **Responsibility**: Core general logic in src/charge_limit/tlp.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command , use super :: guide :: detect_vendor , use super :: sysfs :: write_privileged_file , use super :: MIN_LIMIT
+- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command , use super :: guide :: detect_vendor , use super :: sysfs :: write_privileged_file , use super :: MIN_LIMIT 
 - **Public Functions & Signatures**:
   ```rust
   fn is_tlp_supported_for_hardware () -> bool
@@ -300,7 +300,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/charge_limit.rs` (Role: general, Lines: 266)
 - **Responsibility**: Core general logic in src/charge_limit.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: { Path , PathBuf } , use std :: process :: Command , pub use guide :: load_configured_limit
+- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: { Path , PathBuf } , use std :: process :: Command , pub use guide :: load_configured_limit 
 - **Types & Enums**:
   ```rust
   pub enum Backend
@@ -314,19 +314,19 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/configs.rs` (Role: general, Lines: 160)
 - **Responsibility**: Core general logic in src/configs.rs
-- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: io :: Write , use std :: path :: Path , use std :: process :: { Command , Stdio }
+- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: io :: Write , use std :: path :: Path , use std :: process :: { Command , Stdio } 
 - **Public Functions & Signatures**:
   ```rust
   fn deploy_dotfiles (home : & str) -> Result < () >
   ```
 
-### `src/main.rs` (Role: general, Lines: 376)
+### `src/main.rs` (Role: general, Lines: 391)
 - **Responsibility**: Core general logic in src/main.rs
-- **Imports**: use anyhow :: Result , use clap :: { Parser , Subcommand } , use colored :: Colorize , use modules :: { execute_module , get_available_modules } , use runner :: Runner , use std :: io :: IsTerminal
+- **Imports**: use anyhow :: Result , use clap :: { Parser , Subcommand } , use colored :: Colorize , use modules :: { execute_module , get_available_modules } , use runner :: Runner , use std :: io :: IsTerminal 
 
 ### `src/modules/cli_tools.rs` (Role: cli, Lines: 52)
 - **Responsibility**: Core cli logic in src/modules/cli_tools.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use std :: fs , use std :: io :: Write , use std :: path :: Path
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use std :: fs , use std :: io :: Write , use std :: path :: Path 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner) -> Result < () >
@@ -334,7 +334,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/dev_runtimes.rs` (Role: general, Lines: 54)
 - **Responsibility**: Core general logic in src/modules/dev_runtimes.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use std :: fs , use std :: io :: Write , use std :: path :: Path
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use std :: fs , use std :: io :: Write , use std :: path :: Path 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner) -> Result < () >
@@ -342,7 +342,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/docker.rs` (Role: general, Lines: 63)
 - **Responsibility**: Core general logic in src/modules/docker.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner) -> Result < () >
@@ -350,7 +350,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/dubstrip.rs` (Role: general, Lines: 67)
 - **Responsibility**: Core general logic in src/modules/dubstrip.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write } , use std :: process :: Command
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write } , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner , non_interactive : bool) -> Result < () >
@@ -358,7 +358,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/essentials.rs` (Role: general, Lines: 60)
 - **Responsibility**: Core general logic in src/modules/essentials.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: path :: Path
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: path :: Path 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner) -> Result < () >
@@ -366,7 +366,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/git_ssh.rs` (Role: general, Lines: 250)
 - **Responsibility**: Core general logic in src/modules/git_ssh.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: { Path , PathBuf }
+- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: { Path , PathBuf } 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner , non_interactive : bool) -> Result < () >
@@ -374,7 +374,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/headless_audio.rs` (Role: general, Lines: 69)
 - **Responsibility**: Core general logic in src/modules/headless_audio.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf }
+- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner) -> Result < () >
@@ -382,7 +382,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/jellyfin/api.rs` (Role: api, Lines: 131)
 - **Responsibility**: Core api logic in src/modules/jellyfin/api.rs
-- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: Path , use std :: time :: Duration , use crate :: notify :: TelegramConfig
+- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: Path , use std :: time :: Duration , use crate :: notify :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn trigger_library_refresh (client : & Client , base_url : & str , api_key : Option < & str > ,) -> Result < () >
@@ -392,7 +392,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/jellyfin/backup.rs` (Role: general, Lines: 253)
 - **Responsibility**: Core general logic in src/modules/jellyfin/backup.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use std :: time :: Instant , use super :: timer , use crate :: modules :: rclone , use crate :: notify :: client :: format_card , use crate :: notify :: TelegramConfig
+- **Imports**: use anyhow :: { bail , Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use std :: time :: Instant , use super :: timer , use crate :: modules :: rclone , use crate :: notify :: client :: format_card , use crate :: notify :: TelegramConfig 
 - **Types & Enums**:
   ```rust
   pub enum BackupSubcommand
@@ -407,7 +407,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/jellyfin/encoding.rs` (Role: general, Lines: 163)
 - **Responsibility**: Core general logic in src/modules/jellyfin/encoding.rs
-- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: Path
+- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: Path 
 - **Public Functions & Signatures**:
   ```rust
   fn provision_hardware_encoding (base_dir : & Path , dry_run : bool) -> Result < () >
@@ -416,7 +416,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/jellyfin/kodi.rs` (Role: general, Lines: 129)
 - **Responsibility**: Core general logic in src/modules/jellyfin/kodi.rs
-- **Imports**: use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: fs , use std :: path :: PathBuf
+- **Imports**: use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: fs , use std :: path :: PathBuf 
 - **Types & Enums**:
   ```rust
   pub enum KodiSubcommand
@@ -428,7 +428,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/jellyfin/timer.rs` (Role: general, Lines: 70)
 - **Responsibility**: Core general logic in src/modules/jellyfin/timer.rs
-- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command
+- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn deploy_backup_timer (home : & str) -> Result < () >
@@ -437,7 +437,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/jellyfin.rs` (Role: general, Lines: 121)
 - **Responsibility**: Core general logic in src/modules/jellyfin.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path
+- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner) -> Result < () >
@@ -445,7 +445,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/ai/batch.rs` (Role: general, Lines: 49)
 - **Responsibility**: Core general logic in src/modules/media/ai/batch.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use super :: super :: probe :: MediaProbe , use super :: super :: MediaInfo , use super :: client :: send_ai_prompt , use super :: prompt :: build_batch_prompt , use super :: schema :: parse_batch_ai_json
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use super :: super :: probe :: MediaProbe , use super :: super :: MediaInfo , use super :: client :: send_ai_prompt , use super :: prompt :: build_batch_prompt , use super :: schema :: parse_batch_ai_json 
 - **Public Functions & Signatures**:
   ```rust
   fn classify_media_batch (client : & Client , api_key : Option < & str > , items : & [(& str , Option < & MediaProbe >)] , series_context : Option < & str > ,) -> Result < HashMap < String , MediaInfo > >
@@ -454,7 +454,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/ai/client.rs` (Role: cli, Lines: 227)
 - **Responsibility**: Core cli logic in src/modules/media/ai/client.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use reqwest :: blocking :: Client , use serde :: Deserialize , use serde_json :: json , use std :: thread :: sleep , use std :: time :: Duration
+- **Imports**: use anyhow :: { bail , Context , Result } , use reqwest :: blocking :: Client , use serde :: Deserialize , use serde_json :: json , use std :: thread :: sleep , use std :: time :: Duration 
 - **Public Functions & Signatures**:
   ```rust
   fn clean_json_text (text : & str) -> String
@@ -465,7 +465,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/ai/prompt.rs` (Role: general, Lines: 143)
 - **Responsibility**: Core general logic in src/modules/media/ai/prompt.rs
-- **Imports**: use super :: super :: probe :: MediaProbe , use std :: fmt :: Write
+- **Imports**: use super :: super :: probe :: MediaProbe , use std :: fmt :: Write 
 - **Public Functions & Signatures**:
   ```rust
   fn build_single_prompt (raw_name : & str , probe : Option < & MediaProbe >) -> String
@@ -475,7 +475,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/ai/schema.rs` (Role: general, Lines: 359)
 - **Responsibility**: Core general logic in src/modules/media/ai/schema.rs
-- **Imports**: use anyhow :: { Context , Result } , use serde :: Deserialize , use std :: fmt :: Write as _ , use std :: path :: Path , use super :: super :: { ClassificationEngine , MediaInfo , MediaType }
+- **Imports**: use anyhow :: { Context , Result } , use serde :: Deserialize , use std :: fmt :: Write as _ , use std :: path :: Path , use super :: super :: { ClassificationEngine , MediaInfo , MediaType } 
 - **Types & Enums**:
   ```rust
   pub struct AiOutputSchema
@@ -492,7 +492,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/ai.rs` (Role: general, Lines: 30)
 - **Responsibility**: Core general logic in src/modules/media/ai.rs
-- **Imports**: pub use batch :: classify_media_batch , # [allow (unused_imports)] pub use client :: { clean_json_text , send_ai_prompt , send_deepseek_prompt , send_gemini_prompt } , pub use schema :: { ensure_language_in_clean_name , ensure_resolution_in_clean_name } , use anyhow :: Result , use reqwest :: blocking :: Client , use super :: probe :: MediaProbe , use super :: MediaInfo , use prompt :: build_single_prompt , use schema :: parse_ai_json
+- **Imports**: pub use batch :: classify_media_batch , # [allow (unused_imports)] pub use client :: { clean_json_text , send_ai_prompt , send_deepseek_prompt , send_gemini_prompt } , pub use schema :: { ensure_language_in_clean_name , ensure_resolution_in_clean_name } , use anyhow :: Result , use reqwest :: blocking :: Client , use super :: probe :: MediaProbe , use super :: MediaInfo , use prompt :: build_single_prompt , use schema :: parse_ai_json 
 - **Public Functions & Signatures**:
   ```rust
   fn classify_media_ai (client : & Client , api_key : Option < & str > , raw_name : & str , probe : Option < & MediaProbe > ,) -> Result < MediaInfo >
@@ -500,7 +500,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/audio/approval/scan.rs` (Role: general, Lines: 69)
 - **Responsibility**: Core general logic in src/modules/media/audio/approval/scan.rs
-- **Imports**: use anyhow :: Result , use std :: path :: Path , use super :: super :: decisions :: { self , now_secs , DecisionRecord } , use super :: { register , StageOutcome } , use crate :: modules :: media :: organizer :: find_videos_recursive , use crate :: modules :: media :: organizer :: pathing :: is_video_file , use crate :: modules :: media :: probe
+- **Imports**: use anyhow :: Result , use std :: path :: Path , use super :: super :: decisions :: { self , now_secs , DecisionRecord } , use super :: { register , StageOutcome } , use crate :: modules :: media :: organizer :: find_videos_recursive , use crate :: modules :: media :: organizer :: pathing :: is_video_file , use crate :: modules :: media :: probe 
 - **Public Functions & Signatures**:
   ```rust
   fn silence (id : & str) -> Result < String >
@@ -509,11 +509,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/audio/approval/tests.rs` (Role: general, Lines: 107)
 - **Responsibility**: Core general logic in src/modules/media/audio/approval/tests.rs
-- **Imports**: use super :: super :: decisions :: DecisionStore , use super :: * , use std :: path :: PathBuf
+- **Imports**: use super :: super :: decisions :: DecisionStore , use super :: * , use std :: path :: PathBuf 
 
 ### `src/modules/media/audio/approval.rs` (Role: general, Lines: 368)
 - **Responsibility**: Core general logic in src/modules/media/audio/approval.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use serde :: Deserialize , use std :: path :: Path , use super :: super :: probe :: { self , MediaProbe } , use super :: decisions :: { self , days_left , find_history , now_secs , DecisionRecord , PendingDecision } , use super :: remux :: apply_language , use crate :: bot :: keyboards :: language_keyboard , use crate :: notify :: client :: { escape_html , format_card , send_alert } , use crate :: notify :: config :: TelegramConfig , pub use scan :: { scan_library , silence }
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use serde :: Deserialize , use std :: path :: Path , use super :: super :: probe :: { self , MediaProbe } , use super :: decisions :: { self , days_left , find_history , now_secs , DecisionRecord , PendingDecision } , use super :: remux :: apply_language , use crate :: bot :: keyboards :: language_keyboard , use crate :: notify :: client :: { escape_html , format_card , send_alert } , use crate :: notify :: config :: TelegramConfig , pub use scan :: { scan_library , silence } 
 - **Types & Enums**:
   ```rust
   pub enum StageOutcome
@@ -533,7 +533,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/audio/cli.rs` (Role: cli, Lines: 165)
 - **Responsibility**: Core cli logic in src/modules/media/audio/cli.rs
-- **Imports**: use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: process :: Command , use super :: { find_dubstrip_bin , strip_queue }
+- **Imports**: use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: process :: Command , use super :: { find_dubstrip_bin , strip_queue } 
 - **Types & Enums**:
   ```rust
   pub enum AudioSubcommand
@@ -545,7 +545,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/audio/decisions.rs` (Role: general, Lines: 202)
 - **Responsibility**: Core general logic in src/modules/media/audio/decisions.rs
-- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: path :: { Path , PathBuf } , use std :: { fs , time }
+- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: path :: { Path , PathBuf } , use std :: { fs , time } 
 - **Types & Enums**:
   ```rust
   pub struct PendingDecision
@@ -566,7 +566,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/audio/pending_timer.rs` (Role: general, Lines: 92)
 - **Responsibility**: Core general logic in src/modules/media/audio/pending_timer.rs
-- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command
+- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn deploy_pending_timer (home : & str) -> Result < () >
@@ -575,7 +575,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/audio/remux.rs` (Role: general, Lines: 187)
 - **Responsibility**: Core general logic in src/modules/media/audio/remux.rs
-- **Imports**: use anyhow :: { Context , Result } , use std :: path :: { Path , PathBuf } , use std :: process :: Command
+- **Imports**: use anyhow :: { Context , Result } , use std :: path :: { Path , PathBuf } , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn apply_language (multi_path : & Path , language : & str) -> Result < PathBuf >
@@ -583,7 +583,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/audio/retry_timer.rs` (Role: general, Lines: 87)
 - **Responsibility**: Core general logic in src/modules/media/audio/retry_timer.rs
-- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command
+- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn deploy_retry_timer (home : & str) -> Result < () >
@@ -592,7 +592,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/audio/strip.rs` (Role: general, Lines: 350)
 - **Responsibility**: Core general logic in src/modules/media/audio/strip.rs
-- **Imports**: use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use super :: super :: probe :: { self , MediaProbe } , use super :: { approval , decisions , StripOutcome }
+- **Imports**: use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use super :: super :: probe :: { self , MediaProbe } , use super :: { approval , decisions , StripOutcome } 
 - **Public Functions & Signatures**:
   ```rust
   fn strip_and_preserve (bin : & Path , path : & Path , preserve_multi : bool) -> StripOutcome
@@ -601,7 +601,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/audio/strip_queue.rs` (Role: general, Lines: 162)
 - **Responsibility**: Core general logic in src/modules/media/audio/strip_queue.rs
-- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: path :: { Path , PathBuf } , use std :: { fs , time }
+- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: path :: { Path , PathBuf } , use std :: { fs , time } 
 - **Types & Enums**:
   ```rust
   pub struct QueueEntry
@@ -614,11 +614,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/audio/tests.rs` (Role: general, Lines: 45)
 - **Responsibility**: Core general logic in src/modules/media/audio/tests.rs
-- **Imports**: use super :: *
+- **Imports**: use super :: * 
 
 ### `src/modules/media/audio.rs` (Role: general, Lines: 188)
 - **Responsibility**: Core general logic in src/modules/media/audio.rs
-- **Imports**: pub use cli :: { handle_cli , AudioSubcommand } , use colored :: Colorize , use std :: path :: { Path , PathBuf }
+- **Imports**: pub use cli :: { handle_cli , AudioSubcommand } , use colored :: Colorize , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust
   pub enum StripOutcome
@@ -637,7 +637,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/config.rs` (Role: general, Lines: 141)
 - **Responsibility**: Core general logic in src/modules/media/config.rs
-- **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write } , use crate :: notify :: TelegramConfig
+- **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write } , use crate :: notify :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn get_or_prompt_gemini_key (interactive : bool) -> Option < String >
@@ -651,7 +651,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/disk.rs` (Role: general, Lines: 138)
 - **Responsibility**: Core general logic in src/modules/media/disk.rs
-- **Imports**: use anyhow :: { bail , Result } , use std :: ffi :: CString , use std :: path :: Path
+- **Imports**: use anyhow :: { bail , Result } , use std :: ffi :: CString , use std :: path :: Path 
 - **Types & Enums**:
   ```rust
   pub struct DiskUsage
@@ -666,11 +666,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/heuristic/tests.rs` (Role: general, Lines: 115)
 - **Responsibility**: Core general logic in src/modules/media/heuristic/tests.rs
-- **Imports**: use super :: *
+- **Imports**: use super :: * 
 
 ### `src/modules/media/heuristic.rs` (Role: general, Lines: 366)
 - **Responsibility**: Core general logic in src/modules/media/heuristic.rs
-- **Imports**: use super :: { ClassificationEngine , MediaInfo , MediaType } , use std :: path :: Path
+- **Imports**: use super :: { ClassificationEngine , MediaInfo , MediaType } , use std :: path :: Path 
 - **Public Functions & Signatures**:
   ```rust
   fn classify_media_heuristic (raw_name : & str) -> MediaInfo
@@ -678,7 +678,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/interactive/events.rs` (Role: general, Lines: 385)
 - **Responsibility**: Core general logic in src/modules/media/interactive/events.rs
-- **Imports**: use crossterm :: event :: KeyCode , use super :: ui :: files_view :: handle_files_key , use super :: ui :: trash_view :: handle_trash_key , use super :: { trash , AppState , MediaItem , TransferDirection , ViewMode } , use crate :: modules :: media :: disk
+- **Imports**: use crossterm :: event :: KeyCode , use super :: ui :: files_view :: handle_files_key , use super :: ui :: trash_view :: handle_trash_key , use super :: { trash , AppState , MediaItem , TransferDirection , ViewMode } , use crate :: modules :: media :: disk 
 - **Public Functions & Signatures**:
   ```rust
   fn handle_key (code : KeyCode , state : & mut AppState) -> Option < bool >
@@ -686,7 +686,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/interactive/selection.rs` (Role: general, Lines: 138)
 - **Responsibility**: Core general logic in src/modules/media/interactive/selection.rs
-- **Imports**: use super :: { AppState , MediaItem , TransferDirection } , use crate :: modules :: media :: disk
+- **Imports**: use super :: { AppState , MediaItem , TransferDirection } , use crate :: modules :: media :: disk 
 - **Public Functions & Signatures**:
   ```rust
   fn toggle_main_item (state : & mut AppState , real_idx : usize)
@@ -695,7 +695,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/interactive/trash.rs` (Role: general, Lines: 246)
 - **Responsibility**: Core general logic in src/modules/media/interactive/trash.rs
-- **Imports**: use crossterm :: event :: KeyCode , use std :: path :: PathBuf , use super :: { AppState , MediaItem , TransferDirection , ViewMode } , use crate :: modules :: media :: trash :: { self , TrashEntry , TrashKind }
+- **Imports**: use crossterm :: event :: KeyCode , use std :: path :: PathBuf , use super :: { AppState , MediaItem , TransferDirection , ViewMode } , use crate :: modules :: media :: trash :: { self , TrashEntry , TrashKind } 
 - **Types & Enums**:
   ```rust
   pub enum PendingAction
@@ -711,7 +711,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/interactive/ui/files_view.rs` (Role: tui, Lines: 304)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui/files_view.rs
-- **Imports**: use crossterm :: event :: KeyCode , use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: { AppState , ViewMode } , use crate :: modules :: media :: transfer :: { MediaFile , TransferDirection }
+- **Imports**: use crossterm :: event :: KeyCode , use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: { AppState , ViewMode } , use crate :: modules :: media :: transfer :: { MediaFile , TransferDirection } 
 - **Public Functions & Signatures**:
   ```rust
   fn render_files_ui (f : & mut Frame , state : & AppState , item_idx : usize , season_idx : Option < usize > , cursor : usize ,)
@@ -720,7 +720,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/interactive/ui/footer.rs` (Role: tui, Lines: 30)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui/footer.rs
-- **Imports**: use ratatui :: { layout :: { Alignment , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , }
+- **Imports**: use ratatui :: { layout :: { Alignment , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } 
 - **Public Functions & Signatures**:
   ```rust
   fn render_footer (f : & mut Frame , area : Rect , shortcuts : & [(& str , & str)])
@@ -728,7 +728,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/interactive/ui/main_view.rs` (Role: tui, Lines: 385)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui/main_view.rs
-- **Imports**: use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: AppState , use crate :: modules :: media :: transfer :: { MediaCategory , MediaItem , TransferDirection }
+- **Imports**: use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: AppState , use crate :: modules :: media :: transfer :: { MediaCategory , MediaItem , TransferDirection } 
 - **Public Functions & Signatures**:
   ```rust
   fn render_main_ui (f : & mut Frame , state : & AppState)
@@ -736,7 +736,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/interactive/ui/sub_view.rs` (Role: tui, Lines: 319)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui/sub_view.rs
-- **Imports**: use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: AppState , use crate :: modules :: media :: transfer :: { MediaItem , MediaSeason , TransferDirection }
+- **Imports**: use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: AppState , use crate :: modules :: media :: transfer :: { MediaItem , MediaSeason , TransferDirection } 
 - **Public Functions & Signatures**:
   ```rust
   fn render_subview_ui (f : & mut Frame , state : & AppState , item_idx : usize , cursor : usize)
@@ -744,7 +744,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/interactive/ui/trash_view.rs` (Role: tui, Lines: 303)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui/trash_view.rs
-- **Imports**: use crossterm :: event :: KeyCode , use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Clear , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: { trash , AppState , ConfirmState } , use crate :: modules :: media :: trash :: TrashEntry
+- **Imports**: use crossterm :: event :: KeyCode , use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Clear , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: { trash , AppState , ConfirmState } , use crate :: modules :: media :: trash :: TrashEntry 
 - **Public Functions & Signatures**:
   ```rust
   fn render_trash_ui (f : & mut Frame , state : & AppState)
@@ -754,7 +754,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/interactive/ui.rs` (Role: tui, Lines: 124)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui.rs
-- **Imports**: use ratatui :: { layout :: { Margin , Rect } , style :: { Color , Style } , widgets :: { Scrollbar , ScrollbarOrientation , ScrollbarState } , Frame , } , use super :: { AppState , ViewMode } , pub use files_view :: render_files_ui , pub use main_view :: render_main_ui , pub use sub_view :: render_subview_ui , pub use trash_view :: { render_modal , render_trash_ui }
+- **Imports**: use ratatui :: { layout :: { Margin , Rect } , style :: { Color , Style } , widgets :: { Scrollbar , ScrollbarOrientation , ScrollbarState } , Frame , } , use super :: { AppState , ViewMode } , pub use files_view :: render_files_ui , pub use main_view :: render_main_ui , pub use sub_view :: render_subview_ui , pub use trash_view :: { render_modal , render_trash_ui } 
 - **Public Functions & Signatures**:
   ```rust
   fn render_ui (f : & mut Frame , state : & AppState)
@@ -764,7 +764,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/interactive.rs` (Role: general, Lines: 314)
 - **Responsibility**: Core general logic in src/modules/media/interactive.rs
-- **Imports**: pub use trash :: ConfirmState , use anyhow :: Result , use crossterm :: { event :: { self , Event , KeyEventKind } , execute , terminal :: { disable_raw_mode , enable_raw_mode , EnterAlternateScreen , LeaveAlternateScreen } , } , use ratatui :: { backend :: CrosstermBackend , Terminal } , use std :: io , use std :: path :: { Path , PathBuf } , use super :: disk :: DiskUsage , use super :: transfer :: { MediaCategory , MediaItem , TransferDirection }
+- **Imports**: pub use trash :: ConfirmState , use anyhow :: Result , use crossterm :: { event :: { self , Event , KeyEventKind } , execute , terminal :: { disable_raw_mode , enable_raw_mode , EnterAlternateScreen , LeaveAlternateScreen } , } , use ratatui :: { backend :: CrosstermBackend , Terminal } , use std :: io , use std :: path :: { Path , PathBuf } , use super :: disk :: DiskUsage , use super :: transfer :: { MediaCategory , MediaItem , TransferDirection } 
 - **Types & Enums**:
   ```rust
   pub enum ItemFilter
@@ -795,11 +795,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/library/tests.rs` (Role: general, Lines: 170)
 - **Responsibility**: Core general logic in src/modules/media/library/tests.rs
-- **Imports**: use super :: *
+- **Imports**: use super :: * 
 
 ### `src/modules/media/library.rs` (Role: general, Lines: 380)
 - **Responsibility**: Core general logic in src/modules/media/library.rs
-- **Imports**: use std :: fs , use std :: path :: { Path , PathBuf } , use super :: organizer :: pathing :: is_video_file , use crate :: notify :: client :: escape_html
+- **Imports**: use std :: fs , use std :: path :: { Path , PathBuf } , use super :: organizer :: pathing :: is_video_file , use crate :: notify :: client :: escape_html 
 - **Types & Enums**:
   ```rust
   pub struct TitleEntry
@@ -818,7 +818,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/organizer/cli.rs` (Role: cli, Lines: 194)
 - **Responsibility**: Core cli logic in src/modules/media/organizer/cli.rs
-- **Imports**: use anyhow :: Result , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: path :: Path , use super :: { organize_path , organize_torrent } , use crate :: modules :: media :: OrganizeResult , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: runner :: Runner
+- **Imports**: use anyhow :: Result , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: path :: Path , use super :: { organize_path , organize_torrent } , use crate :: modules :: media :: OrganizeResult , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
   ```rust
   fn run_organize_cli (target : & Path , dry_run : bool) -> Result < () >
@@ -828,7 +828,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/organizer/junk.rs` (Role: general, Lines: 104)
 - **Responsibility**: Core general logic in src/modules/media/organizer/junk.rs
-- **Imports**: use crate :: modules :: media :: { MediaInfo , MediaType }
+- **Imports**: use crate :: modules :: media :: { MediaInfo , MediaType } 
 - **Public Functions & Signatures**:
   ```rust
   fn is_skippable_extra (info : & MediaInfo , raw_name : & str) -> bool
@@ -836,7 +836,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/organizer/pathing.rs` (Role: general, Lines: 290)
 - **Responsibility**: Core general logic in src/modules/media/organizer/pathing.rs
-- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: { MediaInfo , MediaType }
+- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: { MediaInfo , MediaType } 
 - **Public Functions & Signatures**:
   ```rust
   fn is_video_file (path : & Path) -> bool
@@ -849,7 +849,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/organizer/resolution.rs` (Role: general, Lines: 66)
 - **Responsibility**: Core general logic in src/modules/media/organizer/resolution.rs
-- **Imports**: use crate :: modules :: media :: probe :: normalize_resolution , use crate :: modules :: media :: MediaInfo
+- **Imports**: use crate :: modules :: media :: probe :: normalize_resolution , use crate :: modules :: media :: MediaInfo 
 - **Public Functions & Signatures**:
   ```rust
   fn apply_canonical_resolution (info : & mut MediaInfo)
@@ -857,7 +857,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/organizer/specials.rs` (Role: general, Lines: 147)
 - **Responsibility**: Core general logic in src/modules/media/organizer/specials.rs
-- **Imports**: use std :: path :: PathBuf , use super :: super :: probe :: MediaProbe , use super :: super :: MediaInfo
+- **Imports**: use std :: path :: PathBuf , use super :: super :: probe :: MediaProbe , use super :: super :: MediaInfo 
 - **Public Functions & Signatures**:
   ```rust
   fn assign_unique_special_numbers (classified : & mut [(PathBuf , MediaInfo , Option < MediaProbe >)])
@@ -865,11 +865,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/organizer/tests.rs` (Role: general, Lines: 173)
 - **Responsibility**: Core general logic in src/modules/media/organizer/tests.rs
-- **Imports**: use super :: * , use crate :: modules :: media :: ClassificationEngine
+- **Imports**: use super :: * , use crate :: modules :: media :: ClassificationEngine 
 
 ### `src/modules/media/organizer.rs` (Role: general, Lines: 395)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
-- **Imports**: pub use cli :: { run_organize_cli , setup } , use junk :: is_skippable_extra , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use specials :: assign_unique_special_numbers , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap }
+- **Imports**: pub use cli :: { run_organize_cli , setup } , use junk :: is_skippable_extra , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use specials :: assign_unique_special_numbers , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
 - **Public Functions & Signatures**:
   ```rust
   fn organize_file (file_path : & Path , client : & Client , api_key : Option < & str > , dry_run : bool ,) -> Result < OrganizeResult >
@@ -883,11 +883,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/probe/tests.rs` (Role: general, Lines: 225)
 - **Responsibility**: Core general logic in src/modules/media/probe/tests.rs
-- **Imports**: use super :: *
+- **Imports**: use super :: * 
 
 ### `src/modules/media/probe.rs` (Role: general, Lines: 296)
 - **Responsibility**: Core general logic in src/modules/media/probe.rs
-- **Imports**: use serde :: Deserialize , use std :: path :: Path , use std :: process :: Command
+- **Imports**: use serde :: Deserialize , use std :: path :: Path , use std :: process :: Command 
 - **Types & Enums**:
   ```rust
   pub struct MediaProbe
@@ -902,18 +902,19 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn needs_language_decision (probe : & MediaProbe) -> bool
   ```
 
-### `src/modules/media/prune_timer.rs` (Role: general, Lines: 94)
+### `src/modules/media/prune_timer.rs` (Role: general, Lines: 114)
 - **Responsibility**: Core general logic in src/modules/media/prune_timer.rs
-- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command
+- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn deploy_prune_timer (home : & str , threshold : u8 , target : u8) -> Result < () >
+  fn disable_prune_timer () -> Result < () >
   fn is_timer_active () -> bool
   ```
 
 ### `src/modules/media/pruner/execute.rs` (Role: general, Lines: 198)
 - **Responsibility**: Core general logic in src/modules/media/pruner/execute.rs
-- **Imports**: use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use super :: { remap_category , PruneCandidate , PruneOptions , COLD_ARCHIVE_DEST } , use crate :: modules :: media :: disk , use crate :: notify :: client :: format_card , use crate :: notify :: TelegramConfig
+- **Imports**: use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use super :: { remap_category , PruneCandidate , PruneOptions , COLD_ARCHIVE_DEST } , use crate :: modules :: media :: disk , use crate :: notify :: client :: format_card , use crate :: notify :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn process_candidates (candidates : & [PruneCandidate] , target_bytes : u64 , opts : PruneOptions , base : & Path ,)
@@ -924,16 +925,16 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/pruner/scan.rs` (Role: general, Lines: 87)
 - **Responsibility**: Core general logic in src/modules/media/pruner/scan.rs
-- **Imports**: use anyhow :: Result , use std :: fs , use std :: path :: Path , use std :: time :: { Duration , SystemTime } , use super :: PruneCandidate
+- **Imports**: use anyhow :: Result , use std :: fs , use std :: path :: Path , use std :: time :: { Duration , SystemTime } , use super :: PruneCandidate 
 - **Public Functions & Signatures**:
   ```rust
   fn scan_media_candidates (base : & Path) -> Result < Vec < PruneCandidate > >
   fn tag_watched_status (candidates : & mut [PruneCandidate])
   ```
 
-### `src/modules/media/pruner.rs` (Role: general, Lines: 240)
+### `src/modules/media/pruner.rs` (Role: general, Lines: 243)
 - **Responsibility**: Core general logic in src/modules/media/pruner.rs
-- **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: time :: SystemTime , use super :: disk :: { self , DiskUsage }
+- **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: path :: { Path , PathBuf } , use std :: time :: SystemTime , use super :: disk :: { self , DiskUsage } 
 - **Types & Enums**:
   ```rust
   pub struct PruneOptions
@@ -949,7 +950,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/status.rs` (Role: general, Lines: 78)
 - **Responsibility**: Core general logic in src/modules/media/status.rs
-- **Imports**: use colored :: Colorize , use std :: path :: Path , use std :: process :: Command , use super :: disk :: { self , DiskUsage }
+- **Imports**: use colored :: Colorize , use std :: path :: Path , use std :: process :: Command , use super :: disk :: { self , DiskUsage } 
 - **Public Functions & Signatures**:
   ```rust
   fn show_storage_status ()
@@ -957,7 +958,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/sync.rs` (Role: general, Lines: 230)
 - **Responsibility**: Core general logic in src/modules/media/sync.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command , use std :: time :: Instant , use crate :: modules :: rclone , use crate :: notify :: client :: format_card , use crate :: notify :: TelegramConfig , use crate :: runner :: format_duration
+- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command , use std :: time :: Instant , use crate :: modules :: rclone , use crate :: notify :: client :: format_card , use crate :: notify :: TelegramConfig , use crate :: runner :: format_duration 
 - **Public Functions & Signatures**:
   ```rust
   fn deploy_sync_timer (home : & str) -> Result < () >
@@ -968,7 +969,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/transfer/cache.rs` (Role: general, Lines: 317)
 - **Responsibility**: Core general logic in src/modules/media/transfer/cache.rs
-- **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: time :: UNIX_EPOCH , use super :: scan :: collect_dir_files , use super :: { MediaCategory , MediaFile , MediaSeason , SyncStatus }
+- **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: time :: UNIX_EPOCH , use super :: scan :: collect_dir_files , use super :: { MediaCategory , MediaFile , MediaSeason , SyncStatus } 
 - **Types & Enums**:
   ```rust
   pub struct CachedSeason
@@ -988,7 +989,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/transfer/execute.rs` (Role: general, Lines: 255)
 - **Responsibility**: Core general logic in src/modules/media/transfer/execute.rs
-- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , use std :: time :: Duration , use super :: { notify , MediaItem , TransferDirection } , use crate :: modules :: media :: disk , use crate :: runner :: format_duration
+- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , use std :: time :: Duration , use super :: { notify , MediaItem , TransferDirection } , use crate :: modules :: media :: disk , use crate :: runner :: format_duration 
 - **Public Functions & Signatures**:
   ```rust
   fn confirm_transfer (dir : TransferDirection , items : & [MediaItem]) -> bool
@@ -997,7 +998,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/transfer/notify.rs` (Role: general, Lines: 204)
 - **Responsibility**: Core general logic in src/modules/media/transfer/notify.rs
-- **Imports**: use std :: time :: Duration , use super :: { MediaCategory , MediaItem , TransferDirection } , use crate :: modules :: media :: disk , use crate :: notify :: client :: { escape_html , send_alert } , use crate :: notify :: TelegramConfig , use crate :: runner :: format_duration
+- **Imports**: use std :: time :: Duration , use super :: { MediaCategory , MediaItem , TransferDirection } , use crate :: modules :: media :: disk , use crate :: notify :: client :: { escape_html , send_alert } , use crate :: notify :: TelegramConfig , use crate :: runner :: format_duration 
 - **Public Functions & Signatures**:
   ```rust
   fn format_transfer_rate (bytes : u64 , duration : Duration) -> String
@@ -1008,11 +1009,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/transfer/scan/tests.rs` (Role: general, Lines: 93)
 - **Responsibility**: Core general logic in src/modules/media/transfer/scan/tests.rs
-- **Imports**: use super :: *
+- **Imports**: use super :: * 
 
 ### `src/modules/media/transfer/scan.rs` (Role: general, Lines: 325)
 - **Responsibility**: Core general logic in src/modules/media/transfer/scan.rs
-- **Imports**: use anyhow :: Result , use std :: collections :: HashSet , use std :: fs , use std :: path :: Path , use std :: process :: Command , use super :: cache :: MediaScanCache , use super :: { MediaCategory , MediaFile , MediaItem , SyncStatus }
+- **Imports**: use anyhow :: Result , use std :: collections :: HashSet , use std :: fs , use std :: path :: Path , use std :: process :: Command , use super :: cache :: MediaScanCache , use super :: { MediaCategory , MediaFile , MediaItem , SyncStatus } 
 - **Public Functions & Signatures**:
   ```rust
   fn collect_dir_files (path : & Path , rel_prefix : & str) -> Vec < MediaFile >
@@ -1024,7 +1025,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/transfer/sync_status.rs` (Role: general, Lines: 347)
 - **Responsibility**: Core general logic in src/modules/media/transfer/sync_status.rs
-- **Imports**: use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use super :: { MediaCategory , MediaItem , MediaSeason }
+- **Imports**: use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use super :: { MediaCategory , MediaItem , MediaSeason } 
 - **Types & Enums**:
   ```rust
   pub struct MediaFile
@@ -1041,7 +1042,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/transfer.rs` (Role: general, Lines: 160)
 - **Responsibility**: Core general logic in src/modules/media/transfer.rs
-- **Imports**: pub use execute :: { confirm_transfer , execute_transfer } , pub use scan :: { rescan_libraries , scan_libraries } , pub use sync_status :: { cross_reference_libraries , MediaFile , SyncStatus } , use serde :: { Deserialize , Serialize } , use std :: path :: PathBuf
+- **Imports**: pub use execute :: { confirm_transfer , execute_transfer } , pub use scan :: { rescan_libraries , scan_libraries } , pub use sync_status :: { cross_reference_libraries , MediaFile , SyncStatus } , use serde :: { Deserialize , Serialize } , use std :: path :: PathBuf 
 - **Types & Enums**:
   ```rust
   pub enum TransferDirection
@@ -1062,7 +1063,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/trash/entry.rs` (Role: general, Lines: 190)
 - **Responsibility**: Core general logic in src/modules/media/trash/entry.rs
-- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: time :: { SystemTime , UNIX_EPOCH }
+- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: time :: { SystemTime , UNIX_EPOCH } 
 - **Types & Enums**:
   ```rust
   pub enum TrashKind
@@ -1087,7 +1088,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/trash/ops.rs` (Role: general, Lines: 341)
 - **Responsibility**: Core general logic in src/modules/media/trash/ops.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use super :: entry :: { load_entries , local_trash_root , now_secs , push_entry , remove_entry , save_entries , TrashEntry , TrashKind , TrashOrigin , }
+- **Imports**: use anyhow :: { bail , Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use super :: entry :: { load_entries , local_trash_root , now_secs , push_entry , remove_entry , save_entries , TrashEntry , TrashKind , TrashOrigin , } 
 - **Public Functions & Signatures**:
   ```rust
   fn list_all () -> Vec < TrashEntry >
@@ -1101,11 +1102,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/trash.rs` (Role: general, Lines: 12)
 - **Responsibility**: Core general logic in src/modules/media/trash.rs
-- **Imports**: pub use entry :: { TrashEntry , TrashKind } , pub use ops :: { list_all , purge_entry , purge_expired , restore_entry , trash_local , trash_remote }
+- **Imports**: pub use entry :: { TrashEntry , TrashKind } , pub use ops :: { list_all , purge_entry , purge_expired , restore_entry , trash_local , trash_remote } 
 
 ### `src/modules/media.rs` (Role: general, Lines: 127)
 - **Responsibility**: Core general logic in src/modules/media.rs
-- **Imports**: use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: io :: IsTerminal , use std :: path :: { Path , PathBuf }
+- **Imports**: use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: io :: IsTerminal , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust
   pub enum MediaType
@@ -1120,7 +1121,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/prompt.rs` (Role: general, Lines: 38)
 - **Responsibility**: Core general logic in src/modules/prompt.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use std :: fs , use std :: path :: Path
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use std :: fs , use std :: path :: Path 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner) -> Result < () >
@@ -1128,7 +1129,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/rclone/install.rs` (Role: general, Lines: 50)
 - **Responsibility**: Core general logic in src/modules/rclone/install.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: fs , use std :: path :: Path
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: fs , use std :: path :: Path 
 - **Public Functions & Signatures**:
   ```rust
   fn install_rclone_binary (runner : & mut Runner) -> Result < () >
@@ -1138,7 +1139,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/rclone/oauth.rs` (Role: general, Lines: 143)
 - **Responsibility**: Core general logic in src/modules/rclone/oauth.rs
-- **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write } , use std :: process :: Command
+- **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write } , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn is_remote_configured () -> bool
@@ -1148,7 +1149,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/rclone/service.rs` (Role: general, Lines: 134)
 - **Responsibility**: Core general logic in src/modules/rclone/service.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command
+- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn deploy_systemd_service (runner : & Runner , home : & str) -> Result < () >
@@ -1162,7 +1163,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/rclone.rs` (Role: general, Lines: 180)
 - **Responsibility**: Core general logic in src/modules/rclone.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , pub use oauth :: is_remote_configured
+- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , pub use oauth :: is_remote_configured 
 - **Types & Enums**:
   ```rust
   pub enum RcloneSubcommand
@@ -1175,7 +1176,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/security.rs` (Role: general, Lines: 54)
 - **Responsibility**: Core general logic in src/modules/security.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner) -> Result < () >
@@ -1183,7 +1184,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/seedr.rs` (Role: general, Lines: 42)
 - **Responsibility**: Core general logic in src/modules/seedr.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: path :: Path , use std :: process :: Command
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner , non_interactive : bool) -> Result < () >
@@ -1191,7 +1192,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/tailscale.rs` (Role: general, Lines: 148)
 - **Responsibility**: Core general logic in src/modules/tailscale.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write }
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write } 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner , non_interactive : bool) -> Result < () >
@@ -1199,7 +1200,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/timezone.rs` (Role: general, Lines: 314)
 - **Responsibility**: Core general logic in src/modules/timezone.rs
-- **Imports**: use crate :: notify :: TelegramConfig , use crate :: runner :: Runner , use anyhow :: { bail , Context , Result } , use clap :: { Args , ValueEnum } , use colored :: Colorize , use serde :: Deserialize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: Path , use std :: process :: Command , use std :: time :: Duration
+- **Imports**: use crate :: notify :: TelegramConfig , use crate :: runner :: Runner , use anyhow :: { bail , Context , Result } , use clap :: { Args , ValueEnum } , use colored :: Colorize , use serde :: Deserialize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: Path , use std :: process :: Command , use std :: time :: Duration 
 - **Types & Enums**:
   ```rust
   pub enum IpProvider
@@ -1219,7 +1220,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/api.rs` (Role: api, Lines: 286)
 - **Responsibility**: Core api logic in src/modules/torrent/api.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use reqwest :: blocking :: Client , use serde :: Deserialize
+- **Imports**: use anyhow :: { bail , Context , Result } , use reqwest :: blocking :: Client , use serde :: Deserialize 
 - **Types & Enums**:
   ```rust
   pub struct TorrentInfo
@@ -1238,7 +1239,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/cli.rs` (Role: cli, Lines: 78)
 - **Responsibility**: Core cli logic in src/modules/torrent/cli.rs
-- **Imports**: use crate :: modules :: torrent :: { api , dedup , queue , scheduler , seedr } , use crate :: notify :: TelegramConfig , use anyhow :: Result , use colored :: Colorize , use std :: time :: Duration
+- **Imports**: use crate :: modules :: torrent :: { api , dedup , queue , scheduler , seedr } , use crate :: notify :: TelegramConfig , use anyhow :: Result , use colored :: Colorize , use std :: time :: Duration 
 - **Public Functions & Signatures**:
   ```rust
   fn handle_seedr_cli (target : & str) -> Result < () >
@@ -1246,11 +1247,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/dedup/tests.rs` (Role: general, Lines: 321)
 - **Responsibility**: Core general logic in src/modules/torrent/dedup/tests.rs
-- **Imports**: use super :: * , use std :: sync :: Mutex
+- **Imports**: use super :: * , use std :: sync :: Mutex 
 
 ### `src/modules/torrent/dedup.rs` (Role: general, Lines: 328)
 - **Responsibility**: Core general logic in src/modules/torrent/dedup.rs
-- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf }
+- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust
   pub enum Availability
@@ -1266,7 +1267,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/history.rs` (Role: general, Lines: 207)
 - **Responsibility**: Core general logic in src/modules/torrent/history.rs
-- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use std :: fs , use std :: hash :: { Hash , Hasher } , use std :: io :: { Read , Seek , SeekFrom } , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: MediaInfo
+- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use std :: fs , use std :: hash :: { Hash , Hasher } , use std :: io :: { Read , Seek , SeekFrom } , use std :: path :: { Path , PathBuf } , use crate :: modules :: media :: MediaInfo 
 - **Types & Enums**:
   ```rust
   pub struct TrackedFile
@@ -1284,7 +1285,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/notify.rs` (Role: general, Lines: 273)
 - **Responsibility**: Core general logic in src/modules/torrent/notify.rs
-- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: thread :: sleep , use std :: time :: Duration , use super :: api :: { self , TorrentInfo } , use super :: telegram :: TelegramConfig , use crate :: modules :: media :: OrganizeResult , use crate :: notify :: client :: escape_html
+- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: thread :: sleep , use std :: time :: Duration , use super :: api :: { self , TorrentInfo } , use super :: telegram :: TelegramConfig , use crate :: modules :: media :: OrganizeResult , use crate :: notify :: client :: escape_html 
 - **Public Functions & Signatures**:
   ```rust
   fn execute (event : & str , hash : & str) -> Result < () >
@@ -1293,11 +1294,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/queue/tests.rs` (Role: general, Lines: 284)
 - **Responsibility**: Core general logic in src/modules/torrent/queue/tests.rs
-- **Imports**: use super :: * , use std :: sync :: Arc , use std :: thread
+- **Imports**: use super :: * , use std :: sync :: Arc , use std :: thread 
 
 ### `src/modules/torrent/queue.rs` (Role: general, Lines: 324)
 - **Responsibility**: Core general logic in src/modules/torrent/queue.rs
-- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: os :: unix :: io :: AsRawFd , use std :: path :: { Path , PathBuf } , use std :: sync :: Mutex
+- **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: os :: unix :: io :: AsRawFd , use std :: path :: { Path , PathBuf } , use std :: sync :: Mutex 
 - **Types & Enums**:
   ```rust
   pub enum QueueState
@@ -1330,7 +1331,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/report.rs` (Role: general, Lines: 121)
 - **Responsibility**: Core general logic in src/modules/torrent/report.rs
-- **Imports**: use super :: api :: TorrentInfo , use super :: notify :: format_size
+- **Imports**: use super :: api :: TorrentInfo , use super :: notify :: format_size 
 - **Public Functions & Signatures**:
   ```rust
   fn format_status_report (torrents : & [TorrentInfo]) -> String
@@ -1338,11 +1339,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/scheduler/tests.rs` (Role: general, Lines: 70)
 - **Responsibility**: Core general logic in src/modules/torrent/scheduler/tests.rs
-- **Imports**: use super :: *
+- **Imports**: use super :: * 
 
 ### `src/modules/torrent/scheduler.rs` (Role: general, Lines: 338)
 - **Responsibility**: Core general logic in src/modules/torrent/scheduler.rs
-- **Imports**: use std :: path :: { Path , PathBuf } , use super :: api , use super :: queue :: { self , QueueEntry , QueuePolicy , QueueState } , use super :: seedr , use crate :: notify :: config :: TelegramConfig
+- **Imports**: use std :: path :: { Path , PathBuf } , use super :: api , use super :: queue :: { self , QueueEntry , QueuePolicy , QueueState } , use super :: seedr , use crate :: notify :: config :: TelegramConfig 
 - **Types & Enums**:
   ```rust
   pub enum SubmitOutcome
@@ -1360,7 +1361,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/seedr.rs` (Role: general, Lines: 399)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr.rs
-- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: { Path , PathBuf } , use std :: process :: { Command , Stdio } , use std :: time :: Duration , use super :: api , use super :: telegram :: TelegramConfig , pub use super :: seedr_tasks :: { format_seedr_tasks_section , get_active_seedr_tasks }
+- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: { Path , PathBuf } , use std :: process :: { Command , Stdio } , use std :: time :: Duration , use super :: api , use super :: telegram :: TelegramConfig , pub use super :: seedr_tasks :: { format_seedr_tasks_section , get_active_seedr_tasks } 
 - **Public Functions & Signatures**:
   ```rust
   fn extract_btih_hash (magnet : & str) -> Option < String >
@@ -1377,7 +1378,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/seedr_health.rs` (Role: general, Lines: 108)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_health.rs
-- **Imports**: use anyhow :: Context , use reqwest :: blocking :: Client , use std :: time :: Duration , use super :: api , use super :: queue :: { self , QueueState } , use super :: scheduler , use super :: seedr :: { load_pending_magnet , remove_pending_magnet } , use super :: seedr_tasks , use crate :: notify :: config :: TelegramConfig
+- **Imports**: use anyhow :: Context , use reqwest :: blocking :: Client , use std :: time :: Duration , use super :: api , use super :: queue :: { self , QueueState } , use super :: scheduler , use super :: seedr :: { load_pending_magnet , remove_pending_magnet } , use super :: seedr_tasks , use crate :: notify :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn record_active_health (config : & TelegramConfig)
@@ -1385,7 +1386,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/seedr_reaper.rs` (Role: general, Lines: 123)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_reaper.rs
-- **Imports**: use std :: collections :: HashSet , use super :: seedr_tasks :: { base_key , fetch_live_list , load_local_tasks , tasks_dir }
+- **Imports**: use std :: collections :: HashSet , use super :: seedr_tasks :: { base_key , fetch_live_list , load_local_tasks , tasks_dir } 
 - **Public Functions & Signatures**:
   ```rust
   fn tracked_names () -> HashSet < String >
@@ -1397,11 +1398,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/seedr_tasks/tests.rs` (Role: general, Lines: 87)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks/tests.rs
-- **Imports**: use super :: *
+- **Imports**: use super :: * 
 
 ### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 328)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks.rs
-- **Imports**: use serde :: Deserialize , use std :: collections :: HashSet , use std :: path :: { Path , PathBuf }
+- **Imports**: use serde :: Deserialize , use std :: collections :: HashSet , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust
   pub struct SeedrTaskState
@@ -1415,7 +1416,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent/telegram.rs` (Role: general, Lines: 140)
 - **Responsibility**: Core general logic in src/modules/torrent/telegram.rs
-- **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , pub use crate :: notify :: TelegramConfig , use crate :: runner :: Runner
+- **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , pub use crate :: notify :: TelegramConfig , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
   ```rust
   fn prompt_telegram_config (_runner : & mut Runner , non_interactive : bool ,) -> Result < Option < TelegramConfig > >
@@ -1425,7 +1426,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/torrent.rs` (Role: general, Lines: 395)
 - **Responsibility**: Core general logic in src/modules/torrent.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: Path
+- **Imports**: use crate :: runner :: Runner , use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: Path 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner , non_interactive : bool) -> Result < () >
@@ -1433,7 +1434,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/trash.rs` (Role: general, Lines: 16)
 - **Responsibility**: Core general logic in src/modules/trash.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: Result
+- **Imports**: use crate :: runner :: Runner , use anyhow :: Result 
 - **Public Functions & Signatures**:
   ```rust
   fn setup (runner : & mut Runner) -> Result < () >
@@ -1441,7 +1442,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules.rs` (Role: general, Lines: 364)
 - **Responsibility**: Core general logic in src/modules.rs
-- **Imports**: use crate :: configs , use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: collections :: HashSet
+- **Imports**: use crate :: configs , use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: collections :: HashSet 
 - **Types & Enums**:
   ```rust
   pub struct Module
@@ -1457,7 +1458,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/notify/client.rs` (Role: cli, Lines: 135)
 - **Responsibility**: Core cli logic in src/notify/client.rs
-- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: fmt :: Write as _ , use std :: time :: Duration
+- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: fmt :: Write as _ , use std :: time :: Duration 
 - **Public Functions & Signatures**:
   ```rust
   fn escape_html (input : & str) -> String
@@ -1470,7 +1471,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/notify/config.rs` (Role: general, Lines: 216)
 - **Responsibility**: Core general logic in src/notify/config.rs
-- **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf }
+- **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust
   pub struct TelegramConfig
@@ -1488,7 +1489,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/notify/hooks.rs` (Role: general, Lines: 360)
 - **Responsibility**: Core general logic in src/notify/hooks.rs
-- **Imports**: use std :: fmt :: Write as _ , use std :: fs , use std :: path :: Path , use std :: process :: Command
+- **Imports**: use std :: fmt :: Write as _ , use std :: fs , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn install_hooks (bin_path : & Path)
@@ -1496,11 +1497,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/notify/power/lock.rs` (Role: general, Lines: 107)
 - **Responsibility**: Core general logic in src/notify/power/lock.rs
-- **Imports**: use anyhow :: { anyhow , Context , Result } , use std :: fs , use std :: io :: Write , use std :: path :: { Path , PathBuf }
+- **Imports**: use anyhow :: { anyhow , Context , Result } , use std :: fs , use std :: io :: Write , use std :: path :: { Path , PathBuf } 
 
 ### `src/notify/power/sensors.rs` (Role: general, Lines: 155)
 - **Responsibility**: Core general logic in src/notify/power/sensors.rs
-- **Imports**: use std :: fs , use std :: path :: Path , use std :: thread , use std :: time :: Duration
+- **Imports**: use std :: fs , use std :: path :: Path , use std :: thread , use std :: time :: Duration 
 - **Public Functions & Signatures**:
   ```rust
   fn is_ac_online () -> bool
@@ -1512,7 +1513,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/notify/power.rs` (Role: general, Lines: 359)
 - **Responsibility**: Core general logic in src/notify/power.rs
-- **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: Write , use std :: path :: Path , use std :: thread , use std :: time :: { Duration , SystemTime } , use super :: client :: { format_card , send_alert } , use super :: config :: TelegramConfig , use crate :: settings :: Settings , use lock :: acquire_pid_lock , pub use sensors :: { is_ac_online , read_battery_percent , read_battery_status , read_cpu_temp , read_cpu_usage , }
+- **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: Write , use std :: path :: Path , use std :: thread , use std :: time :: { Duration , SystemTime } , use super :: client :: { format_card , send_alert } , use super :: config :: TelegramConfig , use crate :: settings :: Settings , use lock :: acquire_pid_lock , pub use sensors :: { is_ac_online , read_battery_percent , read_battery_status , read_cpu_temp , read_cpu_usage , } 
 - **Public Functions & Signatures**:
   ```rust
   fn send_power_event (config : & TelegramConfig , status : & str) -> Result < () >
@@ -1522,7 +1523,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/notify/server.rs` (Role: general, Lines: 237)
 - **Responsibility**: Core general logic in src/notify/server.rs
-- **Imports**: use anyhow :: { Context , Result } , use serde :: Deserialize , use std :: io :: { BufRead , BufReader , Read , Write } , use std :: net :: { TcpListener , TcpStream } , use std :: sync :: Arc , use std :: time :: Duration , use super :: config :: TelegramConfig , use super :: system :: send_custom_notification
+- **Imports**: use anyhow :: { Context , Result } , use serde :: Deserialize , use std :: io :: { BufRead , BufReader , Read , Write } , use std :: net :: { TcpListener , TcpStream } , use std :: sync :: Arc , use std :: time :: Duration , use super :: config :: TelegramConfig , use super :: system :: send_custom_notification 
 - **Public Functions & Signatures**:
   ```rust
   fn spawn_background_server (config : TelegramConfig , port : u16)
@@ -1531,7 +1532,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/notify/session.rs` (Role: general, Lines: 269)
 - **Responsibility**: Core general logic in src/notify/session.rs
-- **Imports**: use std :: ffi :: CString , use std :: fs , use std :: io :: Write as _ , use std :: os :: unix :: ffi :: OsStrExt , use std :: path :: { Path , PathBuf } , use std :: time :: { SystemTime , UNIX_EPOCH }
+- **Imports**: use std :: ffi :: CString , use std :: fs , use std :: io :: Write as _ , use std :: os :: unix :: ffi :: OsStrExt , use std :: path :: { Path , PathBuf } , use std :: time :: { SystemTime , UNIX_EPOCH } 
 - **Types & Enums**:
   ```rust
   pub enum LoginOutcome
@@ -1546,7 +1547,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/notify/shutdown.rs` (Role: general, Lines: 78)
 - **Responsibility**: Core general logic in src/notify/shutdown.rs
-- **Imports**: use std :: process :: Command , use std :: time :: Duration , use anyhow :: Result , use super :: client :: { format_card , send_alert } , use super :: config :: TelegramConfig
+- **Imports**: use std :: process :: Command , use std :: time :: Duration , use anyhow :: Result , use super :: client :: { format_card , send_alert } , use super :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn send_shutdown_notification (config : & TelegramConfig) -> Result < () >
@@ -1554,7 +1555,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/notify/system.rs` (Role: general, Lines: 392)
 - **Responsibility**: Core general logic in src/notify/system.rs
-- **Imports**: use anyhow :: Result , use std :: fs , use std :: mem :: MaybeUninit , use std :: process :: Command , use std :: time :: Duration , use super :: client :: { escape_html , format_card , send_alert } , use super :: config :: TelegramConfig
+- **Imports**: use anyhow :: Result , use std :: fs , use std :: mem :: MaybeUninit , use std :: process :: Command , use std :: time :: Duration , use super :: client :: { escape_html , format_card , send_alert } , use super :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn send_boot_notification (config : & TelegramConfig) -> Result < () >
@@ -1573,7 +1574,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/notify.rs` (Role: general, Lines: 186)
 - **Responsibility**: Core general logic in src/notify.rs
-- **Imports**: use anyhow :: Result , use clap :: Subcommand , use colored :: Colorize , pub use config :: TelegramConfig
+- **Imports**: use anyhow :: Result , use clap :: Subcommand , use colored :: Colorize , pub use config :: TelegramConfig 
 - **Types & Enums**:
   ```rust
   pub enum NotifySubcommand
@@ -1586,7 +1587,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/runner.rs` (Role: general, Lines: 262)
 - **Responsibility**: Core general logic in src/runner.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use indicatif :: { ProgressBar , ProgressStyle } , use std :: fs :: { self , File , OpenOptions } , use std :: io :: { Read , Write } , use std :: path :: { Path , PathBuf } , use std :: process :: { Command , Stdio } , use std :: time :: Duration
+- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use indicatif :: { ProgressBar , ProgressStyle } , use std :: fs :: { self , File , OpenOptions } , use std :: io :: { Read , Write } , use std :: path :: { Path , PathBuf } , use std :: process :: { Command , Stdio } , use std :: time :: Duration 
 - **Types & Enums**:
   ```rust
   pub struct Runner
@@ -1604,25 +1605,27 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn apt_update (& mut self) -> Result < () >
   ```
 
-### `src/settings/model.rs` (Role: general, Lines: 206)
+### `src/settings/model.rs` (Role: general, Lines: 301)
 - **Responsibility**: Core general logic in src/settings/model.rs
-- **Imports**: use anyhow :: { bail , Result } , use serde :: { Deserialize , Serialize }
+- **Imports**: use anyhow :: { bail , Result } , use serde :: { Deserialize , Serialize } 
 - **Types & Enums**:
   ```rust
   pub struct BatterySettings
   pub struct PowerSettings
   pub struct UiSettings
+  pub struct StorageSettings
   pub struct Settings
   ```
 - **Public Functions & Signatures**:
   ```rust
   fn validate (& self) -> Result < () >
   fn parse_thresholds (raw : & str) -> Result < Vec < u8 > >
+  fn validate_prune (threshold : u8 , target : u8) -> Result < () >
   ```
 
 ### `src/settings/store.rs` (Role: general, Lines: 84)
 - **Responsibility**: Core general logic in src/settings/store.rs
-- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: model :: Settings
+- **Imports**: use anyhow :: { Context , Result } , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: model :: Settings 
 - **Public Functions & Signatures**:
   ```rust
   fn config_dir () -> PathBuf
@@ -1632,9 +1635,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn save (settings : & Settings) -> Result < PathBuf >
   ```
 
-### `src/settings.rs` (Role: general, Lines: 11)
+### `src/settings.rs` (Role: general, Lines: 14)
 - **Responsibility**: Core general logic in src/settings.rs
-- **Imports**: pub use model :: { Settings , DEFAULT_ALERTS , MAX_CHARGE , MAX_POWEROFF , MIN_CHARGE , MIN_POWEROFF } , pub use store :: { config_dir , load , load_or_default , path as settings_path , save }
+- **Imports**: pub use model :: { validate_prune , Settings , DEFAULT_ALERTS , MAX_CHARGE , MAX_POWEROFF , MAX_PRUNE , MIN_CHARGE , MIN_POWEROFF , MIN_PRUNE , MIN_PRUNE_GAP , MIN_PRUNE_TARGET , } , pub use store :: { config_dir , load , load_or_default , path as settings_path , save } 
 - **Public Functions & Signatures**:
   ```rust
   fn effective_charge_limit () -> u8
@@ -1642,7 +1645,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/state.rs` (Role: general, Lines: 133)
 - **Responsibility**: Core general logic in src/state.rs
-- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: { Path , PathBuf }
+- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust
   pub struct RunState
@@ -1658,15 +1661,15 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/summary.rs` (Role: general, Lines: 100)
 - **Responsibility**: Core general logic in src/summary.rs
-- **Imports**: use crate :: runner , use colored :: Colorize
+- **Imports**: use crate :: runner , use colored :: Colorize 
 - **Public Functions & Signatures**:
   ```rust
   fn print_summary (module_ids : & [String] , total_duration : std :: time :: Duration , timings : & [(String , std :: time :: Duration)] ,)
   ```
 
-### `src/tui/actions.rs` (Role: tui, Lines: 368)
+### `src/tui/actions.rs` (Role: tui, Lines: 398)
 - **Responsibility**: Core tui logic in src/tui/actions.rs
-- **Imports**: use std :: process :: Command , use std :: time :: Duration , use anyhow :: { bail , Context , Result } , use crate :: tui :: app :: { Action , App , ToastLevel } , use crate :: tui :: RunOptions
+- **Imports**: use std :: process :: Command , use std :: time :: Duration , use anyhow :: { bail , Context , Result } , use crate :: tui :: app :: { Action , App , ToastLevel } , use crate :: tui :: RunOptions 
 - **Types & Enums**:
   ```rust
   pub struct Suspended
@@ -1679,7 +1682,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/app/forms.rs` (Role: tui, Lines: 157)
 - **Responsibility**: Core tui logic in src/tui/app/forms.rs
-- **Imports**: use crate :: notify :: config :: TelegramConfig , use crate :: settings :: Settings , use crate :: tui :: system , use super :: { App , InputTarget , ProvisionRow , TextInput , ToastLevel }
+- **Imports**: use crate :: notify :: config :: TelegramConfig , use crate :: settings :: Settings , use crate :: tui :: system , use super :: { App , InputTarget , ProvisionRow , TextInput , ToastLevel } 
 - **Public Functions & Signatures**:
   ```rust
   fn open_input (& mut self , target : InputTarget)
@@ -1687,9 +1690,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn mask_secret (value : & str) -> String
   ```
 
-### `src/tui/app.rs` (Role: tui, Lines: 322)
+### `src/tui/app.rs` (Role: tui, Lines: 324)
 - **Responsibility**: Core tui logic in src/tui/app.rs
-- **Imports**: use std :: time :: { Duration , Instant } , use crate :: notify :: config :: TelegramConfig , use crate :: settings :: Settings , use crate :: tui :: system :: { self , ServiceRow , Snapshot } , pub use forms :: mask_secret , use forms :: { provision_rows , settings_warning , telegram_state }
+- **Imports**: use std :: time :: { Duration , Instant } , use crate :: notify :: config :: TelegramConfig , use crate :: settings :: Settings , use crate :: tui :: system :: { self , ServiceRow , Snapshot } , pub use forms :: mask_secret , use forms :: { provision_rows , settings_warning , telegram_state } 
 - **Types & Enums**:
   ```rust
   pub enum Tab
@@ -1728,7 +1731,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/input.rs` (Role: tui, Lines: 192)
 - **Responsibility**: Core tui logic in src/tui/input.rs
-- **Imports**: use crossterm :: event :: { KeyCode , KeyEvent , KeyModifiers } , use crate :: tui :: actions :: Effect , use crate :: tui :: app :: { Action , App , Focus , Tab } , use crate :: tui :: views
+- **Imports**: use crossterm :: event :: { KeyCode , KeyEvent , KeyModifiers } , use crate :: tui :: actions :: Effect , use crate :: tui :: app :: { Action , App , Focus , Tab } , use crate :: tui :: views 
 - **Public Functions & Signatures**:
   ```rust
   fn handle_key (app : & mut App , key : KeyEvent) -> Effect
@@ -1736,7 +1739,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/render.rs` (Role: tui, Lines: 326)
 - **Responsibility**: Core tui logic in src/tui/render.rs
-- **Imports**: use ratatui :: { layout :: { Constraint , Layout , Rect } , style :: { Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph , Wrap } , Frame , } , use crate :: tui :: app :: { App , Confirm , Focus , Tab , TextInput , ToastLevel } , use crate :: tui :: views , use crate :: tui :: widgets :: { centered_box , centered_rect , modal_frame , tail , theme , truncate }
+- **Imports**: use ratatui :: { layout :: { Constraint , Layout , Rect } , style :: { Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph , Wrap } , Frame , } , use crate :: tui :: app :: { App , Confirm , Focus , Tab , TextInput , ToastLevel } , use crate :: tui :: views , use crate :: tui :: widgets :: { centered_box , centered_rect , modal_frame , tail , theme , truncate } 
 - **Public Functions & Signatures**:
   ```rust
   fn draw (f : & mut Frame , app : & App)
@@ -1744,16 +1747,16 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/run.rs` (Role: tui, Lines: 198)
 - **Responsibility**: Core tui logic in src/tui/run.rs
-- **Imports**: use std :: io :: { self , IsTerminal } , use std :: time :: Duration , use anyhow :: Result , use crossterm :: { cursor :: { Hide , Show } , event :: { self , Event , KeyEventKind } , execute , style :: ResetColor , terminal :: { disable_raw_mode , enable_raw_mode , EnterAlternateScreen , LeaveAlternateScreen } , } , use ratatui :: { backend :: CrosstermBackend , Terminal } , use crate :: tui :: actions :: { self , Effect , Suspended } , use crate :: tui :: app :: { App , ToastLevel } , use crate :: tui :: { input , render , views , RunOptions }
+- **Imports**: use std :: io :: { self , IsTerminal } , use std :: time :: Duration , use anyhow :: Result , use crossterm :: { cursor :: { Hide , Show } , event :: { self , Event , KeyEventKind } , execute , style :: ResetColor , terminal :: { disable_raw_mode , enable_raw_mode , EnterAlternateScreen , LeaveAlternateScreen } , } , use ratatui :: { backend :: CrosstermBackend , Terminal } , use crate :: tui :: actions :: { self , Effect , Suspended } , use crate :: tui :: app :: { App , ToastLevel } , use crate :: tui :: { input , render , views , RunOptions } 
 - **Public Functions & Signatures**:
   ```rust
   fn run (opts : RunOptions) -> Result < () >
   fn print_plain ()
   ```
 
-### `src/tui/system.rs` (Role: tui, Lines: 180)
+### `src/tui/system.rs` (Role: tui, Lines: 182)
 - **Responsibility**: Core tui logic in src/tui/system.rs
-- **Imports**: use std :: fs , use std :: path :: Path , use std :: process :: Command , use crate :: charge_limit :: Backend , use crate :: notify :: power :: { is_ac_online , read_battery_percent , read_battery_status , read_cpu_temp , read_cpu_usage , } , use crate :: notify :: system :: { format_usage , get_disk_stats , get_kernel , get_memory_stats , get_uptime , }
+- **Imports**: use std :: fs , use std :: path :: Path , use std :: process :: Command , use crate :: charge_limit :: Backend , use crate :: notify :: power :: { is_ac_online , read_battery_percent , read_battery_status , read_cpu_temp , read_cpu_usage , } , use crate :: notify :: system :: { format_usage , get_disk_stats , get_kernel , get_memory_stats , get_uptime , } 
 - **Types & Enums**:
   ```rust
   pub struct Snapshot
@@ -1769,7 +1772,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/views/battery.rs` (Role: tui, Lines: 118)
 - **Responsibility**: Core tui logic in src/tui/views/battery.rs
-- **Imports**: use crate :: settings :: { MAX_CHARGE , MAX_POWEROFF , MIN_CHARGE , MIN_POWEROFF } , use crate :: tui :: app :: { Action , App , Confirm , InputTarget } , use crate :: tui :: widgets :: { bar , step , Row }
+- **Imports**: use crate :: settings :: { MAX_CHARGE , MAX_POWEROFF , MIN_CHARGE , MIN_POWEROFF } , use crate :: tui :: app :: { Action , App , Confirm , InputTarget } , use crate :: tui :: widgets :: { bar , step , Row } 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
@@ -1779,25 +1782,26 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/views/dashboard.rs` (Role: tui, Lines: 51)
 - **Responsibility**: Core tui logic in src/tui/views/dashboard.rs
-- **Imports**: use crate :: tui :: app :: { Action , App } , use crate :: tui :: widgets :: { bar , Row }
+- **Imports**: use crate :: tui :: app :: { Action , App } , use crate :: tui :: widgets :: { bar , Row } 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
   fn activate (app : & mut App , index : usize) -> Action
   ```
 
-### `src/tui/views/media.rs` (Role: tui, Lines: 47)
+### `src/tui/views/media.rs` (Role: tui, Lines: 118)
 - **Responsibility**: Core tui logic in src/tui/views/media.rs
-- **Imports**: use std :: path :: Path , use crate :: modules :: media :: disk :: { format_bytes , get_disk_usage } , use crate :: modules :: media :: organizer :: pathing :: get_jellyfin_media_dir , use crate :: tui :: app :: { Action , App } , use crate :: tui :: widgets :: Row
+- **Imports**: use std :: path :: Path , use crate :: modules :: media :: disk :: { format_bytes , get_disk_usage } , use crate :: modules :: media :: organizer :: pathing :: get_jellyfin_media_dir , use crate :: settings :: { MAX_PRUNE , MIN_PRUNE , MIN_PRUNE_GAP , MIN_PRUNE_TARGET } , use crate :: tui :: app :: { Action , App , Confirm } , use crate :: tui :: widgets :: { step , Row } 
 - **Public Functions & Signatures**:
   ```rust
-  fn rows (_app : & App) -> Vec < Row >
-  fn activate (_app : & mut App , index : usize) -> Action
+  fn rows (app : & App) -> Vec < Row >
+  fn activate (app : & mut App , index : usize) -> Action
+  fn adjust (app : & mut App , index : usize , delta : i32)
   ```
 
 ### `src/tui/views/notifications.rs` (Role: tui, Lines: 60)
 - **Responsibility**: Core tui logic in src/tui/views/notifications.rs
-- **Imports**: use crate :: notify :: config :: TelegramConfig , use crate :: tui :: app :: { mask_secret , Action , App , Confirm , InputTarget } , use crate :: tui :: widgets :: Row
+- **Imports**: use crate :: notify :: config :: TelegramConfig , use crate :: tui :: app :: { mask_secret , Action , App , Confirm , InputTarget } , use crate :: tui :: widgets :: Row 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
@@ -1806,7 +1810,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/views/provision.rs` (Role: tui, Lines: 75)
 - **Responsibility**: Core tui logic in src/tui/views/provision.rs
-- **Imports**: use crate :: tui :: app :: { Action , App , Confirm } , use crate :: tui :: widgets :: Row
+- **Imports**: use crate :: tui :: app :: { Action , App , Confirm } , use crate :: tui :: widgets :: Row 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
@@ -1815,7 +1819,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/views/services.rs` (Role: tui, Lines: 51)
 - **Responsibility**: Core tui logic in src/tui/views/services.rs
-- **Imports**: use crate :: tui :: app :: { Action , App } , use crate :: tui :: widgets :: Row
+- **Imports**: use crate :: tui :: app :: { Action , App } , use crate :: tui :: widgets :: Row 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
@@ -1824,7 +1828,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/views/settings.rs` (Role: tui, Lines: 59)
 - **Responsibility**: Core tui logic in src/tui/views/settings.rs
-- **Imports**: use std :: path :: Path , use crate :: tui :: app :: { Action , App , Confirm , InputTarget } , use crate :: tui :: widgets :: { step , Row }
+- **Imports**: use std :: path :: Path , use crate :: tui :: app :: { Action , App , Confirm , InputTarget } , use crate :: tui :: widgets :: { step , Row } 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
@@ -1834,16 +1838,16 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/views/updates.rs` (Role: tui, Lines: 39)
 - **Responsibility**: Core tui logic in src/tui/views/updates.rs
-- **Imports**: use crate :: tui :: app :: { Action , App , Confirm } , use crate :: tui :: widgets :: Row
+- **Imports**: use crate :: tui :: app :: { Action , App , Confirm } , use crate :: tui :: widgets :: Row 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
   fn activate (app : & mut App , index : usize) -> Action
   ```
 
-### `src/tui/views.rs` (Role: tui, Lines: 106)
+### `src/tui/views.rs` (Role: tui, Lines: 107)
 - **Responsibility**: Core tui logic in src/tui/views.rs
-- **Imports**: use ratatui :: { layout :: Rect , Frame } , use crate :: tui :: app :: { Action , App , Focus , Tab } , use crate :: tui :: widgets :: { self , Row }
+- **Imports**: use ratatui :: { layout :: Rect , Frame } , use crate :: tui :: app :: { Action , App , Focus , Tab } , use crate :: tui :: widgets :: { self , Row } 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
@@ -1857,7 +1861,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/widgets/theme.rs` (Role: tui, Lines: 94)
 - **Responsibility**: Core tui logic in src/tui/widgets/theme.rs
-- **Imports**: use std :: sync :: OnceLock , use ratatui :: style :: { Color , Style }
+- **Imports**: use std :: sync :: OnceLock , use ratatui :: style :: { Color , Style } 
 - **Types & Enums**:
   ```rust
   pub struct Theme
@@ -1870,7 +1874,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/widgets/util.rs` (Role: tui, Lines: 75)
 - **Responsibility**: Core tui logic in src/tui/widgets/util.rs
-- **Imports**: use ratatui :: layout :: { Constraint , Layout , Rect }
+- **Imports**: use ratatui :: layout :: { Constraint , Layout , Rect } 
 - **Public Functions & Signatures**:
   ```rust
   fn bar (pct : u8 , width : usize) -> String
@@ -1883,7 +1887,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui/widgets.rs` (Role: tui, Lines: 290)
 - **Responsibility**: Core tui logic in src/tui/widgets.rs
-- **Imports**: use ratatui :: { layout :: { Alignment , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , pub use theme :: { theme , Theme } , pub use util :: { bar , centered_box , centered_rect , step , tail , truncate }
+- **Imports**: use ratatui :: { layout :: { Alignment , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , pub use theme :: { theme , Theme } , pub use util :: { bar , centered_box , centered_rect , step , tail , truncate } 
 - **Types & Enums**:
   ```rust
   pub enum RowKind
@@ -1904,7 +1908,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/tui.rs` (Role: tui, Lines: 19)
 - **Responsibility**: Core tui logic in src/tui.rs
-- **Imports**: pub use app :: Tab , pub use run :: { print_plain , run }
+- **Imports**: pub use app :: Tab , pub use run :: { print_plain , run } 
 - **Types & Enums**:
   ```rust
   pub struct RunOptions
@@ -1912,7 +1916,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/updater.rs` (Role: general, Lines: 294)
 - **Responsibility**: Core general logic in src/updater.rs
-- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use serde :: Deserialize , use std :: fs , use std :: os :: unix :: fs :: PermissionsExt , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use std :: time :: { SystemTime , UNIX_EPOCH }
+- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use serde :: Deserialize , use std :: fs , use std :: os :: unix :: fs :: PermissionsExt , use std :: path :: { Path , PathBuf } , use std :: process :: Command , use std :: time :: { SystemTime , UNIX_EPOCH } 
 - **Public Functions & Signatures**:
   ```rust
   fn run_self_update (current_version : & str) -> Result < () >

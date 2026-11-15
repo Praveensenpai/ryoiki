@@ -27,6 +27,7 @@ pub struct Snapshot {
     pub charge_backend: String,
     pub watcher_state: String,
     pub watcher_enabled: bool,
+    pub prune_timer_active: bool,
 }
 
 impl Snapshot {
@@ -94,6 +95,7 @@ pub fn collect() -> Snapshot {
         charge_backend: backend_label(),
         watcher_state,
         watcher_enabled,
+        prune_timer_active: crate::modules::media::prune_timer::is_timer_active(),
     }
 }
 

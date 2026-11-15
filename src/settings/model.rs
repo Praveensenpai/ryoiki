@@ -9,6 +9,18 @@ pub const MAX_CHARGE: u8 = 100;
 pub const MIN_POWEROFF: u8 = 1;
 /// Largest accepted auto-poweroff value.
 pub const MAX_POWEROFF: u8 = 50;
+/// Smallest accepted media-prune trigger.
+pub const MIN_PRUNE: u8 = 60;
+/// Largest accepted media-prune trigger.
+pub const MAX_PRUNE: u8 = 95;
+/// Smallest accepted media-prune target.
+pub const MIN_PRUNE_TARGET: u8 = 50;
+/// Minimum distance between the prune trigger and its target.
+pub const MIN_PRUNE_GAP: u8 = 5;
+/// Default media-prune trigger.
+pub const DEFAULT_PRUNE_THRESHOLD: u8 = 90;
+/// Default media-prune recovery target.
+pub const DEFAULT_PRUNE_TARGET: u8 = 75;
 /// Default low-battery alert ladder, descending.
 pub const DEFAULT_ALERTS: [u8; 7] = [50, 40, 30, 25, 15, 5, 1];
 /// Default UI refresh interval in seconds.
@@ -32,6 +44,14 @@ const fn default_refresh() -> u8 {
 
 fn default_alerts() -> Vec<u8> {
     DEFAULT_ALERTS.to_vec()
+}
+
+const fn default_prune_threshold() -> u8 {
+    DEFAULT_PRUNE_THRESHOLD
+}
+
+const fn default_prune_target() -> u8 {
+    DEFAULT_PRUNE_TARGET
 }
 
 /// Battery charging and alert behaviour.
@@ -88,6 +108,24 @@ impl Default for UiSettings {
     }
 }
 
+/// Media storage auto-prune policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageSettings {
+    #[serde(default = "default_prune_threshold")]
+    pub prune_threshold: u8,
+    #[serde(default = "default_prune_target")]
+    pub prune_target: u8,
+}
+
+impl Default for StorageSettings {
+    fn default() -> Self {
+        Self {
+            prune_threshold: default_prune_threshold(),
+            prune_target: default_prune_target(),
+        }
+    }
+}
+
 /// Root persisted configuration for ryoiki.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct Settings {
@@ -95,6 +133,8 @@ pub struct Settings {
     pub battery: BatterySettings,
     #[serde(default)]
     pub power: PowerSettings,
+    #[serde(default)]
+    pub storage: StorageSettings,
     #[serde(default)]
     pub ui: UiSettings,
 }
@@ -109,6 +149,7 @@ impl Settings {
             );
         }
         validate_poweroff(self.power.poweroff_percent)?;
+        validate_prune(self.storage.prune_threshold, self.storage.prune_target)?;
         validate_thresholds(&self.battery.alert_thresholds)?;
         if !(1..=120).contains(&self.ui.refresh_secs) {
             bail!(
@@ -148,6 +189,22 @@ fn validate_poweroff(value: u8) -> Result<()> {
     Ok(())
 }
 
+/// Validates a media-prune trigger and recovery target.
+pub fn validate_prune(threshold: u8, target: u8) -> Result<()> {
+    if !(MIN_PRUNE..=MAX_PRUNE).contains(&threshold) {
+        bail!("prune threshold must be {MIN_PRUNE}-{MAX_PRUNE}%, got {threshold}%");
+    }
+    if !(MIN_PRUNE_TARGET..=100).contains(&target) {
+        bail!("prune target must be {MIN_PRUNE_TARGET}-100%, got {target}%");
+    }
+    if target > threshold.saturating_sub(MIN_PRUNE_GAP) {
+        bail!(
+            "prune target must be at least {MIN_PRUNE_GAP} points below the {threshold}% threshold, got {target}%"
+        );
+    }
+    Ok(())
+}
+
 fn validate_thresholds(values: &[u8]) -> Result<()> {
     if values.is_empty() {
         bail!("at least one battery alert threshold is required");
@@ -167,6 +224,42 @@ mod tests {
     #[test]
     fn test_defaults_are_valid() {
         assert!(Settings::default().validate().is_ok());
+    }
+
+    #[test]
+    fn test_default_prune_policy() {
+        let storage = Settings::default().storage;
+        assert_eq!(storage.prune_threshold, 90);
+        assert_eq!(storage.prune_target, 75);
+    }
+
+    #[test]
+    fn test_rejects_bad_prune_threshold() {
+        let mut settings = Settings::default();
+        settings.storage.prune_threshold = 59;
+        assert!(settings.validate().is_err());
+
+        settings.storage.prune_threshold = 96;
+        assert!(settings.validate().is_err());
+    }
+
+    #[test]
+    fn test_rejects_prune_target_too_close() {
+        assert!(validate_prune(90, 86).is_err());
+        assert!(validate_prune(90, 85).is_ok());
+        assert!(validate_prune(90, 91).is_err());
+    }
+
+    #[test]
+    fn test_rejects_prune_target_below_floor() {
+        assert!(validate_prune(60, 49).is_err());
+        assert!(validate_prune(60, 55).is_ok());
+    }
+
+    #[test]
+    fn test_serde_without_storage_uses_defaults() {
+        let settings: Settings = serde_json::from_str("{}").unwrap_or_default();
+        assert_eq!(settings.storage, StorageSettings::default());
     }
 
     #[test]
@@ -199,6 +292,8 @@ mod tests {
         let mut settings = Settings::default();
         settings.power.poweroff_on_low = true;
         settings.battery.alert_thresholds = vec![40, 20];
+        settings.storage.prune_threshold = 70;
+        settings.storage.prune_target = 60;
         let json = serde_json::to_string(&settings).unwrap_or_default();
         let loaded: Settings = serde_json::from_str(&json).unwrap_or_default();
         assert_eq!(loaded, settings);

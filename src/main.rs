@@ -90,13 +90,13 @@ enum Commands {
     Kodi(modules::jellyfin::kodi::KodiSubcommand),
     /// Prune watched/large media to Google Drive when SSD is full
     Prune {
-        /// High-watermark percentage trigger (default: 80)
-        #[arg(long, default_value_t = 80)]
-        threshold: u8,
+        /// High-watermark trigger (default: settings, 90)
+        #[arg(long)]
+        threshold: Option<u8>,
 
-        /// Target percentage to recover down to (default: 70)
-        #[arg(long, default_value_t = 70)]
-        target: u8,
+        /// Target percentage to recover down to (default: settings, 75)
+        #[arg(long)]
+        target: Option<u8>,
 
         /// Preview files that would be archived without deleting
         #[arg(long)]
@@ -269,7 +269,22 @@ fn organize(path: &str, dry_run: bool) -> Result<()> {
     modules::media::organizer::run_organize_cli(&target, dry_run)
 }
 
-fn handle_prune(threshold: u8, target: u8, dry_run: bool, schedule: bool) -> Result<()> {
+fn handle_prune(
+    threshold: Option<u8>,
+    target: Option<u8>,
+    dry_run: bool,
+    schedule: bool,
+) -> Result<()> {
+    let storage = settings::load_or_default().storage;
+    let threshold = threshold.unwrap_or(storage.prune_threshold);
+    let target = target.unwrap_or_else(|| {
+        storage
+            .prune_target
+            .min(threshold.saturating_sub(settings::MIN_PRUNE_GAP))
+            .max(settings::MIN_PRUNE_TARGET)
+    });
+    settings::validate_prune(threshold, target)?;
+
     if schedule {
         modules::media::prune_timer::deploy_prune_timer(&home_dir(), threshold, target)?;
         return Ok(());

@@ -127,6 +127,8 @@ pub enum Action {
     RestartContainer(String),
     LaunchMedia,
     PruneDryRun,
+    ApplyPrunePolicy,
+    DisablePruneTimer,
     ShowStorage,
     Edit(InputTarget),
     ClearResume,

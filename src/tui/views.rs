@@ -60,6 +60,7 @@ pub fn activate(app: &mut App, index: usize) -> Action {
 pub fn adjust(app: &mut App, index: usize, delta: i32) {
     match app.tab {
         Tab::Battery => battery::adjust(app, index, delta),
+        Tab::Media => media::adjust(app, index, delta),
         Tab::Settings => settings::adjust(app, index, delta),
         _ => {}
     }

@@ -50,6 +50,8 @@ pub struct PruneCandidate {
 
 /// Executes the storage pruner against local SSD usage.
 pub fn run_prune(opts: PruneOptions) -> Result<()> {
+    crate::settings::validate_prune(opts.threshold_pct, opts.target_pct)?;
+
     println!(
         "\n  {} {}",
         "🧹".cyan(),
@@ -105,9 +107,10 @@ pub fn handle_bot_prune() -> Result<String> {
     let media_dir = Path::new(&home).join("jellyfin/media");
     let usage = disk::get_disk_usage(&media_dir)?;
 
+    let storage = crate::settings::load_or_default().storage;
     let opts = PruneOptions {
-        threshold_pct: 80,
-        target_pct: 70,
+        threshold_pct: storage.prune_threshold,
+        target_pct: storage.prune_target,
         dry_run: false,
     };
 

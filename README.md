@@ -15,7 +15,7 @@
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  領域 Ryoiki · Control Center                              v0.1.119      │
+│  領域 Ryoiki · Control Center                              v0.1.120      │
 │  ● mochi   │  AC connected  │  62%  │  up 1h  │  Battery                   │
 ├──────────────────┬───────────────────────────────────────────────────────┤
 │ Menu             │ Battery  Charge ceiling and low-battery policy        │
@@ -182,6 +182,10 @@ ryoiki seedr "magnet:?xt=urn:btih:..."   # Offload torrent to Seedr cloud with a
 # AI Media Organizer (Jellyfin Library Placement)
 ryoiki media /path/to/downloads --dry-run # Preview media classification without moving
 ryoiki media /path/to/downloads           # Classify and organize media files into Movies/Shows/Anime
+
+# Media auto-prune (uses ~/.config/ryoiki/settings.json when flags are omitted)
+ryoiki prune --threshold 90 --target 75 --dry-run  # Preview the 90% → 75% policy
+ryoiki prune --schedule                            # Deploy the hourly systemd user timer
 ```
 
 ### 🎛️ Control Center & Battery Policy
@@ -195,7 +199,7 @@ Bare `ryoiki` opens an eight-tab control center:
 | **Battery** | Charge ceiling, auto poweroff threshold, alert ladder, hardware apply, watcher start/stop |
 | **Notifications** | Telegram token, chat id, server name, timezone, test card, system hooks |
 | **Services** | Managed systemd units and Docker containers with restart actions |
-| **Media** | Jellyfin library state, storage report, prune preview, interactive media manager |
+| **Media** | Jellyfin library state, auto-prune trigger/target, timer apply/disable, storage report, prune preview, media manager |
 | **Updates** | Current binary path, latest release check, in-place self-update |
 | **Settings** | Config paths, UI refresh rate, notification timezone, save/reload, resume reset |
 
@@ -212,6 +216,10 @@ Battery policy lives in `~/.config/ryoiki/settings.json`:
     "poweroff_on_low": false,
     "poweroff_percent": 5
   },
+  "storage": {
+    "prune_threshold": 90,
+    "prune_target": 75
+  },
   "ui": {
     "refresh_secs": 5
   }
@@ -220,6 +228,7 @@ Battery policy lives in `~/.config/ryoiki/settings.json`:
 
 - **Charge ceiling** is written to the battery controller with `ryoiki charge-limit` or the Battery tab. The watcher also reads it for HP ACPI firmware regulation.
 - **Auto poweroff** is off by default. When enabled, the watcher fires once per discharge cycle at `poweroff_percent` or below, sends a Telegram card, then runs `systemctl poweroff`. Plugging in resets the latch. `RYOIKI_NO_POWEROFF=1` suppresses the shutdown for testing.
+- **Media auto-prune** triggers at `storage.prune_threshold` (60–95%, default 90%) and recovers to `storage.prune_target` (default 75%, at least 5 points lower). Adjust both in the Media tab with ←/→, then press **Apply auto-prune policy**. The Telegram prune command and bare `ryoiki prune` use the same settings.
 - **Alert ladder** fires each threshold once per discharge cycle. Edit it in the Battery tab or change `alert_thresholds` directly.
 - **Power decisions** are appended to `~/.local/state/ryoiki/power.log`.
 - **System services** run as root with `Environment=HOME=<your home>` so the watcher reads the same settings and Telegram config as the TUI. Reinstall hooks from the Notifications tab after upgrading a rootless install.

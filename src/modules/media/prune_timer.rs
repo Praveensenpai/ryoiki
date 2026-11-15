@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use colored::Colorize;
 use std::fs;
 use std::path::Path;
@@ -34,6 +34,8 @@ WantedBy=timers.target
 
 /// Deploys and activates the 1-hour systemd user timer for media storage pruning.
 pub fn deploy_prune_timer(home: &str, threshold: u8, target: u8) -> Result<()> {
+    crate::settings::validate_prune(threshold, target)?;
+
     let systemd_dir = Path::new(home).join(".config/systemd/user");
     fs::create_dir_all(&systemd_dir)
         .with_context(|| format!("Failed to create {}", systemd_dir.display()))?;
@@ -60,8 +62,20 @@ pub fn deploy_prune_timer(home: &str, threshold: u8, target: u8) -> Result<()> {
             "  {} Automated pruner timer enabled (checks SSD every 1h, threshold: {threshold}%, target: {target}%)",
             "✔".green().bold()
         );
+        Ok(())
     } else {
-        println!("  {} Failed to enable pruner timer", "✖".red().bold());
+        bail!("failed to enable {TIMER_NAME}");
+    }
+}
+
+/// Stops and disables the systemd pruner timer without deleting its unit files.
+pub fn disable_prune_timer() -> Result<()> {
+    let status = Command::new("systemctl")
+        .args(["--user", "disable", "--now", TIMER_NAME])
+        .status()
+        .context("failed to run systemctl")?;
+    if !status.success() {
+        bail!("failed to disable {TIMER_NAME}");
     }
     Ok(())
 }
@@ -90,5 +104,11 @@ mod tests {
     fn test_timer_content_has_1h_cadence() {
         assert!(TIMER_CONTENT.contains("OnUnitActiveSec=1h"));
         assert!(TIMER_CONTENT.contains("OnBootSec=10min"));
+    }
+
+    #[test]
+    fn test_deploy_rejects_invalid_policy_before_writing() {
+        assert!(deploy_prune_timer("/nonexistent-ryoiki-test", 50, 40).is_err());
+        assert!(deploy_prune_timer("/nonexistent-ryoiki-test", 90, 86).is_err());
     }
 }

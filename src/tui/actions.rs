@@ -53,7 +53,9 @@ pub fn execute(app: &mut App, action: Action, opts: RunOptions) -> Effect {
         Action::RestartService { name, is_user } => restart_service(name, is_user, opts),
         Action::RestartContainer(name) => restart_container(name),
         Action::LaunchMedia => media_manager(),
-        Action::PruneDryRun => prune_preview(),
+        Action::PruneDryRun => prune_preview(app),
+        Action::ApplyPrunePolicy => apply_prune_policy(app),
+        Action::DisablePruneTimer => disable_prune_timer(),
         Action::ShowStorage => storage_report(),
         Action::Edit(target) => {
             app.open_input(target);
@@ -181,16 +183,44 @@ fn media_manager() -> Effect {
     })
 }
 
-fn prune_preview() -> Effect {
+fn prune_preview(app: &App) -> Effect {
+    let threshold = app.settings.storage.prune_threshold;
+    let target = app.settings.storage.prune_target;
     suspend("Previewing media prune", true, move |app| {
         let options = crate::modules::media::pruner::PruneOptions {
-            threshold_pct: 80,
-            target_pct: 70,
+            threshold_pct: threshold,
+            target_pct: target,
             dry_run: true,
         };
         crate::modules::media::pruner::run_prune(options)?;
         app.refresh();
         Ok("prune preview finished".to_string())
+    })
+}
+
+fn apply_prune_policy(app: &App) -> Effect {
+    let threshold = app.settings.storage.prune_threshold;
+    let target = app.settings.storage.prune_target;
+    suspend(
+        format!("Applying the {threshold}% → {target}% auto-prune policy"),
+        true,
+        move |app| {
+            crate::settings::validate_prune(threshold, target)?;
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+            crate::modules::media::prune_timer::deploy_prune_timer(&home, threshold, target)?;
+            app.refresh();
+            Ok(format!(
+                "auto-prune timer active at {threshold}% → {target}%"
+            ))
+        },
+    )
+}
+
+fn disable_prune_timer() -> Effect {
+    suspend("Disabling the auto-prune timer", true, move |app| {
+        crate::modules::media::prune_timer::disable_prune_timer()?;
+        app.refresh();
+        Ok("auto-prune timer disabled".to_string())
     })
 }
 

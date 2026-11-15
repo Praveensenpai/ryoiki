@@ -138,7 +138,7 @@ ryoiki/
             │       └── sub_view.rs         # Modal dialogs (confirmations, progress popups)
             ├── organizer.rs                # Core ingestion pipeline: scan, probe, classify, rename, move, notify
             ├── probe.rs                    # Deep ffprobe media container inspector (duration, audio languages, res)
-            ├── prune_timer.rs              # Generates systemd timer (ryoiki-prune.timer, 6h cadence)
+            ├── prune_timer.rs              # Generates systemd user timer (ryoiki-prune.timer, hourly cadence)
             ├── pruner.rs                   # Smart SSD pruner: sorts by watched status & size, archives to GDrive
             ├── status.rs                   # Console storage dashboard (SSD usage vs Google Drive cloud mounts)
             ├── sync.rs                     # Daily post-boot Google Drive media sync engine & systemd timer
@@ -310,9 +310,13 @@ Incoming Torrent File (e.g. ~/torrents/completed/Film.2023.1080p.mkv)
   - `run_organize_cli(target: &Path, dry_run: bool) -> Result<()>`: CLI entrypoint scanning directory and notifying Jellyfin upon success.
 - **`src/modules/media/disk.rs` & `pruner.rs`**:
   - `get_disk_usage(path: &Path) -> Result<DiskUsage>`: Uses `libc::statvfs` for exact byte counts and disk usage percentages.
-  - `run_prune(opts: PruneOptions) -> Result<()>`: Checks if local SSD exceeds threshold percentage (e.g. 80%). Queries Jellyfin API for watch history. Sorts eviction candidates (watched items first, then largest file sizes) and moves them to Google Drive cold storage (`gdrive:ryoiki-archive/media/`) via rclone until disk drops to target percentage (e.g. 70%).
+  - `run_prune(opts: PruneOptions) -> Result<()>`: Checks if local SSD exceeds the configured trigger (default 90%, floor 60%). Queries Jellyfin API for watch history. Sorts eviction candidates (watched items first, then largest file sizes) and moves them to Google Drive cold storage (`gdrive:ryoiki-archive/media/`) via rclone until disk drops to the configured target (default 75%, at least 5 points below the trigger).
 - **`src/modules/media/prune_timer.rs`**:
-  - `deploy_prune_timer(home, threshold, target) -> Result<()>`: Installs systemd user timer `ryoiki-prune.timer` running every 6 hours.
+  - `deploy_prune_timer(home, threshold, target) -> Result<()>`: Validates the policy and installs the hourly systemd user timer `ryoiki-prune.timer`.
+  - `disable_prune_timer() -> Result<()>`: Stops and disables the timer without deleting its unit files.
+- **Storage settings** (`src/settings/model.rs`):
+  - `StorageSettings { prune_threshold, prune_target }`: Persisted under `storage` in `~/.config/ryoiki/settings.json`; defaults 90/75, trigger range 60–95, target floor 50 with a 5-point gap.
+  - `validate_prune(threshold, target) -> Result<()>`: Shared validation for CLI, TUI, Telegram, and timer deployment.
 - **`src/modules/media/sync.rs`**:
   - `deploy_sync_timer(home) -> Result<()>`: Installs systemd user timer `ryoiki-media-sync.timer` running 30 minutes post-boot and daily to sync local media to Google Drive.
 - **`src/modules/media/transfer.rs` & `interactive.rs`**:
@@ -451,10 +455,10 @@ ryoiki organize /path/to/media/file_or_dir
 # Preview media organization without moving files
 ryoiki organize --dry-run
 
-# Run smart SSD media pruner
-ryoiki prune --threshold 80 --target 70
+# Run smart SSD media pruner (defaults: settings, 90% trigger -> 75% target)
+ryoiki prune --threshold 90 --target 75
 
-# Setup 6-hour automated prune timer
+# Deploy the hourly automated prune timer
 ryoiki prune --schedule
 
 # Inspect storage status (SSD vs Google Drive)
