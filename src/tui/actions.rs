@@ -9,6 +9,8 @@ use crate::tui::RunOptions;
 /// A long or privileged task that must run outside the alternate screen.
 pub type Task = Box<dyn FnOnce(&mut App) -> Result<String>>;
 
+const INSTALL_HOOKS_ARGS: [&str; 2] = ["notify", "install-hooks"];
+
 pub struct Suspended {
     pub label: String,
     pub task: Task,
@@ -101,7 +103,7 @@ fn install_hooks() -> Effect {
             .arg("env")
             .arg(format!("HOME={home}"))
             .arg(exe)
-            .args(["notify", "hooks"])
+            .args(INSTALL_HOOKS_ARGS)
             .status()
             .context("failed to run the hook installer")?;
         if !status.success() {
@@ -353,4 +355,14 @@ fn run_root(program: &str, args: &[&str], opts: RunOptions) -> Result<()> {
         bail!("{program} {} failed: {}", args.join(" "), stderr.trim());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::INSTALL_HOOKS_ARGS;
+
+    #[test]
+    fn install_hooks_uses_the_real_cli_subcommand() {
+        assert_eq!(INSTALL_HOOKS_ARGS, ["notify", "install-hooks"]);
+    }
 }

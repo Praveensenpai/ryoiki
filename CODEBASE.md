@@ -1664,7 +1664,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn print_summary (module_ids : & [String] , total_duration : std :: time :: Duration , timings : & [(String , std :: time :: Duration)] ,)
   ```
 
-### `src/tui/actions.rs` (Role: tui, Lines: 356)
+### `src/tui/actions.rs` (Role: tui, Lines: 368)
 - **Responsibility**: Core tui logic in src/tui/actions.rs
 - **Imports**: use std :: process :: Command , use std :: time :: Duration , use anyhow :: { bail , Context , Result } , use crate :: tui :: app :: { Action , App , ToastLevel } , use crate :: tui :: RunOptions
 - **Types & Enums**:

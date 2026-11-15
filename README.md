@@ -15,7 +15,7 @@
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  領域 Ryoiki · Control Center                              v0.1.118      │
+│  領域 Ryoiki · Control Center                              v0.1.119      │
 │  ● mochi   │  AC connected  │  62%  │  up 1h  │  Battery                   │
 ├──────────────────┬───────────────────────────────────────────────────────┤
 │ Menu             │ Battery  Charge ceiling and low-battery policy        │
