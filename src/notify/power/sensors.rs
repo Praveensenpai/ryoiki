@@ -103,19 +103,30 @@ fn read_hwmon_temp() -> Option<f64> {
 /// Read instantaneous CPU usage by sampling /proc/stat twice with a 200 ms gap.
 #[must_use]
 pub fn read_cpu_usage() -> Option<f64> {
-    let (idle1, total1) = parse_cpu_stat()?;
+    let mut previous = None;
+    let _ = sample_cpu_usage(&mut previous);
     thread::sleep(Duration::from_millis(200));
-    let (idle2, total2) = parse_cpu_stat()?;
+    sample_cpu_usage(&mut previous)
+}
 
-    let delta_total = total2.saturating_sub(total1);
-    let delta_idle = idle2.saturating_sub(idle1);
-
-    if delta_total == 0 {
-        return Some(0.0);
-    }
-    #[allow(clippy::cast_precision_loss)]
-    let usage = 100.0 * (1.0 - delta_idle as f64 / delta_total as f64);
-    Some(usage.clamp(0.0, 100.0))
+/// Computes CPU usage from the previous `/proc/stat` sample without sleeping.
+///
+/// The first call only seeds the baseline and returns `None`.
+#[must_use]
+pub fn sample_cpu_usage(previous: &mut Option<(u64, u64)>) -> Option<f64> {
+    let (idle, total) = parse_cpu_stat()?;
+    let usage = previous.map(|(prev_idle, prev_total)| {
+        let delta_total = total.saturating_sub(prev_total);
+        let delta_idle = idle.saturating_sub(prev_idle);
+        if delta_total == 0 {
+            return 0.0;
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let value = 100.0 * (1.0 - delta_idle as f64 / delta_total as f64);
+        value.clamp(0.0, 100.0)
+    });
+    *previous = Some((idle, total));
+    usage
 }
 
 fn parse_cpu_stat() -> Option<(u64, u64)> {

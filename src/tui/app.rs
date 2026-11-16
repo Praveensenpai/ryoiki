@@ -2,9 +2,11 @@ use std::time::{Duration, Instant};
 
 use crate::notify::config::TelegramConfig;
 use crate::settings::Settings;
+use crate::tui::refresh::Worker;
 use crate::tui::system::{self, ServiceRow, Snapshot};
 
 mod forms;
+mod refresh;
 pub use forms::mask_secret;
 use forms::{provision_rows, settings_warning, telegram_state};
 
@@ -93,6 +95,15 @@ impl Tab {
 pub enum Focus {
     Nav,
     Content,
+}
+
+/// Lifecycle of the background refresh worker.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RefreshState {
+    Idle,
+    Running,
+    RunningAgain,
+    Stopped,
 }
 
 /// Editable text fields opened as a modal.
@@ -203,30 +214,47 @@ pub struct App {
     pub latest_version: Option<String>,
     pub update_status: String,
     pub version: &'static str,
+    worker: Worker,
+    refresh_state: RefreshState,
     last_refresh: Instant,
 }
 
 impl App {
-    /// Boots the interface from disk and probes the host once.
+    /// Boots the interface and starts an asynchronous host refresh.
     #[must_use]
     pub fn new() -> Self {
-        let settings = crate::settings::load_or_default();
-        let settings_warning = settings_warning();
-        let (telegram, telegram_error) = telegram_state();
         let provision = provision_rows();
-        let services = system::collect_services();
+        let module_ids = provision.iter().map(|row| row.id.clone()).collect();
+        let snapshot = system::collect_fast();
+        let mut app = Self::boot(provision, Worker::spawn(module_ids), snapshot);
+        app.request_refresh();
+        app
+    }
+
+    /// Boots the interface and probes the host synchronously for plain output.
+    #[must_use]
+    pub fn new_plain() -> Self {
+        let provision = provision_rows();
+        let module_ids = provision.iter().map(|row| row.id.clone()).collect();
         let snapshot = system::collect();
+        let mut app = Self::boot(provision, Worker::spawn(module_ids), snapshot);
+        app.services = system::collect_services();
+        app
+    }
+
+    fn boot(provision: Vec<ProvisionRow>, worker: Worker, snapshot: Snapshot) -> Self {
+        let (telegram, telegram_error) = telegram_state();
         Self {
             tab: Tab::Dashboard,
             focus: Focus::Content,
             cursors: [0; TAB_COUNT],
-            settings,
-            settings_warning,
+            settings: crate::settings::load_or_default(),
+            settings_warning: settings_warning(),
             telegram,
             telegram_error,
             snapshot,
             provision,
-            services,
+            services: Vec::new(),
             input: None,
             confirm: None,
             help: false,
@@ -234,6 +262,8 @@ impl App {
             latest_version: None,
             update_status: "not checked".to_string(),
             version: env!("CARGO_PKG_VERSION"),
+            worker,
+            refresh_state: RefreshState::Idle,
             last_refresh: Instant::now(),
         }
     }
@@ -258,24 +288,6 @@ impl App {
 
     pub fn prev_tab(&mut self) {
         self.set_tab(self.tab.prev());
-    }
-
-    /// Re-probes host metrics and managed services.
-    pub fn refresh(&mut self) {
-        self.snapshot = system::collect();
-        self.services = system::collect_services();
-        for row in &mut self.provision {
-            row.installed = system::module_installed(&row.id);
-        }
-        self.last_refresh = Instant::now();
-    }
-
-    /// Refreshes automatically once the configured interval elapses.
-    pub fn maybe_refresh(&mut self) {
-        let interval = Duration::from_secs(u64::from(self.settings.ui.refresh_secs));
-        if self.last_refresh.elapsed() >= interval {
-            self.refresh();
-        }
     }
 
     pub fn toast(&mut self, message: impl Into<String>, level: ToastLevel) {

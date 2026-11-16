@@ -23,10 +23,17 @@ pub fn rows(app: &App) -> Vec<Row> {
         .collect();
 
     if rows.is_empty() {
-        rows.push(Row::info(
-            "No managed services detected",
-            "install hooks or start Docker",
-        ));
+        if app.is_refreshing() {
+            rows.push(Row::info(
+                "Loading managed services",
+                "probing systemd and docker",
+            ));
+        } else {
+            rows.push(Row::info(
+                "No managed services detected",
+                "install hooks or start Docker",
+            ));
+        }
     }
     rows.push(Row::divider());
     rows.push(Row::action("Refresh service list"));

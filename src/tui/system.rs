@@ -1,16 +1,18 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::sync::OnceLock;
 
-use crate::charge_limit::Backend;
 use crate::notify::power::{
     is_ac_online, read_battery_percent, read_battery_status, read_cpu_temp, read_cpu_usage,
+    sample_cpu_usage,
 };
 use crate::notify::system::{
     format_usage, get_disk_stats, get_kernel, get_memory_stats, get_uptime,
 };
 
 const BATTERY_UNIT: &str = "ryoiki-battery-watch.service";
+const LOADING: &str = "checking...";
 
 /// Point-in-time system metrics shown on the dashboard.
 #[derive(Debug, Clone, Default)]
@@ -78,21 +80,64 @@ pub fn collect_services() -> Vec<ServiceRow> {
     rows
 }
 
-/// Collects a fresh snapshot. Slow probes are bounded to keep redraws responsive.
+/// Samples CPU usage between refreshes without sleeping on the UI thread.
+#[derive(Debug, Default)]
+pub struct CpuSampler {
+    previous: Option<(u64, u64)>,
+}
+
+impl CpuSampler {
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns usage since the previous sample, or `None` for the first call.
+    pub fn sample(&mut self) -> Option<f64> {
+        sample_cpu_usage(&mut self.previous)
+    }
+}
+
+/// Fast snapshot used to paint the first frame before the worker finishes.
+///
+/// The charge backend and CPU usage are deliberately left pending; probing them
+/// synchronously is what made the interface feel unresponsive.
+#[must_use]
+pub fn collect_fast() -> Snapshot {
+    let mut snapshot = collect_inner(None, None);
+    snapshot.cpu = "sampling...".to_string();
+    snapshot
+}
+
+/// Collects a fresh snapshot with blocking probes. Used by non-interactive output.
 #[must_use]
 pub fn collect() -> Snapshot {
+    let backend = backend_label();
+    let cpu = read_cpu_usage();
+    collect_inner(cpu, Some(backend))
+}
+
+/// Collects a fresh snapshot for the background refresh worker.
+#[must_use]
+pub fn collect_for_worker(sampler: &mut CpuSampler) -> Snapshot {
+    let backend = backend_label();
+    let cpu = sampler.sample();
+    collect_inner(cpu, Some(backend))
+}
+
+fn collect_inner(cpu_usage: Option<f64>, backend: Option<String>) -> Snapshot {
     let (watcher_state, watcher_enabled) = watcher_state();
     Snapshot {
         host: hostname(),
         kernel: get_kernel(),
         uptime: get_uptime(),
-        cpu: cpu_label(),
+        cpu: cpu_label(cpu_usage),
         memory: get_memory_stats().map_or_else(|| "n/a".to_string(), |(u, t)| format_usage(u, t)),
         disk: get_disk_stats().map_or_else(|| "n/a".to_string(), |(u, t)| format_usage(u, t)),
         battery_percent: read_battery_percent(),
         battery_status: read_battery_status().unwrap_or_else(|| "unknown".to_string()),
         ac_online: is_ac_online(),
-        charge_backend: backend_label(),
+        charge_backend: backend.unwrap_or_else(|| LOADING.to_string()),
         watcher_state,
         watcher_enabled,
         prune_timer_active: crate::modules::media::prune_timer::is_timer_active(),
@@ -104,26 +149,64 @@ fn hostname() -> String {
         .map_or_else(|_| "unknown".to_string(), |s| s.trim().to_string())
 }
 
-fn cpu_label() -> String {
+fn cpu_label(usage: Option<f64>) -> String {
     let temp = read_cpu_temp().map_or_else(|| "n/a".to_string(), |t| format!("{t:.1}°C"));
-    let usage = read_cpu_usage().map_or_else(|| "n/a".to_string(), |u| format!("{u:.0}%"));
+    let usage = usage.map_or_else(|| "n/a".to_string(), |u| format!("{u:.0}%"));
     format!("{usage}  {temp}")
 }
 
 fn backend_label() -> String {
-    match crate::charge_limit::detect_backend() {
-        Ok(Backend::Sysfs(path)) => {
+    static LABEL: OnceLock<String> = OnceLock::new();
+    LABEL.get_or_init(compute_backend_label).clone()
+}
+
+/// Display-only label that avoids the firmware probe.
+///
+/// The real `detect_backend()` calls HP ACPI `GBCO`, which can sleep in the
+/// kernel for about a second. Actions still use `detect_backend()`; this label
+/// only needs to describe the likely backend without blocking the interface.
+fn compute_backend_label() -> String {
+    let base = Path::new("/sys/class/power_supply");
+    let Ok(entries) = fs::read_dir(base) else {
+        return "no battery".to_string();
+    };
+    let mut has_battery = false;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let is_battery = fs::read_to_string(path.join("type"))
+            .is_ok_and(|kind| kind.trim().eq_ignore_ascii_case("battery"));
+        if !is_battery {
+            continue;
+        }
+        has_battery = true;
+        if path.join("charge_control_end_threshold").exists() {
             let name = path.file_name().map_or_else(
                 || "battery".to_string(),
                 |n| n.to_string_lossy().into_owned(),
             );
-            format!("sysfs ({name})")
+            return format!("sysfs ({name})");
         }
-        Ok(Backend::HpAcpi) => "HP ACPI firmware".to_string(),
-        Ok(Backend::Tlp) => "TLP".to_string(),
-        Ok(Backend::Unsupported { vendor, model }) => format!("unsupported ({vendor} {model})"),
-        Err(_) => "no battery".to_string(),
     }
+    if !has_battery {
+        return "no battery".to_string();
+    }
+
+    let vendor = crate::charge_limit::guide::detect_vendor();
+    let vendor_lower = vendor.to_lowercase();
+    if vendor_lower.contains("hp") || vendor_lower.contains("hewlett") {
+        return if Path::new("/proc/acpi/call").exists() {
+            "HP ACPI firmware".to_string()
+        } else {
+            "HP ACPI (acpi_call not loaded)".to_string()
+        };
+    }
+    if crate::charge_limit::tlp::is_tlp_supported_for_hardware() {
+        return "TLP".to_string();
+    }
+    format!(
+        "unsupported ({vendor} {})",
+        crate::charge_limit::guide::detect_model()
+    )
 }
 
 fn watcher_state() -> (String, bool) {

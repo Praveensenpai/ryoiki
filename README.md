@@ -15,7 +15,7 @@
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  領域 Ryoiki · Control Center                              v0.1.120      │
+│  領域 Ryoiki · Control Center                              v0.1.122      │
 │  ● mochi   │  AC connected  │  62%  │  up 1h  │  Battery                   │
 ├──────────────────┬───────────────────────────────────────────────────────┤
 │ Menu             │ Battery  Charge ceiling and low-battery policy        │
@@ -60,7 +60,7 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 
 - 🎛️ **Persistent Control Center** — An eight-tab Ratatui interface for live metrics, provisioning, battery policy, Telegram notifications, systemd services, media, updates, and local settings.
 - 🔋 **Battery Health Guardrails** — Set a charge ceiling and optionally power the host off at a chosen battery percentage, once per discharge cycle. The watcher reads settings live and logs every shutdown decision.
-- 🖥️ **Live Dashboard** — CPU, memory, disk, battery gauge, AC state, charge backend, watcher health, and managed-service counts in one glance.
+- 🖥️ **Live Dashboard** — CPU, memory, disk, battery gauge, AC state, charge backend, watcher health, and managed-service counts in one glance; slow host probes refresh on a background worker so navigation stays instant.
 - 🛡️ **Safe Provisioning Routing** — Bare non-interactive `ryoiki` only prints a plain dashboard. Installing modules always requires an explicit `ryoiki install`, `--all`, or `--yes`.
 - ⚙️ **Unified Settings Store** — One validated `~/.config/ryoiki/settings.json` for charge ceiling, alert ladder, auto poweroff, and UI refresh, written atomically.
 - 🔇 **Zero Visual Clutter** — Hides noisy `apt`, `dpkg`, and compiler scroll walls behind clean, single-line spinners. Full execution logs are saved quietly to `~/.local/state/ryoiki/install.log`.

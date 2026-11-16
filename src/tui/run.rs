@@ -55,7 +55,8 @@ pub fn run(opts: RunOptions) -> Result<()> {
 
 fn event_loop(terminal: &mut AppTerminal, app: &mut App, opts: RunOptions) -> Result<()> {
     loop {
-        app.maybe_refresh();
+        app.poll_refresh();
+        app.maybe_request_refresh();
         if app.toast.as_ref().is_some_and(|toast| !toast.alive()) {
             app.toast = None;
         }
@@ -150,7 +151,7 @@ fn install_panic_hook() {
 
 /// Plain-text dashboard for non-interactive terminals.
 pub fn print_plain() {
-    let app = App::new();
+    let app = App::new_plain();
     let battery = app
         .snapshot
         .battery_percent

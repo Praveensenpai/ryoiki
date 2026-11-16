@@ -66,8 +66,10 @@ pub fn execute(app: &mut App, action: Action, opts: RunOptions) -> Effect {
 }
 
 fn refresh(app: &mut App) -> Effect {
-    app.refresh();
-    Effect::Toast("snapshot refreshed".to_string(), ToastLevel::Info)
+    if !app.request_refresh() {
+        return Effect::None;
+    }
+    Effect::Toast("snapshot refresh started".to_string(), ToastLevel::Info)
 }
 
 fn set_poweroff(app: &mut App, enabled: bool) -> Effect {
@@ -84,7 +86,7 @@ fn apply_charge_limit(app: &mut App) -> Effect {
         false,
         move |app| {
             let message = crate::charge_limit::apply_limit_programmatic(limit)?;
-            app.refresh();
+            app.request_refresh();
             Ok(message)
         },
     )
@@ -111,7 +113,7 @@ fn install_hooks() -> Effect {
         if !status.success() {
             bail!("hook installation failed");
         }
-        app.refresh();
+        app.request_refresh();
         Ok("notification hooks installed".to_string())
     })
 }
@@ -162,7 +164,7 @@ fn restart_service(name: String, is_user: bool, opts: RunOptions) -> Effect {
         } else {
             run_root("systemctl", &["restart", &name], opts)?;
         }
-        app.refresh();
+        app.request_refresh();
         Ok(format!("{name} restarted"))
     })
 }
@@ -170,7 +172,7 @@ fn restart_service(name: String, is_user: bool, opts: RunOptions) -> Effect {
 fn restart_container(name: String) -> Effect {
     suspend(format!("Restarting container {name}"), false, move |app| {
         crate::bot::services::restart_docker_container(&name)?;
-        app.refresh();
+        app.request_refresh();
         Ok(format!("container {name} restarted"))
     })
 }
@@ -178,7 +180,7 @@ fn restart_container(name: String) -> Effect {
 fn media_manager() -> Effect {
     suspend("Opening the media manager", true, move |app| {
         crate::modules::media::handle_media_cli(None)?;
-        app.refresh();
+        app.request_refresh();
         Ok("media manager closed".to_string())
     })
 }
@@ -193,7 +195,7 @@ fn prune_preview(app: &App) -> Effect {
             dry_run: true,
         };
         crate::modules::media::pruner::run_prune(options)?;
-        app.refresh();
+        app.request_refresh();
         Ok("prune preview finished".to_string())
     })
 }
@@ -208,7 +210,7 @@ fn apply_prune_policy(app: &App) -> Effect {
             crate::settings::validate_prune(threshold, target)?;
             let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
             crate::modules::media::prune_timer::deploy_prune_timer(&home, threshold, target)?;
-            app.refresh();
+            app.request_refresh();
             Ok(format!(
                 "auto-prune timer active at {threshold}% → {target}%"
             ))
@@ -219,7 +221,7 @@ fn apply_prune_policy(app: &App) -> Effect {
 fn disable_prune_timer() -> Effect {
     suspend("Disabling the auto-prune timer", true, move |app| {
         crate::modules::media::prune_timer::disable_prune_timer()?;
-        app.refresh();
+        app.request_refresh();
         Ok("auto-prune timer disabled".to_string())
     })
 }
@@ -227,7 +229,7 @@ fn disable_prune_timer() -> Effect {
 fn storage_report() -> Effect {
     suspend("Collecting the storage report", true, move |app| {
         crate::modules::media::status::show_storage_status();
-        app.refresh();
+        app.request_refresh();
         Ok("storage report finished".to_string())
     })
 }
@@ -248,7 +250,7 @@ fn watcher(action: &str, opts: RunOptions) -> Effect {
             _ => vec!["restart", unit],
         };
         run_root("systemctl", &args, opts)?;
-        app.refresh();
+        app.request_refresh();
         Ok(format!("battery watcher {past}"))
     })
 }
@@ -276,7 +278,7 @@ fn test_notification(app: &App) -> Effect {
         with_timeout(12, move || {
             crate::notify::client::send_alert(&token, &chat, &card)
         })?;
-        app.refresh();
+        app.request_refresh();
         Ok("test notification sent".to_string())
     })
 }
@@ -317,7 +319,7 @@ fn provision(app: &mut App, selected: &[String], opts: RunOptions) -> Result<Str
             row.installed = true;
         }
     }
-    app.refresh();
+    app.request_refresh();
     Ok(format!("provisioned {total} module(s)"))
 }
 

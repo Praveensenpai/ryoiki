@@ -14,6 +14,7 @@ mod sensors;
 use lock::acquire_pid_lock;
 pub use sensors::{
     is_ac_online, read_battery_percent, read_battery_status, read_cpu_temp, read_cpu_usage,
+    sample_cpu_usage,
 };
 
 /// How often the battery watcher polls (seconds).
