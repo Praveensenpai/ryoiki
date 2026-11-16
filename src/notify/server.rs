@@ -90,7 +90,13 @@ fn handle_client(mut stream: TcpStream, config: &TelegramConfig) -> Result<()> {
     }
 
     if method == "POST" && (path == "/magnet" || path == "/add-magnet" || path == "/torrent") {
-        return handle_magnet_post(&mut stream, &mut reader, content_length, &content_type, config);
+        return handle_magnet_post(
+            &mut stream,
+            &mut reader,
+            content_length,
+            &content_type,
+            config,
+        );
     }
 
     write_response(&mut stream, 404, r#"{"error":"Not Found"}"#)
@@ -166,7 +172,6 @@ fn extract_payload(body: &str, content_type: &str) -> (Option<String>, String, S
 
     (None, body.trim().to_string(), "info".to_string())
 }
-
 
 fn write_cors_preflight(stream: &mut TcpStream) -> Result<()> {
     let response = "HTTP/1.1 204 No Content\r\n\
@@ -271,7 +276,12 @@ fn handle_seedr_webhook(
 fn extract_magnet(body: &str, content_type: &str) -> String {
     if content_type.contains("application/json") {
         if let Ok(parsed) = serde_json::from_str::<MagnetPayload>(body) {
-            if let Some(m) = parsed.magnet.or(parsed.url).or(parsed.target).or(parsed.text) {
+            if let Some(m) = parsed
+                .magnet
+                .or(parsed.url)
+                .or(parsed.target)
+                .or(parsed.text)
+            {
                 if !m.trim().is_empty() {
                     return m.trim().to_string();
                 }
@@ -310,7 +320,8 @@ fn url_decode(s: &str) -> String {
     while let Some(b) = bytes.next() {
         if b == b'%' {
             if let (Some(c1), Some(c2)) = (bytes.next(), bytes.next()) {
-                if let Ok(v) = u8::from_str_radix(std::str::from_utf8(&[c1, c2]).unwrap_or(""), 16) {
+                if let Ok(v) = u8::from_str_radix(std::str::from_utf8(&[c1, c2]).unwrap_or(""), 16)
+                {
                     out.push(v as char);
                 }
             }
@@ -347,9 +358,8 @@ fn handle_magnet_post(
 
     match crate::modules::torrent::cli::add_magnet_pipeline(&magnet, config) {
         Ok(result) => {
-            let json = serde_json::to_string(&result).unwrap_or_else(|_| {
-                r#"{"status":"ok","message":"magnet accepted"}"#.to_string()
-            });
+            let json = serde_json::to_string(&result)
+                .unwrap_or_else(|_| r#"{"status":"ok","message":"magnet accepted"}"#.to_string());
             write_response(&mut *stream, 200, &json)
         }
         Err(e) => {

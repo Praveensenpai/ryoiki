@@ -43,7 +43,10 @@ pub fn add_magnet_pipeline(target: &str, config: &TelegramConfig) -> Result<Magn
                 status: "restored".to_string(),
                 message: format!("Restored from Google Drive: {title}"),
                 hash: None,
-                paths: restored.into_iter().map(|p| p.display().to_string()).collect(),
+                paths: restored
+                    .into_iter()
+                    .map(|p| p.display().to_string())
+                    .collect(),
                 queue_position: None,
             });
         }
@@ -83,7 +86,8 @@ pub fn add_magnet_pipeline(target: &str, config: &TelegramConfig) -> Result<Magn
         }),
         scheduler::SubmitOutcome::FailedStart => Ok(MagnetResult {
             status: "fallback".to_string(),
-            message: "Seedr cloud unavailable/rejected — downloading directly in qBittorrent.".to_string(),
+            message: "Seedr cloud unavailable/rejected — downloading directly in qBittorrent."
+                .to_string(),
             hash: if hash.is_empty() { None } else { Some(hash) },
             paths: Vec::new(),
             queue_position: None,
@@ -117,7 +121,10 @@ pub fn handle_seedr_cli(target: &str) -> Result<()> {
             println!(
                 "  {} Already available locally: {}",
                 "✔".green().bold(),
-                result.message.trim_start_matches("Already available locally: ").cyan()
+                result
+                    .message
+                    .trim_start_matches("Already available locally: ")
+                    .cyan()
             );
             for p in &result.paths {
                 println!("  📁 {p}");
@@ -126,7 +133,10 @@ pub fn handle_seedr_cli(target: &str) -> Result<()> {
         "restored" => {
             println!(
                 "  ☁️ Found in Google Drive archive: {}",
-                result.message.trim_start_matches("Restored from Google Drive: ").cyan()
+                result
+                    .message
+                    .trim_start_matches("Restored from Google Drive: ")
+                    .cyan()
             );
             println!("  {} Restored from Drive:", "✔".green().bold());
             for p in &result.paths {
@@ -137,7 +147,10 @@ pub fn handle_seedr_cli(target: &str) -> Result<()> {
             "  {} Magnet started in Seedr; qBittorrent added as fallback.",
             "✔".green().bold()
         ),
-        "duplicate" => println!("  {} Magnet already tracked in the Seedr queue.", "•".dimmed()),
+        "duplicate" => println!(
+            "  {} Magnet already tracked in the Seedr queue.",
+            "•".dimmed()
+        ),
         "queued" => println!(
             "  {} Seedr slot busy — queued at position #{}.",
             "⏳".cyan().bold(),
