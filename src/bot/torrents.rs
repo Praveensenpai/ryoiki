@@ -152,7 +152,7 @@ fn started_message() -> String {
     ━━━━━━━━━━━━━━━━━━━━━━━\n\
     📥 <b>SEEDR DOWNLOAD STARTED</b>\n\n\
     ☁️ Caching in Seedr cloud now.\n\
-    <i>qBittorrent picks it up as a fallback if Seedr fails.</i>"
+    <i>qBittorrent is downloading it in parallel as a safety net.</i>"
         .to_string()
 }
 
@@ -176,16 +176,17 @@ fn queued_prompt(pos: usize) -> String {
 }
 
 fn fallback_to_qb(client: &Client, config: &TelegramConfig, magnet: &str, reason: &str) -> String {
-    if api::add_magnet(client, &config.qbittorrent_url, magnet).is_ok() {
-        format!(
-            "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
-            <i>Seedr unavailable ({reason}) — forwarded to qBittorrent.</i>"
-        )
-    } else {
-        format!("❌ <b>Failed to queue magnet in Seedr & qBittorrent:</b> {reason}")
+    let hash = seedr::extract_btih_hash(magnet).unwrap_or_default();
+    let outcome = api::ensure_torrent(client, &config.qbittorrent_url, &hash, magnet);
+    if outcome == api::QbEnsure::Failed {
+        return format!("❌ <b>Failed to queue magnet in Seedr & qBittorrent:</b> {reason}");
     }
+    format!(
+        "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
+        ━━━━━━━━━━━━━━━━━━━━━━━\n\
+        📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
+        <i>Seedr unavailable ({reason}) — forwarded to qBittorrent.</i>"
+    )
 }
 
 /// Classifies a `/seedr` argument.

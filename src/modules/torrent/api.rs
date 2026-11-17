@@ -63,10 +63,58 @@ pub fn add_magnet(client: &Client, base_url: &str, magnet: &str) -> Result<()> {
         .send()
         .with_context(|| format!("Failed to add magnet to {url}"))?;
 
-    if !resp.status().is_success() {
-        bail!("Failed to add magnet: HTTP {}", resp.status());
+    // qBittorrent 5.x answers 409 Conflict for a torrent already in the
+    // session; the caller only needs it queued, so that is a success.
+    let status = resp.status();
+    if status.is_success() || status == reqwest::StatusCode::CONFLICT {
+        return Ok(());
     }
-    Ok(())
+    bail!("Failed to add magnet: HTTP {status}");
+}
+
+/// Result of making sure a torrent is queued in qBittorrent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QbEnsure {
+    /// qBittorrent already had the torrent, e.g. queued when Seedr started.
+    AlreadyPresent,
+    /// This call added the torrent to qBittorrent.
+    Added,
+    /// qBittorrent was unreachable or rejected the torrent outright.
+    Failed,
+}
+
+/// Ensures `magnet` is present in qBittorrent without mistaking a duplicate for a failure.
+///
+/// Duplicate adds return HTTP 409 on qBittorrent 5.x, so presence is checked
+/// before adding and used to classify the outcome. An empty `hash` skips the
+/// presence checks because qBittorrent cannot filter by it.
+#[must_use]
+pub fn ensure_torrent(client: &Client, base_url: &str, hash: &str, magnet: &str) -> QbEnsure {
+    let present = if hash.is_empty() {
+        None
+    } else {
+        torrent_present(client, base_url, hash)
+    };
+    if present == Some(true) {
+        return QbEnsure::AlreadyPresent;
+    }
+
+    let added = add_magnet(client, base_url, magnet).is_ok();
+    classify_ensure(added, present)
+}
+
+fn classify_ensure(added: bool, before: Option<bool>) -> QbEnsure {
+    match (added, before) {
+        (true, _) => QbEnsure::Added,
+        (false, Some(true)) => QbEnsure::AlreadyPresent,
+        (false, _) => QbEnsure::Failed,
+    }
+}
+
+fn torrent_present(client: &Client, base_url: &str, hash: &str) -> Option<bool> {
+    get_torrents(client, base_url, Some(hash))
+        .ok()
+        .map(|torrents| torrents.iter().any(|t| t.hash.eq_ignore_ascii_case(hash)))
 }
 
 pub fn add_torrent_file(
@@ -174,6 +222,41 @@ mod tests {
             content_path: None,
             save_path: None,
         }
+    }
+
+    #[test]
+    fn test_ensure_torrent_reports_existing_as_present() {
+        // Live check against a reachable qBittorrent: re-ensuring an already
+        // queued hash must not be reported as a failed forward (HTTP 409).
+        let Ok(client) = Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+        else {
+            return;
+        };
+        let base_url = "http://localhost:6881";
+        let Ok(torrents) = get_torrents(&client, base_url, None) else {
+            return;
+        };
+        let Some(existing) = torrents.first() else {
+            return;
+        };
+        let magnet = format!("magnet:?xt=urn:btih:{}", existing.hash);
+        assert_eq!(
+            ensure_torrent(&client, base_url, &existing.hash, &magnet),
+            QbEnsure::AlreadyPresent
+        );
+    }
+
+    #[test]
+    fn test_classify_ensure_treats_duplicate_as_present() {
+        // qBittorrent 5.x rejects a duplicate add with HTTP 409, yet the
+        // torrent is already queued and downloading.
+        assert_eq!(classify_ensure(false, Some(true)), QbEnsure::AlreadyPresent);
+        assert_eq!(classify_ensure(true, Some(false)), QbEnsure::Added);
+        assert_eq!(classify_ensure(true, Some(true)), QbEnsure::Added);
+        assert_eq!(classify_ensure(false, Some(false)), QbEnsure::Failed);
+        assert_eq!(classify_ensure(false, None), QbEnsure::Failed);
     }
 
     #[test]

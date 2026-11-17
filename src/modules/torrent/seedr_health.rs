@@ -102,7 +102,9 @@ fn forward_to_qbittorrent(active: &queue::QueueEntry, config: &TelegramConfig) -
     };
     let magnet = load_pending_magnet(&active.hash)
         .unwrap_or_else(|| format!("magnet:?xt=urn:btih:{}", active.hash));
-    let ok = api::add_magnet(&client, &config.qbittorrent_url, &magnet).is_ok();
-    remove_pending_magnet(&active.hash);
-    ok
+    let outcome = api::ensure_torrent(&client, &config.qbittorrent_url, &active.hash, &magnet);
+    if outcome != api::QbEnsure::Failed {
+        remove_pending_magnet(&active.hash);
+    }
+    outcome != api::QbEnsure::Failed
 }

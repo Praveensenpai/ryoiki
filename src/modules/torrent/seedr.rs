@@ -313,6 +313,15 @@ fn cleanup_qbittorrent(client: &Client, qb_url: &str, hash: Option<&str>, file_n
     }
 }
 
+/// Describes what the qBittorrent fallback actually achieved for the alert card.
+fn fallback_action_message(outcome: api::QbEnsure) -> &'static str {
+    match outcome {
+        api::QbEnsure::AlreadyPresent => "Already downloading in qBittorrent (queued at submit)",
+        api::QbEnsure::Added => "Forwarded to qBittorrent for local download",
+        api::QbEnsure::Failed => "Failed to forward to qBittorrent",
+    }
+}
+
 /// Handles a failed Seedr download notification by automatically queueing into qBittorrent.
 ///
 /// # Errors
@@ -327,19 +336,17 @@ pub fn handle_seedr_failure(
         .build()
         .context("Failed to build HTTP client for qBittorrent fallback")?;
 
-    let fallback_ok = if let Some(h) = hash {
-        let magnet = load_pending_magnet(h).unwrap_or_else(|| format!("magnet:?xt=urn:btih:{h}"));
-        let res = api::add_magnet(&client, &config.qbittorrent_url, &magnet);
-        remove_pending_magnet(h);
-        res.is_ok()
-    } else {
-        false
-    };
-
-    let action_msg = if fallback_ok {
-        "Forwarded to qBittorrent for local download"
-    } else {
-        "Failed to forward to qBittorrent"
+    let action_msg = match hash {
+        Some(h) => {
+            let magnet =
+                load_pending_magnet(h).unwrap_or_else(|| format!("magnet:?xt=urn:btih:{h}"));
+            let outcome = api::ensure_torrent(&client, &config.qbittorrent_url, h, &magnet);
+            if outcome != api::QbEnsure::Failed {
+                remove_pending_magnet(h);
+            }
+            fallback_action_message(outcome)
+        }
+        None => "No info hash — cannot forward to qBittorrent",
     };
 
     let card = crate::notify::client::format_card(
@@ -361,6 +368,18 @@ pub use super::seedr_tasks::{format_seedr_tasks_section, get_active_seedr_tasks}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_fallback_action_message_duplicate_reports_downloading() {
+        assert_eq!(
+            fallback_action_message(api::QbEnsure::AlreadyPresent),
+            "Already downloading in qBittorrent (queued at submit)"
+        );
+        assert_eq!(
+            fallback_action_message(api::QbEnsure::Failed),
+            "Failed to forward to qBittorrent"
+        );
+    }
 
     #[test]
     fn test_extract_btih_hash() {
