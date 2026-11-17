@@ -79,6 +79,18 @@ pub fn handle_media_cli(action: Option<&str>) -> anyhow::Result<()> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     let home_path = Path::new(&home);
 
+    if action == Some("assign") {
+        return crate::modules::media::audio::handle_cli(
+            crate::modules::media::audio::AudioSubcommand::Assign {
+                path: None,
+                language: None,
+                keep_multi: false,
+                keep_siblings: false,
+                dry_run: false,
+            },
+        );
+    }
+
     if !std::io::stdin().is_terminal() {
         println!(
             "\n  {} Interactive media manager requires an interactive terminal (TTY).\n",

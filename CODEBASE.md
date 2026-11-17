@@ -1130,7 +1130,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/media/trash.rs
 - **Imports**: pub use entry :: { TrashEntry , TrashKind } , pub use ops :: { list_all , purge_entry , purge_expired , restore_entry , trash_local , trash_remote } 
 
-### `src/modules/media.rs` (Role: general, Lines: 127)
+### `src/modules/media.rs` (Role: general, Lines: 139)
 - **Responsibility**: Core general logic in src/modules/media.rs
 - **Imports**: use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: io :: IsTerminal , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:

@@ -110,7 +110,7 @@ enum Commands {
     Storage,
     /// Interactive media manager (push to / pull from Google Drive with checklist)
     Media {
-        /// Mode to preselect: "push", "pull", "sync", or "schedule"
+        /// Mode: "push", "pull", "sync", "schedule", or "assign"
         #[arg(value_name = "ACTION")]
         action: Option<String>,
 
