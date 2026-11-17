@@ -5,7 +5,7 @@ use super::services::{
     get_docker_containers, get_docker_logs, get_managed_services, resolve_managed_unit,
 };
 use super::system::collect_system_metrics;
-use super::torrents::{handle_seedr_cmd, seedr_magnet_target};
+use super::torrents::{handle_seedr_cmd, render_torrent_report, seedr_magnet_target};
 use super::ui::{
     render_docker_view, render_maintenance_view, render_poweroff_confirm, render_reboot_confirm,
     render_services_view, render_storage_view, render_system_view,
@@ -194,4 +194,65 @@ fn test_seedr_cmd_routes_magnets_to_queue() {
 
     // A plain torrent URL has no hash to track, so it must not be queued.
     assert!(seedr_magnet_target("https://example.com/file.torrent").is_none());
+}
+
+/// Live end-to-end render of `/torrents` against the running qBittorrent
+/// instance. Prints the exact Telegram message body and inline keyboard JSON
+/// for every reachable page so pagination can be inspected with real data.
+#[test]
+fn test_live_torrent_pagination_render() {
+    let Ok(cfg) = TelegramConfig::load() else {
+        eprintln!("SKIP: no Telegram/qBittorrent config on this machine");
+        return;
+    };
+    let client = reqwest::blocking::Client::new();
+    let torrents =
+        match crate::modules::torrent::api::get_torrents(&client, &cfg.qbittorrent_url, None) {
+            Ok(t) => t,
+            Err(e) => {
+                eprintln!("SKIP: qBittorrent unreachable: {e}");
+                return;
+            }
+        };
+
+    let pages = crate::modules::torrent::report::torrent_page_count(torrents.len());
+    eprintln!("LIVE torrents={} pages={pages}", torrents.len());
+    assert!(pages >= 1, "at least one page must exist");
+
+    for page in 1..=pages {
+        let (text, kb) = match render_torrent_report(&client, &cfg.qbittorrent_url, page) {
+            Ok(rendered) => rendered,
+            Err(e) => panic!("render must succeed against live qBittorrent: {e}"),
+        };
+        let keyboard_json = match serde_json::to_string(&kb) {
+            Ok(json) => json,
+            Err(e) => panic!("keyboard must serialize: {e}"),
+        };
+
+        eprintln!("\n===== /torrents PAGE {page}/{pages} =====\n{text}\n----- keyboard -----\n{keyboard_json}");
+
+        assert!(
+            !text.contains("more torrents"),
+            "overflow text must be gone"
+        );
+        assert!(
+            text.contains(&format!("</code>{page}/{pages} • ")),
+            "PAGE row must show the current page"
+        );
+        for row in &kb.inline_keyboard {
+            for btn in row {
+                assert!(
+                    btn.callback_data.as_ref().is_some_and(|d| d.len() <= 64),
+                    "callback data must fit Telegram's 64-byte limit"
+                );
+            }
+        }
+    }
+
+    // Out-of-range page clamps to the last page.
+    let clamped = match render_torrent_report(&client, &cfg.qbittorrent_url, pages + 50) {
+        Ok((text, _)) => text,
+        Err(e) => panic!("clamped render must succeed: {e}"),
+    };
+    assert!(clamped.contains(&format!("</code>{pages}/{pages} • ")));
 }

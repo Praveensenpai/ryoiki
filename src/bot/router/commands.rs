@@ -3,7 +3,6 @@ use reqwest::blocking::Client;
 
 use super::super::actions::{handle_charge_limit, handle_self_update};
 use super::super::client::{reply, reply_with_keyboard};
-use super::super::keyboards::torrents_keyboard;
 use super::super::maintenance::{
     handle_bot_audio, handle_bot_check, handle_bot_library, handle_bot_organize, handle_bot_prune,
     handle_bot_sync,
@@ -20,6 +19,7 @@ use super::super::ui::{
 };
 use crate::notify::client::escape_html;
 use crate::notify::config::TelegramConfig;
+use crate::notify::style;
 
 fn command_arg(full_text: &str) -> &str {
     full_text
@@ -46,7 +46,10 @@ pub(super) fn dispatch_command(
         client,
         &config.bot_token,
         &config.chat_id,
-        "❓ <b>Unknown command.</b> Send /help to view command list.",
+        &format!(
+            "{} Unknown command. Send /help for the command list.",
+            style::accent("?", "Unknown")
+        ),
     )
 }
 
@@ -82,8 +85,7 @@ fn dispatch_torrent(
         "/torrent" | "/torrents" => {
             let arg = command_arg(full_text);
             if arg.is_empty() {
-                let text = render_torrent_report(client, &config.qbittorrent_url)?;
-                let kb = torrents_keyboard();
+                let (text, kb) = render_torrent_report(client, &config.qbittorrent_url, 1)?;
                 reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)?;
             } else {
                 let mag = super::extract_magnet(arg).unwrap_or_else(|| arg.to_string());
@@ -98,7 +100,10 @@ fn dispatch_torrent(
                     client,
                     &config.bot_token,
                     &config.chat_id,
-                    "ℹ️ <b>Usage:</b> <code>/magnet &lt;magnet-url-or-hash&gt;</code>",
+                    &format!(
+                        "{}<code>/magnet &lt;magnet-url-or-hash&gt;</code>",
+                        style::key("USAGE")
+                    ),
                 )?;
             } else {
                 let mag = super::extract_magnet(arg).unwrap_or_else(|| arg.to_string());
@@ -117,7 +122,7 @@ fn dispatch_torrent(
                 client,
                 &config.bot_token,
                 &config.chat_id,
-                "⏸ <b>All torrents paused</b>",
+                &style::accent("‖", "All torrents paused"),
             )
             .map(|()| true)
         }
@@ -127,7 +132,7 @@ fn dispatch_torrent(
                 client,
                 &config.bot_token,
                 &config.chat_id,
-                "▶️ <b>All torrents resumed</b>",
+                &style::accent("→", "All torrents resumed"),
             )
             .map(|()| true)
         }
@@ -204,7 +209,7 @@ fn dispatch_control(
             client,
             &config.bot_token,
             &config.chat_id,
-            "✅ <b>Access already granted.</b> No approval needed.",
+            &style::accent("✓", "Access already granted"),
         )
         .map(|()| true),
         _ => Ok(false),
@@ -229,7 +234,10 @@ fn handle_docker_cmd(client: &Client, config: &TelegramConfig, full: &str) -> Re
     } else if args.len() >= 3 && args[1] == "logs" {
         let logs = get_docker_logs(args[2], 25)?;
         let clean = escape_html(&logs);
-        let res = format!("🐳 <b>Logs ({})</b>:\n<code>{clean}</code>", args[2]);
+        let res = format!(
+            "{}<code>{clean}</code>",
+            style::key(&format!("LOGS {}", args[2]))
+        );
         reply(client, &config.bot_token, &config.chat_id, &res)?;
     } else {
         let containers = get_docker_containers()?;
@@ -252,35 +260,70 @@ fn handle_services_cmd(client: &Client, config: &TelegramConfig, full: &str) -> 
     Ok(())
 }
 
+fn help_sections() -> [(&'static str, &'static [(&'static str, &'static str)]); 4] {
+    [
+        (
+            "TELEMETRY",
+            &[
+                ("/status", "unified server dashboard"),
+                ("/system", "cpu, memory, thermals, network"),
+                ("/storage", "disks and cloud storage"),
+            ],
+        ),
+        (
+            "CONTAINERS",
+            &[
+                ("/docker", "list containers and ports"),
+                ("/docker restart <name>", "restart a container"),
+                ("/service restart <name>", "restart a systemd unit"),
+                ("/services", "list managed services"),
+            ],
+        ),
+        (
+            "TORRENTS & MEDIA",
+            &[
+                ("/torrents", "paginated torrent list"),
+                ("/magnet <link>", "queue a magnet"),
+                ("/seedr [link]", "offload to Seedr cloud"),
+                ("/pause /resume", "torrent controls"),
+                ("/movies", "Jellyfin library index"),
+                ("/organize", "ingest media into Jellyfin"),
+                ("/prune", "archive watched media"),
+                ("/sync", "refresh Jellyfin and cloud"),
+                ("/audio [retry|pending]", "dubstrip decisions"),
+            ],
+        ),
+        (
+            "SERVER",
+            &[
+                ("/charge [limit]", "battery charge limit"),
+                ("/reboot", "graceful restart"),
+                ("/poweroff", "graceful shutdown"),
+                ("/check", "audit installed tools"),
+                ("/update", "update ryoiki"),
+                ("/request", "request access (non-owners)"),
+            ],
+        ),
+    ]
+}
+
 fn send_help(client: &Client, config: &TelegramConfig) -> Result<()> {
-    let help_text = "🌊 <b>領域 RYOIKI • Command Center</b>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        📊 <b>System Telemetry:</b>\n\
-        /status — Unified server dashboard with action buttons\n\
-        /system — CPU load, RAM, thermals, IPs, battery\n\
-        /storage — NVMe, local partitions, & Google Drive\n\n\
-        🐳 <b>Containers & Services:</b>\n\
-        /docker — List Docker container states & ports\n\
-        /docker restart &lt;name&gt; — Restart container\n\
-        /services — Background systemd services & timers\n\
-        /service restart &lt;name&gt; — Restart systemd service\n\n\
-        📦 <b>Torrents & Media:</b>\n\
-        /torrent [magnet] — View torrents or queue download\n\
-        /magnet &lt;magnet&gt; — Queue magnet (dual-pipeline)\n\
-        /seedr [magnet] — Offload torrent to Seedr cloud\n\
-        /pause • /resume — Torrent controls\n\
-        /movies — List movies, shows &amp; anime with audio languages\n\
-        /organize — Classify & move media to Jellyfin\n\
-        /prune — Evict watched media to Google Drive\n\
-        /sync — Jellyfin refresh & cloud sync\n\
-        /audio [retry|pending] — Dubstrip queue runner & pending language decisions\n\n\
-        ⚙️ <b>Server Controls:</b>\n\
-        /charge [limit] — View or set battery charge limit\n\
-        /reboot — Graceful server restart (with confirmation)\n\
-        /poweroff — Graceful server shutdown (with confirmation)\n\
-        /check — Audit system tools & dev runtimes\n\
-        /update — Update ryoiki to latest release\n\
-        /request — Ask the owner for access (non-owners only)\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━";
-    reply(client, &config.bot_token, &config.chat_id, help_text)
+    let mut lines = vec![style::view("COMMANDS"), String::new()];
+    for (section, entries) in help_sections() {
+        lines.push(style::eyebrow(section));
+        for (cmd, description) in entries {
+            lines.push(format!(
+                "{}<i>{description}</i>",
+                style::key(&escape_html(cmd))
+            ));
+        }
+        lines.push(String::new());
+    }
+    lines.pop();
+    reply(
+        client,
+        &config.bot_token,
+        &config.chat_id,
+        &lines.join("\n"),
+    )
 }

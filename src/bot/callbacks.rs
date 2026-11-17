@@ -3,7 +3,6 @@ use reqwest::blocking::Client;
 
 use super::actions::{execute_poweroff, execute_reboot};
 use super::client::edit_message;
-use super::keyboards::torrents_keyboard;
 use super::maintenance::{
     handle_bot_audio, handle_bot_check, handle_bot_organize, handle_bot_prune, handle_bot_sync,
 };
@@ -15,6 +14,16 @@ use super::ui::{
     render_system_view, render_unified_status,
 };
 use crate::notify::config::TelegramConfig;
+use crate::notify::style;
+
+/// Resolves a torrent page callback. Bare `cb:torrents` means page one;
+/// `cb:torrents:<n>` selects that page. Range clamping happens in the renderer.
+fn torrent_page(data: &str) -> Option<usize> {
+    match data.strip_prefix("cb:torrents")? {
+        "" => Some(1),
+        rest => rest.strip_prefix(':')?.parse().ok(),
+    }
+}
 
 pub fn handle_callback_query(
     client: &Client,
@@ -52,8 +61,8 @@ fn handle_language_callback(
 
     let text = if action == "silent" {
         match crate::modules::media::audio::approval::silence(id) {
-            Ok(msg) => format!("🔕 <b>{msg}</b>"),
-            Err(e) => format!("⚠️ <b>Failed:</b> {e}"),
+            Ok(msg) => format!("{} {msg}", style::accent("·", "Silenced")),
+            Err(e) => format!("{} {e}", style::accent("!", "Failed")),
         }
     } else {
         let Ok(index) = action.parse::<usize>() else {
@@ -77,15 +86,15 @@ fn handle_language_callback(
 fn resolve_language_text(id: &str, index: usize) -> String {
     use crate::modules::media::audio::approval;
     let Some(entry) = approval::find_pending(id) else {
-        return "✔ <b>Already resolved.</b>".to_string();
+        return format!("{} Already resolved.", style::accent("✓", "No action"));
     };
     let Some(lang) = entry.candidates.get(index) else {
-        return "❓ <b>Unknown track selection.</b>".to_string();
+        return format!("{} Unknown track selection.", style::accent("!", "Invalid"));
     };
     let lang = lang.clone();
     match approval::resolve(id, &lang, false) {
-        Ok(msg) => format!("✅ <b>{msg}</b>"),
-        Err(e) => format!("⚠️ <b>Failed:</b> {e}"),
+        Ok(msg) => format!("{} {msg}", style::accent("✓", "Resolved")),
+        Err(e) => format!("{} {e}", style::accent("!", "Failed")),
     }
 }
 
@@ -108,13 +117,17 @@ fn handle_seedrq_callback(
 
     let text = if action == "front" {
         crate::modules::torrent::scheduler::promote_front(hash);
-        "⚡ <b>Moved to the front of the Seedr queue.</b>\n\
-         <i>This magnet downloads next as soon as the cloud slot frees.</i>"
-            .to_string()
+        format!(
+            "{}\n{}",
+            style::accent("↑", "Moved to front of Seedr queue"),
+            "<i>Downloads next when the cloud slot frees.</i>"
+        )
     } else {
-        "✅ <b>Kept in the Seedr queue.</b>\n\
-         <i>It downloads automatically when the current cloud slot frees.</i>"
-            .to_string()
+        format!(
+            "{}\n{}",
+            style::accent("✓", "Kept in Seedr queue"),
+            "<i>Downloads automatically when the slot frees.</i>"
+        )
     };
     edit_message(
         client,
@@ -162,9 +175,10 @@ fn resolve_view(
             let (text, kb) = render_services_view(&services);
             (text, Some(kb))
         }
-        "cb:torrents" => {
-            let text = render_torrent_report(client, &config.qbittorrent_url)?;
-            (text, Some(torrents_keyboard()))
+        data if data == "cb:torrents" || data.starts_with("cb:torrents:") => {
+            let page = torrent_page(data).unwrap_or(1);
+            let (text, kb) = render_torrent_report(client, &config.qbittorrent_url, page)?;
+            (text, Some(kb))
         }
         "cb:maintenance" => {
             let (text, kb) = render_maintenance_view();
@@ -231,4 +245,19 @@ fn handle_action_callback(
         )?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::torrent_page;
+
+    #[test]
+    fn test_torrent_page_callback_parsing() {
+        assert_eq!(torrent_page("cb:torrents"), Some(1));
+        assert_eq!(torrent_page("cb:torrents:4"), Some(4));
+        assert_eq!(torrent_page("cb:torrents:999"), Some(999));
+        assert_eq!(torrent_page("cb:torrents:0"), Some(0));
+        assert_eq!(torrent_page("cb:torrents:abc"), None);
+        assert_eq!(torrent_page("cb:sys"), None);
+    }
 }

@@ -5,17 +5,38 @@ use std::time::Duration;
 
 use crate::modules::torrent::api::{self, TorrentInfo};
 use crate::modules::torrent::notify;
-use crate::modules::torrent::report::format_status_report;
+use crate::modules::torrent::report::{
+    clamp_torrent_page, format_status_report, torrent_page_count,
+};
 use crate::modules::torrent::seedr;
 use crate::notify::config::TelegramConfig;
+use crate::notify::style;
+
+use super::keyboards::torrents_keyboard;
+use super::types::InlineKeyboardMarkup;
 
 pub fn get_torrents(client: &Client, url: &str) -> Result<Vec<TorrentInfo>> {
     api::get_torrents(client, url, None)
 }
 
-pub fn render_torrent_report(client: &Client, url: &str) -> Result<String> {
+/// Fetches torrents and renders one page together with its navigation keyboard.
+pub fn render_torrent_report(
+    client: &Client,
+    url: &str,
+    page: usize,
+) -> Result<(String, InlineKeyboardMarkup)> {
     let torrents = api::get_torrents(client, url, None)?;
-    Ok(format_status_report(&torrents))
+    let page = clamp_torrent_page(page, torrents.len());
+    let text = format_status_report(&torrents, page);
+    let keyboard = torrents_keyboard(page, torrent_page_count(torrents.len()));
+    Ok((text, keyboard))
+}
+
+/// Builds a compact command view with a wordmark, headline, and detail rows.
+fn event_view(title: &str, headline: &str, details: &[String]) -> String {
+    let mut lines = vec![style::view(title), String::new(), headline.to_string()];
+    lines.extend(details.iter().cloned());
+    lines.join("\n")
 }
 
 pub fn pause_all(client: &Client, url: &str) -> Result<()> {
@@ -37,13 +58,14 @@ fn check_and_restore(target: &str) -> Option<String> {
                 .map(|p| format!("• <code>{}</code>", p.display()))
                 .collect::<Vec<_>>()
                 .join("\n");
-            Some(format!(
-                "🌊 <b>領域 RYOIKI</b> • <i>Library Deduplication</i>\n\
-                ━━━━━━━━━━━━━━━━━━━━━━━\n\
-                ✨ <b>ALREADY AVAILABLE LOCALLY</b>\n\n\
-                🎬 <b>Title:</b> <code>{title}</code>\n\
-                📁 <b>Files:</b>\n{files_str}\n\n\
-                <i>Skipping download — file(s) exist in your Jellyfin media library.</i>"
+            Some(event_view(
+                "DEDUPLICATION",
+                &style::accent("✓", "Already available locally"),
+                &[
+                    format!("{}<code>{title}</code>", style::key("TITLE")),
+                    format!("{}\n{files_str}", style::key("FILES")),
+                    "<i>Download skipped; files exist in the Jellyfin library.</i>".to_string(),
+                ],
             ))
         }
         Availability::Cloud { pairs, title } => match dedup::restore_from_cloud(&pairs) {
@@ -53,13 +75,14 @@ fn check_and_restore(target: &str) -> Option<String> {
                     .map(|p| format!("• <code>{}</code>", p.display()))
                     .collect::<Vec<_>>()
                     .join("\n");
-                Some(format!(
-                    "🌊 <b>領域 RYOIKI</b> • <i>Cloud Archive Restore</i>\n\
-                    ━━━━━━━━━━━━━━━━━━━━━━━\n\
-                    ☁️ <b>RESTORED FROM GOOGLE DRIVE</b>\n\n\
-                    🎬 <b>Title:</b> <code>{title}</code>\n\
-                    📍 <b>Restored To:</b>\n{files_str}\n\n\
-                    <i>Copied directly from Drive archive & refreshed Jellyfin.</i>"
+                Some(event_view(
+                    "CLOUD RESTORE",
+                    &style::accent("✓", "Restored from Google Drive"),
+                    &[
+                        format!("{}<code>{title}</code>", style::key("TITLE")),
+                        format!("{}\n{files_str}", style::key("PATH")),
+                        "<i>Copied from the Drive archive; Jellyfin refreshed.</i>".to_string(),
+                    ],
                 ))
             }
             Err(e) => {
@@ -103,15 +126,16 @@ pub fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> 
                 let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
                 let sz_mb = size / 1_048_576;
                 let av_mb = avail / 1_048_576;
-                return MagnetOutcome::Message(format!(
-                    "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
-                    ━━━━━━━━━━━━━━━━━━━━━━━\n\
-                    📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
-                    <i>Torrent size ({}.{} GB) exceeds Seedr space ({}.{} GB) — running in qBittorrent.</i>",
-                    sz_mb / 1024,
-                    (sz_mb % 1024) / 100,
-                    av_mb / 1024,
-                    (av_mb % 1024) / 100
+                return MagnetOutcome::Message(event_view(
+                    "QBITTORRENT",
+                    &style::accent("↓", "Magnet queued"),
+                    &[format!(
+                        "<i>Torrent {}.{} GB exceeds Seedr space {}.{} GB; running locally.</i>",
+                        sz_mb / 1024,
+                        (sz_mb % 1024) / 100,
+                        av_mb / 1024,
+                        (av_mb % 1024) / 100
+                    )],
                 ));
             }
         }
@@ -132,13 +156,11 @@ pub fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> 
         }
         SubmitOutcome::FailedStart => {
             let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
-            MagnetOutcome::Message(
-                "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
-                ━━━━━━━━━━━━━━━━━━━━━━━\n\
-                📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
-                <i>Seedr rejected download — forwarded to qBittorrent.</i>"
-                    .to_string(),
-            )
+            MagnetOutcome::Message(event_view(
+                "QBITTORRENT",
+                &style::accent("↓", "Magnet queued"),
+                &["<i>Seedr rejected the download; forwarded locally.</i>".to_string()],
+            ))
         }
     }
 }
@@ -148,30 +170,33 @@ fn magnet_display_name(magnet: &str) -> Option<String> {
 }
 
 fn started_message() -> String {
-    "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n\
-    ━━━━━━━━━━━━━━━━━━━━━━━\n\
-    📥 <b>SEEDR DOWNLOAD STARTED</b>\n\n\
-    ☁️ Caching in Seedr cloud now.\n\
-    <i>qBittorrent is downloading it in parallel as a safety net.</i>"
-        .to_string()
+    event_view(
+        "SEEDR",
+        &style::accent("↓", "Download started"),
+        &[
+            "Caching in the Seedr cloud now.".to_string(),
+            "<i>qBittorrent is downloading in parallel as a safety net.</i>".to_string(),
+        ],
+    )
 }
 
 fn duplicate_message() -> String {
-    "🌊 <b>領域 RYOIKI</b> • <i>Seedr Queue</i>\n\
-    ━━━━━━━━━━━━━━━━━━━━━━━\n\
-    ♻️ <b>ALREADY TRACKED</b>\n\n\
-    This magnet is already active or waiting in the Seedr queue."
-        .to_string()
+    event_view(
+        "SEEDR QUEUE",
+        &style::accent("=", "Already tracked"),
+        &["This magnet is active or already waiting in the queue.".to_string()],
+    )
 }
 
 fn queued_prompt(pos: usize) -> String {
-    format!(
-        "🌊 <b>領域 RYOIKI</b> • <i>Seedr Queue</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        ⏳ <b>SEEDR SLOT BUSY — QUEUED AT #{pos}</b>\n\n\
-        📥 Downloading in qBittorrent meanwhile.\n\
-        <i>Seedr starts automatically when the current cloud slot frees.</i>\n\n\
-        Keep it queued, or move it to the front?"
+    event_view(
+        "SEEDR QUEUE",
+        &style::accent("…", &format!("Queue slot busy · position {pos}")),
+        &[
+            "Downloading in qBittorrent meanwhile.".to_string(),
+            "<i>Seedr starts automatically when the cloud slot frees.</i>".to_string(),
+            "<i>Keep it queued, or move it to the front?</i>".to_string(),
+        ],
     )
 }
 
@@ -179,13 +204,17 @@ fn fallback_to_qb(client: &Client, config: &TelegramConfig, magnet: &str, reason
     let hash = seedr::extract_btih_hash(magnet).unwrap_or_default();
     let outcome = api::ensure_torrent(client, &config.qbittorrent_url, &hash, magnet);
     if outcome == api::QbEnsure::Failed {
-        return format!("❌ <b>Failed to queue magnet in Seedr & qBittorrent:</b> {reason}");
+        return format!(
+            "{} Failed to queue magnet: {reason}",
+            style::accent("!", "Error")
+        );
     }
-    format!(
-        "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
-        <i>Seedr unavailable ({reason}) — forwarded to qBittorrent.</i>"
+    event_view(
+        "QBITTORRENT",
+        &style::accent("↓", "Magnet queued"),
+        &[format!(
+            "<i>Seedr unavailable ({reason}); forwarded locally.</i>"
+        )],
     )
 }
 
@@ -208,10 +237,13 @@ pub fn handle_seedr_cmd(client: &Client, config: &TelegramConfig, target: &str) 
         let tasks = seedr::get_active_seedr_tasks();
         let sec = seedr::format_seedr_tasks_section(&tasks);
         if sec.is_empty() {
-            "🌱 <b>Seedr Cloud:</b> No active downloads.\nTip: <code>/seedr &lt;magnet&gt;</code>"
-                .to_string()
+            event_view(
+                "Seedr",
+                &style::accent("·", "No active downloads"),
+                &["<code>/seedr &lt;magnet&gt;</code> to start one.".to_string()],
+            )
         } else {
-            format!("🌊 <b>領域 RYOIKI • Seedr</b>\n━━━━━━━━━━━━━━━━━━━━━━━\n{sec}")
+            format!("{}\n\n{}", style::view("Seedr"), sec)
         }
     } else {
         if let Some(msg) = check_and_restore(target) {
@@ -231,21 +263,22 @@ pub fn handle_seedr_cmd(client: &Client, config: &TelegramConfig, target: &str) 
                 SubmitOutcome::Duplicate => duplicate_message(),
                 SubmitOutcome::Queued(pos) => {
                     let _ = api::add_magnet(client, &config.qbittorrent_url, target);
-                    format!(
-                        "🌊 <b>領域 RYOIKI</b> • <i>Seedr Queue</i>\n\
-                        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-                        ⏳ <b>SEEDR SLOT BUSY — QUEUED AT #{pos}</b>\n\n\
-                        📥 Downloading in qBittorrent meanwhile.\n\
-                        <i>Seedr starts automatically when the current cloud slot frees.</i>"
+                    event_view(
+                        "SEEDR QUEUE",
+                        &style::accent("…", &format!("Queue slot busy · position {pos}")),
+                        &[
+                            "Downloading in qBittorrent meanwhile.".to_string(),
+                            "<i>Seedr starts when the cloud slot frees.</i>".to_string(),
+                        ],
                     )
                 }
                 SubmitOutcome::FailedStart => {
                     let _ = api::add_magnet(client, &config.qbittorrent_url, target);
-                    "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
-                    ━━━━━━━━━━━━━━━━━━━━━━━\n\
-                    📥 <b>MAGNET QUEUED IN QBITTORRENT</b>\n\n\
-                    <i>Seedr rejected download — forwarded to qBittorrent.</i>"
-                        .to_string()
+                    event_view(
+                        "QBITTORRENT",
+                        &style::accent("↓", "Magnet queued"),
+                        &["<i>Seedr rejected the download; forwarded locally.</i>".to_string()],
+                    )
                 }
             };
         }
@@ -253,12 +286,15 @@ pub fn handle_seedr_cmd(client: &Client, config: &TelegramConfig, target: &str) 
         // Non-magnet target (torrent URL): the queue cannot track it by hash,
         // so hand it straight to seedr-dl as before.
         match seedr::spawn_seedr_download(target, config.api_port) {
-            Ok(()) => "🌊 <b>領域 RYOIKI</b> • <i>Seedr</i>\n\
-                ━━━━━━━━━━━━━━━━━━━━━━━\n\
-                📥 <b>SEEDR DOWNLOAD QUEUED</b>\n\n\
-                Seedr.cc cloud caching initiated!"
-                .to_string(),
-            Err(e) => format!("❌ <b>Failed to spawn Seedr download:</b>\n<code>{e}</code>"),
+            Ok(()) => event_view(
+                "SEEDR",
+                &style::accent("↓", "Download queued"),
+                &["Seedr cloud caching initiated.".to_string()],
+            ),
+            Err(e) => format!(
+                "{} Failed to spawn Seedr download:\n<code>{e}</code>",
+                style::accent("!", "Error")
+            ),
         }
     }
 }
@@ -274,11 +310,10 @@ pub fn handle_torrent_file(
     }
 
     api::add_torrent_file(client, &config.qbittorrent_url, fname, bytes)?;
-    Ok(format!(
-        "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        📥 <b>TORRENT FILE QUEUED</b>\n\n\
-        <code>{fname}</code> added to downloads!"
+    Ok(event_view(
+        "QBITTORRENT",
+        &style::accent("↓", "Torrent file queued"),
+        &[format!("<code>{fname}</code> added to downloads.")],
     ))
 }
 
