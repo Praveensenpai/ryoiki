@@ -76,7 +76,9 @@ pub fn cleanup_stale_multis() -> usize {
         } else {
             rec.decided_secs
         };
-        if base_secs == 0 || now.saturating_sub(base_secs) < AUTO_REMOVE_DAYS * decisions::SECS_PER_DAY {
+        if base_secs == 0
+            || now.saturating_sub(base_secs) < AUTO_REMOVE_DAYS * decisions::SECS_PER_DAY
+        {
             continue;
         }
         // Only sidecars.
@@ -89,7 +91,11 @@ pub fn cleanup_stale_multis() -> usize {
         }
         if mp.exists() {
             let _ = fs::remove_file(&mp);
-            println!("  {} Auto-removed stale [Multi]: {}", "🧹".cyan(), mp.display());
+            println!(
+                "  {} Auto-removed stale [Multi]: {}",
+                "🧹".cyan(),
+                mp.display()
+            );
             removed += 1;
         }
         rec.multi_path = None;
