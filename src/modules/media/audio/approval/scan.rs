@@ -27,6 +27,8 @@ pub fn silence(id: &str) -> Result<String> {
         decided_secs: now_secs(),
         auto: false,
         silenced: true,
+        created_secs: entry.created_secs,
+        multi_path: Some(entry.multi_path.clone()),
     });
     decisions::save(&store)?;
 

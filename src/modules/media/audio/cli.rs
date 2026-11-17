@@ -54,6 +54,22 @@ pub enum AudioSubcommand {
         #[arg(long)]
         silence: Option<String>,
     },
+    /// Assign an original language to a `[Multi]` file: remux it, drop wrong-language siblings, delete `[Multi]`
+    Assign {
+        /// Path to the `[Multi]` file (a sibling `[Multi]` is auto-detected otherwise)
+        path: String,
+        /// Language to keep (e.g. Japanese)
+        language: String,
+        /// Keep the `[Multi]` sidecar instead of deleting it
+        #[arg(long)]
+        keep_multi: bool,
+        /// Keep wrong-language sibling files instead of deleting them
+        #[arg(long)]
+        keep_siblings: bool,
+        /// Preview planned changes without altering files
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 /// Dispatches CLI subcommands to the standalone `dubstrip` engine.
@@ -65,6 +81,21 @@ pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
             scan,
             silence,
         } => return handle_pending(notify, scan, silence.as_deref()),
+        AudioSubcommand::Assign {
+            path,
+            language,
+            keep_multi,
+            keep_siblings,
+            dry_run,
+        } => {
+            return super::assign::handle_assign(
+                &path,
+                &language,
+                keep_multi,
+                keep_siblings,
+                dry_run,
+            )
+        }
         AudioSubcommand::Inspect { .. }
         | AudioSubcommand::Strip { .. }
         | AudioSubcommand::Sweep { .. } => {}
@@ -104,7 +135,9 @@ pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
             append_flags(&mut cmd, auto, dry_run, force);
             cmd.arg(path);
         }
-        AudioSubcommand::Retry | AudioSubcommand::Pending { .. } => unreachable!(),
+        AudioSubcommand::Retry
+        | AudioSubcommand::Pending { .. }
+        | AudioSubcommand::Assign { .. } => unreachable!(),
     }
 
     let status = cmd.status().context("Failed to invoke dubstrip process")?;

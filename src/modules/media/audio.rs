@@ -1,4 +1,5 @@
 pub mod approval;
+pub mod assign;
 pub mod cli;
 pub mod decisions;
 pub mod pending_timer;

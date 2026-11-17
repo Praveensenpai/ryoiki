@@ -60,6 +60,13 @@ pub struct DecisionRecord {
     /// left untouched and the title is never queued again.
     #[serde(default)]
     pub silenced: bool,
+    /// Epoch seconds when the title was first staged, for the 14-day cleanup.
+    #[serde(default)]
+    pub created_secs: u64,
+    /// Path of the `[Multi]` sidecar associated with this decision, when known.
+    /// Used by the 14-day cleanup to remove the backup.
+    #[serde(default)]
+    pub multi_path: Option<PathBuf>,
 }
 
 /// On-disk collection of pending decisions and resolved history.
