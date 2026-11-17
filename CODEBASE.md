@@ -531,12 +531,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn find_pending (id : & str) -> Option < PendingDecision >
   ```
 
-### `src/modules/media/audio/assign.rs` (Role: general, Lines: 243)
+### `src/modules/media/audio/assign.rs` (Role: general, Lines: 471)
 - **Responsibility**: Core general logic in src/modules/media/audio/assign.rs
-- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: decisions , use super :: remux :: apply_language , use crate :: modules :: media :: audio :: decisions :: DecisionRecord , use crate :: modules :: media :: organizer :: pathing :: is_video_file , use crate :: modules :: media :: probe 
+- **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: decisions , use super :: remux :: apply_language , use crate :: modules :: media :: audio :: decisions :: DecisionRecord , use crate :: modules :: media :: organizer :: find_videos_recursive , use crate :: modules :: media :: organizer :: pathing :: { get_jellyfin_media_dir , is_video_file } , use crate :: modules :: media :: probe 
 - **Public Functions & Signatures**:
   ```rust
   fn handle_assign (path : & str , language : & str , keep_multi : bool , keep_siblings : bool , dry_run : bool ,) -> Result < () >
+  fn interactive_assign () -> Result < () >
   ```
 
 ### `src/modules/media/audio/cleanup.rs` (Role: general, Lines: 106)
@@ -547,7 +548,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn cleanup_stale_multis () -> usize
   ```
 
-### `src/modules/media/audio/cli.rs` (Role: cli, Lines: 223)
+### `src/modules/media/audio/cli.rs` (Role: cli, Lines: 220)
 - **Responsibility**: Core cli logic in src/modules/media/audio/cli.rs
 - **Imports**: use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: process :: Command , use super :: { find_dubstrip_bin , strip_queue } 
 - **Types & Enums**:

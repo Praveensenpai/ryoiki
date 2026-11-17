@@ -92,11 +92,8 @@ pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
             let path = match path {
                 Some(p) if !p.trim().is_empty() => p,
                 _ => {
-                    print!("  Path to [Multi] file: ");
-                    io::stdout().flush()?;
-                    let mut buf = String::new();
-                    io::stdin().lock().read_line(&mut buf)?;
-                    buf.trim().to_string()
+                    // No path given: launch the interactive picker.
+                    return super::assign::interactive_assign();
                 }
             };
             let language = match language {
