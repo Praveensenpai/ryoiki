@@ -324,14 +324,11 @@ pub fn render_prompt(entry: &PendingDecision) -> String {
     let langs = entry.candidates.join(", ");
     let langs_esc = escape_html(&langs);
     format!(
-        "🌊 <b>領域 RYOIKI</b> • <i>DubStrip</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        ❓ <b>WHICH TRACK IS THE ORIGINAL?</b>\n\n\
-        🎬 Title: <code>{title_esc}</code>\n\
-        🤖 AI recommends: <b>{rec_esc}</b>\n\
-        🎚 Tracks: <code>{langs_esc}</code>\n\n\
-        <i>No reply within {remaining} day(s) — the recommendation is applied and the [Multi] copy is kept.</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━"
+        "{}\n\n<b>WHICH TRACK IS THE ORIGINAL?</b>\n\n{}{}{}\n\n<i>No reply within {remaining} day(s); AI recommends is applied and the [Multi] copy is kept.</i>",
+        crate::notify::style::alert("DubStrip"),
+        crate::notify::style::row("TITLE", &format!("<code>{title_esc}</code>")),
+        crate::notify::style::row("AI RECOMMENDS", &format!("<b>{rec_esc}</b>")),
+        crate::notify::style::row("TRACKS", &format!("<code>{langs_esc}</code>")),
     )
 }
 

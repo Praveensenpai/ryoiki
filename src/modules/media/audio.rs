@@ -98,7 +98,7 @@ impl AudioStripSummary {
         }
         let reclaimed = format_reclaimed(self.reclaimed_bytes);
         Some(format!(
-            "🗡️ <b>Audio:</b> {} • reclaimed {reclaimed}",
+            "<i>Audio:</i> {} · reclaimed {reclaimed}",
             parts.join(", ")
         ))
     }

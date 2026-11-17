@@ -3,6 +3,7 @@ use std::time::Duration;
 use super::{MediaCategory, MediaItem, TransferDirection};
 use crate::modules::media::disk;
 use crate::notify::client::{escape_html, send_alert};
+use crate::notify::style;
 use crate::notify::TelegramConfig;
 use crate::runner::format_duration;
 
@@ -45,11 +46,11 @@ pub fn send_item_notification(
 
     let (badge, size_label) = match dir {
         TransferDirection::Push => (
-            format!("📤 <b>OFFLOADED [{index}/{total_count}]</b> • <code>{pct}%</code>"),
+            format!("<b>OFFLOADED [{index}/{total_count}]</b> · <code>{pct}%</code>"),
             format!("{size_str} freed"),
         ),
         TransferDirection::Pull => (
-            format!("📥 <b>DOWNLOADED [{index}/{total_count}]</b> • <code>{pct}%</code>"),
+            format!("<b>DOWNLOADED [{index}/{total_count}]</b> · <code>{pct}%</code>"),
             size_str,
         ),
     };
@@ -61,15 +62,12 @@ pub fn send_item_notification(
     };
 
     let card = format!(
-        "🌊 <b>領域 RYOIKI</b> • <i>Media Manager</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        {badge}\n\n\
-        🎬 <b>{title_esc}</b>\n\
-         ├ 📂 <b>Type:</b> <code>{cat_tag}</code>\n\
-         ├ 💾 <b>Size:</b> <code>{size_label}</code>\n\
-         ├ ⏱ <b>Time:</b> <code>{dur_str}</code>\n\
-         └ ⚡ <b>Rate:</b> <code>{rate_str}</code>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━"
+        "{}\n\n{badge}\n\n<b>{title_esc}</b>\n{}<code>{cat_tag}</code>\n{}<code>{size_label}</code>\n{}<code>{dur_str}</code>\n{}<code>{rate_str}</code>",
+        style::alert("Media Manager"),
+        style::key("TYPE"),
+        style::key("SIZE"),
+        style::key("TIME"),
+        style::key("RATE"),
     );
 
     let _ = send_alert(&cfg.bot_token, &cfg.chat_id, &card);
@@ -92,15 +90,14 @@ pub fn send_batch_initiated_notification(
     };
 
     let header = format!(
-        "🌊 <b>領域 RYOIKI</b> • <i>Media Manager</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        🚀 <b>TRANSFER INITIATED</b>\n\n\
-        📦 <b>Direction:</b> <code>{dir_desc}</code>\n\
-        🎬 <b>Queue:</b> {count} titles • {total_size_str}\n\n\
-        📋 <b>Queued Media:</b>\n"
+        "{}\n\n<b>TRANSFER INITIATED</b>\n\n{}<code>{dir_desc}</code>\n{}{count} titles · {total_size_str}\n\n{}",
+        style::alert("Media Manager"),
+        style::key("DIRECTION"),
+        style::key("QUEUE"),
+        style::eyebrow("QUEUED MEDIA")
     );
 
-    let footer = "\n━━━━━━━━━━━━━━━━━━━━━━━";
+    let footer = "";
 
     let item_lines: Vec<String> = items
         .iter()
@@ -110,7 +107,7 @@ pub fn send_batch_initiated_notification(
             let title = escape_html(&it.title);
             let size = disk::format_bytes(it.size_bytes);
             let cat = it.category.as_str();
-            format!(" {num:02}. <b>{title}</b> • <code>{size}</code> [{cat}]")
+            format!("{num:02}. <b>{title}</b>  <code>{size}</code>  <i>[{cat}]</i>")
         })
         .collect();
 
@@ -139,17 +136,16 @@ pub fn send_batch_completed_notification(
     };
 
     let header = format!(
-        "🌊 <b>領域 RYOIKI</b> • <i>Media Manager</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        ✅ <b>BATCH TRANSFER COMPLETED</b>\n\n\
-        📦 <b>Direction:</b> <code>{dir_desc}</code>\n\
-        🎬 <b>Total Items:</b> {count} / {count} transferred\n\
-        📊 <b>Total Volume:</b> {total_size_str}\n\
-        ⏱ <b>Total Time:</b> {total_dur_str} (⚡ {avg_rate})\n\n\
-        📋 <b>Transferred Titles:</b>\n"
+        "{}\n\n<b>BATCH TRANSFER COMPLETED</b>\n\n{}<code>{dir_desc}</code>\n{}{count} / {count} transferred\n{}{total_size_str}\n{}{total_dur_str} · {avg_rate}\n\n{}",
+        style::alert("Media Manager"),
+        style::key("DIRECTION"),
+        style::key("ITEMS"),
+        style::key("VOLUME"),
+        style::key("TIME"),
+        style::eyebrow("TRANSFERRED TITLES")
     );
 
-    let footer = "\n━━━━━━━━━━━━━━━━━━━━━━━\n✨ <i>Jellyfin library refreshed successfully</i>";
+    let footer = "\n\n<i>Jellyfin library refreshed.</i>";
 
     let item_lines: Vec<String> = timings
         .iter()
@@ -160,7 +156,7 @@ pub fn send_batch_completed_notification(
             let size = disk::format_bytes(it.size_bytes);
             let dur_str = format_duration(*dur);
             let rate = format_transfer_rate(it.size_bytes, *dur);
-            format!(" {num:02}. <b>{title}</b>\n      └ 💾 <code>{size}</code> • ⏱ <code>{dur_str}</code> ({rate})")
+            format!("{num:02}. <b>{title}</b>\n   <code>{size}</code> · <code>{dur_str}</code> · <i>{rate}</i>")
         })
         .collect();
 

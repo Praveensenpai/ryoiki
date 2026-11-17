@@ -119,12 +119,17 @@ pub fn handle_bot_prune() -> Result<String> {
 
     if !disk::should_prune(usage, opts.threshold_pct) {
         return Ok(format!(
-            "🌊 <b>領域 RYOIKI • Media Pruner</b>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            💾 <b>SSD Usage:</b> {}% ({} / {})\n\
-            🛡️ <b>Status:</b> Safe (below {}% threshold). No pruning required.\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━",
-            usage.used_pct, used_str, total_str, opts.threshold_pct
+            "{}\n\n{}\n{}\n\n<i>Below the {}% threshold; no pruning required.</i>",
+            crate::notify::style::view("Media Pruner"),
+            crate::notify::style::row(
+                "SSD",
+                &format!(
+                    "<code>{}% · {} / {}</code>",
+                    usage.used_pct, used_str, total_str
+                )
+            ),
+            crate::notify::style::accent("·", "Safe"),
+            opts.threshold_pct
         ));
     }
 
@@ -133,13 +138,17 @@ pub fn handle_bot_prune() -> Result<String> {
     let new_used_str = disk::format_bytes(new_usage.used_bytes);
 
     Ok(format!(
-        "🌊 <b>領域 RYOIKI • Media Pruner</b>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        🧹 <b>Pruning Complete!</b>\n\
-        💾 <b>Previous SSD:</b> {}% ({})\n\
-        💾 <b>Current SSD:</b> {}% ({})\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━",
-        usage.used_pct, used_str, new_usage.used_pct, new_used_str
+        "{}\n\n{}\n{}\n{}",
+        crate::notify::style::view("Media Pruner"),
+        crate::notify::style::accent("✓", "Pruning complete"),
+        crate::notify::style::row(
+            "BEFORE",
+            &format!("<code>{}% · {}</code>", usage.used_pct, used_str)
+        ),
+        crate::notify::style::row(
+            "AFTER",
+            &format!("<code>{}% · {}</code>", new_usage.used_pct, new_used_str)
+        )
     ))
 }
 

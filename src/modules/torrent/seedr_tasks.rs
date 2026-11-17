@@ -287,7 +287,7 @@ pub fn format_seedr_tasks_section(tasks: &[SeedrTaskState]) -> String {
         return String::new();
     }
 
-    let mut lines = vec!["🌱 <b>Seedr Cloud Downloads:</b>".to_string()];
+    let mut lines = Vec::new();
     for t in tasks {
         #[allow(clippy::cast_precision_loss)]
         let pct = if t.total_bytes > 0 {
@@ -309,15 +309,16 @@ pub fn format_seedr_tasks_section(tasks: &[SeedrTaskState]) -> String {
         #[allow(clippy::cast_precision_loss)]
         let spd = t.speed_bps as f64 / 1_048_576.0;
         let clean_name = crate::notify::client::escape_html(&t.file_name);
-        let (icon, label) = if t.status.eq_ignore_ascii_case("caching") {
-            ("☁️", "Caching in Seedr Cloud")
+        let label = if t.status.eq_ignore_ascii_case("caching") {
+            "caching in Seedr cloud"
         } else if t.status.eq_ignore_ascii_case("organizing") {
-            ("📁", "Organizing Media")
+            "organizing media"
         } else {
-            ("📥", "Downloading to Disk")
+            "downloading to disk"
         };
+        let key = crate::notify::style::key("SIZE");
         lines.push(format!(
-            "{icon} <b>{clean_name}</b>\n<code>{bar}</code> • <b>{label}</b>\nSize: {dl_mb}/{tot_mb} MB | Rate: {spd:.2} MB/s | ETA: {}s\n",
+            "<b>{clean_name}</b>\n<code>{bar}</code>  {label}\n{key}{dl_mb}/{tot_mb} MB  ↓ {spd:.2} MB/s  η {}s",
             t.eta_seconds
         ));
     }

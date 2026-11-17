@@ -77,7 +77,7 @@ pub fn prompt_telegram_config(
         seedr_slow_grace_secs: 300,
     };
 
-    let test_msg = "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n━━━━━━━━━━━━━━━━━━━━━━━\n⚡ <b>Pure-Rust 2-Way Bot Active</b>\n\nType /help to see commands or paste a magnet link!";
+    let test_msg = "<b>RYOIKI</b> <i>· qBittorrent</i>\n────────────────────\n\n<b>Bot active</b>\n\n<i>Type /help for commands, or paste a magnet link.</i>";
     let _ = crate::notify::client::send_alert(&config.bot_token, &config.chat_id, test_msg);
 
     println!("  ✔ Sent Telegram test notification");

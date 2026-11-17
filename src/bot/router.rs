@@ -8,6 +8,7 @@ use super::torrents::{handle_magnet, handle_torrent_file, MagnetOutcome};
 use super::types::{CallbackQuery, Message};
 use crate::notify::client::escape_html;
 use crate::notify::config::TelegramConfig;
+use crate::notify::style;
 
 mod commands;
 
@@ -62,7 +63,10 @@ pub fn route_message(
     if let Some((cmd, full_text)) = extract_command(trimmed) {
         if let Err(e) = dispatch_command(client, config, prompts, (cmd, full_text)) {
             let clean_err = escape_html(&e.to_string());
-            let err_msg = format!("❌ <b>Command Failed ({cmd}):</b>\n<code>{clean_err}</code>");
+            let err_msg = format!(
+                "{}\n<code>{clean_err}</code>",
+                style::accent("!", &format!("Command {cmd} failed"))
+            );
             let _ = reply(client, &config.bot_token, &config.chat_id, &err_msg);
         }
         return;
@@ -128,7 +132,7 @@ fn handle_torrent_document(client: &Client, config: &TelegramConfig, doc: &super
         .and_then(|(_, bytes)| handle_torrent_file(client, config, &fname, bytes));
     let msg = match res {
         Ok(text) => text,
-        Err(e) => format!("❌ <b>Failed to add torrent:</b> {e}"),
+        Err(e) => format!("{} {e}", style::accent("!", "Failed to add torrent")),
     };
     let _ = reply(client, &config.bot_token, &config.chat_id, &msg);
 }
@@ -198,11 +202,17 @@ fn handle_access_callback(
                     client,
                     &config.bot_token,
                     &target_chat,
-                    "✅ <b>Access granted.</b> You now have full control of this bot.",
+                    &format!(
+                        "{}\n<i>You now have full control of this bot.</i>",
+                        style::accent("✓", "Access granted")
+                    ),
                 );
-                format!("✅ <b>Approved</b> user <code>{target}</code>.")
+                format!(
+                    "{} user <code>{target}</code>",
+                    style::accent("✓", "Approved")
+                )
             }
-            Err(e) => format!("⚠️ <b>Failed to persist approval:</b> {e}"),
+            Err(e) => format!("{} {e}", style::accent("!", "Failed to persist approval")),
         },
         AccessAction::Deny => {
             access.clear_pending(target);
@@ -210,9 +220,12 @@ fn handle_access_callback(
                 client,
                 &config.bot_token,
                 &target_chat,
-                "❌ <b>Access denied</b> by the owner.",
+                &style::accent("×", "Access denied by the owner"),
             );
-            format!("✖ <b>Denied</b> user <code>{target}</code>.")
+            format!(
+                "{} user <code>{target}</code>",
+                style::accent("×", "Denied")
+            )
         }
     };
 

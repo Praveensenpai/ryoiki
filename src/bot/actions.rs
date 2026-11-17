@@ -1,6 +1,9 @@
 use anyhow::{bail, Result};
 use std::process::Command;
 
+use crate::notify::client::escape_html;
+use crate::notify::style;
+
 pub fn handle_charge_limit(arg: &str) -> String {
     let trimmed = arg.trim();
     if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("status") {
@@ -17,26 +20,35 @@ pub fn handle_charge_limit(arg: &str) -> String {
             },
         );
         return format!(
-            "🔋 <b>Battery Charge Control</b>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            Active Target Limit: <b>{current}%</b>\n\
-            Hardware Backend: <code>{backend}</code>\n\n\
-            To adjust, send: <code>/charge &lt;percentage&gt;</code> (e.g. <code>/charge 80</code>)"
+            "{}\n\n{}{}\n{}{}\n\n<i>Adjust with <code>/charge &lt;percentage&gt;</code> (20–100).</i>",
+            style::view("Battery Charge Control"),
+            style::key("Active Target Limit"),
+            format_args!("<b>{current}%</b>"),
+            style::key("Hardware Backend"),
+            format_args!("<code>{backend}</code>")
         );
     }
 
     let Ok(val) = trimmed.parse::<u8>() else {
-        return "❌ <b>Invalid limit:</b> Please provide a percentage between 20 and 100 (e.g. <code>/charge 80</code>).".to_string();
+        return format!(
+            "{}\n\n<i>Provide a percentage between 20 and 100 (e.g. <code>/charge 80</code>).</i>",
+            style::accent("!", "Invalid limit")
+        );
     };
 
     match crate::charge_limit::apply_limit_programmatic(val) {
         Ok(msg) => format!(
-            "⚡ <b>Charge Limit Configured</b>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            ✔ {msg}\n\
-            New Target: <b>{val}%</b>"
+            "{}\n\n{}\n{}{}\n{}",
+            style::view("Charge Limit"),
+            style::accent("✓", "Configured"),
+            style::key("TARGET"),
+            format_args!("<b>{val}%</b>"),
+            format_args!("<i>{msg}</i>")
         ),
-        Err(e) => format!("❌ <b>Failed to set charge limit:</b>\n<code>{e}</code>"),
+        Err(e) => format!(
+            "{}\n<code>{e}</code>",
+            style::accent("!", "Failed to set charge limit")
+        ),
     }
 }
 
@@ -47,7 +59,10 @@ pub fn execute_reboot() -> Result<String> {
         .or_else(|_| Command::new("sudo").args(["systemctl", "reboot"]).output())?;
 
     if out.status.success() {
-        Ok("🔄 <b>Reboot initiated.</b> System is restarting now...".to_string())
+        Ok(format!(
+            "{}\n<i>System is restarting now.</i>",
+            style::accent("↻", "Reboot initiated")
+        ))
     } else {
         let err = String::from_utf8_lossy(&out.stderr);
         bail!("Reboot failed: {}", err.trim())
@@ -65,7 +80,10 @@ pub fn execute_poweroff() -> Result<String> {
         })?;
 
     if out.status.success() {
-        Ok("⏻ <b>Shutdown initiated.</b> System is powering off now...".to_string())
+        Ok(format!(
+            "{}\n<i>System is powering off now.</i>",
+            style::accent("⏻", "Shutdown initiated")
+        ))
     } else {
         let err = String::from_utf8_lossy(&out.stderr);
         bail!("Poweroff failed: {}", err.trim())
@@ -76,16 +94,17 @@ pub fn handle_self_update() -> String {
     let current_version = env!("CARGO_PKG_VERSION");
     match crate::updater::run_self_update(current_version) {
         Ok(()) => format!(
-            "✨ <b>Ryoiki Updated</b>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            Current version: <code>v{current_version}</code>\n\
-            Binary updated to latest release. Restarting bot daemon..."
+            "{}\n\n{}\n{}\n\n<i>Binary updated to the latest release. Restarting bot daemon.</i>",
+            style::view("Update"),
+            style::accent("✓", "Updated"),
+            style::row("VERSION", &format!("<code>v{current_version}</code>"))
         ),
         Err(e) => format!(
-            "ℹ️ <b>Ryoiki Update Check</b>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            Current version: <code>v{current_version}</code>\n\
-            Status: {e}"
+            "{}\n\n{}\n{}\n{}",
+            style::view("Update"),
+            style::accent("·", "Update check"),
+            style::row("VERSION", &format!("<code>v{current_version}</code>")),
+            style::row("STATUS", &escape_html(&e.to_string()))
         ),
     }
 }

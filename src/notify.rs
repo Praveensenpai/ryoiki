@@ -5,6 +5,7 @@ pub mod power;
 pub mod server;
 pub mod session;
 pub mod shutdown;
+pub mod style;
 pub mod system;
 
 use anyhow::Result;

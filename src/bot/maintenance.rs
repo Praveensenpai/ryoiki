@@ -5,6 +5,7 @@ use std::time::Duration;
 use crate::modules::torrent::api::{self, TorrentInfo};
 use crate::notify::client::escape_html;
 use crate::notify::config::TelegramConfig;
+use crate::notify::style;
 use crate::runner::Runner;
 
 const TRASH_REAP_INTERVAL: Duration = Duration::from_hours(1);
@@ -32,17 +33,16 @@ pub fn handle_bot_organize(config: &TelegramConfig) -> Result<String> {
     if completed.is_empty() {
         if !incomplete.is_empty() {
             return Ok(format!(
-                "🌊 <b>領域 RYOIKI • Media Organizer</b>\n\
-                ━━━━━━━━━━━━━━━━━━━━━━━\n\
-                ℹ <b>No completed torrents to organize.</b>\n\
-                <i>{} active download(s) in progress — waiting for completion.</i>",
+                "{}\n\n{}\n\n<i>{} active download(s) in progress; waiting for completion.</i>",
+                style::view("Media Organizer"),
+                style::accent("·", "No completed torrents to organize"),
                 incomplete.len()
             ));
         }
-        return Ok("🌊 <b>領域 RYOIKI • Media Organizer</b>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            No active or completed torrents found in qBittorrent."
-            .to_string());
+        return Ok(format!(
+            "{}\n\nNo active or completed torrents found in qBittorrent.",
+            style::view("Media Organizer")
+        ));
     }
 
     let mut results = Vec::new();
@@ -69,30 +69,31 @@ fn format_organize_report(
     if results.is_empty() {
         if cleared > 0 {
             return format!(
-                "🌊 <b>領域 RYOIKI • Media Organizer</b>\n\
-                ━━━━━━━━━━━━━━━━━━━━━━━\n\
-                🗑 <b>Cleaned {cleared} torrent(s) from qBittorrent history.</b>"
+                "{}\n\n{}",
+                style::view("Media Organizer"),
+                style::accent("✓", &format!("Cleaned {cleared} torrent(s) from history"))
             );
         }
-        return "🌊 <b>領域 RYOIKI • Media Organizer</b>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            No new video files found to organize."
-            .to_string();
+        return format!(
+            "{}\n\nNo new video files found to organize.",
+            style::view("Media Organizer")
+        );
     }
 
     let mut lines = vec![
-        "🌊 <b>領域 RYOIKI • Media Organizer</b>".to_string(),
-        "━━━━━━━━━━━━━━━━━━━━━━━".to_string(),
-        format!(
-            "✨ <b>Organized {} item(s) into Jellyfin</b>\n",
-            results.len()
+        style::view("Media Organizer"),
+        String::new(),
+        style::accent(
+            "✓",
+            &format!("Organized {} item(s) into Jellyfin", results.len()),
         ),
     ];
 
     for res in results.iter().take(5) {
         let clean = escape_html(&res.media_info.clean_name);
         lines.push(format!(
-            "🎬 <code>{clean}</code> ({})",
+            "{}<code>{clean}</code>  <i>{}</i>",
+            style::key("MEDIA"),
             res.media_info.engine
         ));
     }
@@ -111,12 +112,12 @@ fn format_organize_report(
     }
 
     if cleared > 0 {
+        lines.push(String::new());
         lines.push(format!(
-            "\n🗑 <i>Removed {cleared} torrent(s) from qBittorrent</i>"
+            "<i>Removed {cleared} torrent(s) from qBittorrent</i>"
         ));
     }
 
-    lines.push("━━━━━━━━━━━━━━━━━━━━━━━".to_string());
     lines.join("\n")
 }
 
@@ -134,33 +135,25 @@ pub fn handle_bot_prune() -> Result<String> {
 pub fn handle_bot_sync() -> String {
     let mut messages: Vec<String> = Vec::new();
     match crate::modules::jellyfin::api::refresh_library_auto() {
-        Ok(()) => messages.push("🔄 Jellyfin library scan triggered successfully.".to_string()),
-        Err(e) => messages.push(format!("⚠️ Jellyfin library scan failed: {e}")),
+        Ok(()) => messages.push("Jellyfin library scan triggered.".to_string()),
+        Err(e) => messages.push(format!("{} {e}", style::accent("!", "Scan failed"))),
     }
 
     let sync_res = std::thread::spawn(crate::modules::media::sync::run_media_sync).join();
     match sync_res {
-        Ok(Ok(())) => messages.push("☁️ Cloud media sync completed successfully.".to_string()),
-        Ok(Err(e)) => messages.push(format!("⚠️ Cloud media sync failed: {e}")),
-        Err(_) => messages.push("⚠️ Cloud media sync thread panicked.".to_string()),
+        Ok(Ok(())) => messages.push("Cloud media sync completed.".to_string()),
+        Ok(Err(e)) => messages.push(format!("{} {e}", style::accent("!", "Sync failed"))),
+        Err(_) => messages.push(style::accent("!", "Sync thread panicked")),
     }
 
-    format!(
-        "🌊 <b>領域 RYOIKI • Media Sync</b>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        {}\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━",
-        messages.join("\n")
-    )
+    format!("{}\n\n{}", style::view("Media Sync"), messages.join("\n"))
 }
 
 pub fn handle_bot_audio(action: &str) -> Result<String> {
     if action == "pending" {
         return Ok(format!(
-            "🌊 <b>領域 RYOIKI • Pending Decisions</b>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            {}\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━",
+            "{}\n\n{}",
+            style::view("Pending Decisions"),
             escape_html(&crate::modules::media::audio::approval::list_pending_text())
         ));
     }
@@ -168,14 +161,22 @@ pub fn handle_bot_audio(action: &str) -> Result<String> {
         let bin = crate::modules::media::audio::find_dubstrip_bin();
         if let Some(path) = bin {
             let summary = crate::modules::media::audio::strip_queue::process_queue(&path)?;
-            let mut msg = "🗡️ <b>Dubstrip:</b> Audio strip retry queue processed.".to_string();
+            let mut msg = format!(
+                "{}\n{}",
+                style::view("Dubstrip"),
+                style::accent("✓", "Audio strip retry queue processed")
+            );
             if let Some(line) = summary.render_html_line() {
                 msg.push('\n');
                 msg.push_str(&line);
             }
             Ok(msg)
         } else {
-            Ok("❌ <b>Dubstrip:</b> <code>dubstrip</code> binary not found.".to_string())
+            Ok(format!(
+                "{}\n{}",
+                style::view("Dubstrip"),
+                style::accent("!", "<code>dubstrip</code> binary not found")
+            ))
         }
     } else {
         let is_active = crate::modules::media::audio::retry_timer::is_timer_active();
@@ -191,12 +192,12 @@ pub fn handle_bot_audio(action: &str) -> Result<String> {
             "Inactive"
         };
         Ok(format!(
-            "🌊 <b>領域 RYOIKI • DubStrip</b>\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━\n\
-            Retry Timer: <b>{status}</b>\n\
-            Pending Timer: <b>{pending_status}</b>\n\
-            Use <code>/audio retry</code> to process pending dub strips immediately.\n\
-            ━━━━━━━━━━━━━━━━━━━━━━━"
+            "{}\n\n{}{}\n{}{}\n\n<i>Run <code>/audio retry</code> to process the queue immediately.</i>",
+            style::view("DubStrip"),
+            style::key("Retry Timer:"),
+            format_args!("<b>{status}</b>"),
+            style::key("Pending Timer:"),
+            format_args!("<b>{pending_status}</b>")
         ))
     }
 }
@@ -226,18 +227,18 @@ pub fn handle_bot_check() -> String {
         ("rclone", "Rclone sync/mount"),
     ];
 
-    let mut lines = vec![
-        "🔍 <b>領域 RYOIKI • System Tool Audit</b>".to_string(),
-        "━━━━━━━━━━━━━━━━━━━━━━━".to_string(),
-    ];
+    let mut lines = vec![style::view("System Tool Audit"), String::new()];
 
     for (cmd, desc) in tools {
         let exists = Runner::command_exists(cmd);
-        let status = if exists { "✔" } else { "✖" };
-        lines.push(format!("{status} <code>{cmd:<10}</code> — {desc}"));
+        let marker = if exists { "●" } else { "○" };
+        lines.push(format!(
+            "{marker} {}{}  <i>{desc}</i>",
+            style::key(cmd),
+            if exists { "" } else { " missing" }
+        ));
     }
 
-    lines.push("━━━━━━━━━━━━━━━━━━━━━━━".to_string());
     lines.join("\n")
 }
 

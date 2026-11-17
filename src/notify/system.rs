@@ -125,20 +125,19 @@ pub fn send_custom_notification(
     level: &str,
 ) -> Result<()> {
     let badge = match level.to_lowercase().as_str() {
-        "success" => "✨ <b>SUCCESS</b>",
-        "warn" | "warning" => "⚠️ <b>WARNING</b>",
-        "error" | "danger" => "🚨 <b>ALERT</b>",
-        _ => "ℹ️ <b>NOTIFICATION</b>",
+        "success" => "<b>SUCCESS</b>",
+        "warn" | "warning" => "<b>WARNING</b>",
+        "error" | "danger" => "<b>ALERT</b>",
+        _ => "<b>NOTIFICATION</b>",
     };
 
     let category = title.unwrap_or("System Event");
     let escaped = escape_html(message);
     let card = format!(
-        "🌊 <b>領域 RYOIKI</b> • <i>{category}</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        {badge}\n\n\
-        {escaped}\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━"
+        "{}\n\n{}\n\n{}",
+        crate::notify::style::alert(&escape_html(category)),
+        badge,
+        escaped
     );
 
     send_alert(&config.bot_token, &config.chat_id, &card)

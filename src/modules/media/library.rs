@@ -16,12 +16,11 @@ const MAX_DEPTH: usize = 4;
 /// Characters allowed per page body, leaving room for the timestamp footer.
 const PAGE_BUDGET: usize = 3200;
 
-const CONTINUED_HEADER: &str = "🌊 <b>領域 RYOIKI • Media Library</b> <i>(cont.)</i>";
+const CONTINUED_HEADER: &str = "<b>RYOIKI</b> <i>· Media Library / cont.</i>\n────────────────────";
 
 /// Static description of one library section.
 struct SectionSpec {
     label: &'static str,
-    emoji: &'static str,
     dir: &'static str,
     unit: &'static str,
 }
@@ -29,19 +28,16 @@ struct SectionSpec {
 const SECTIONS: [SectionSpec; 3] = [
     SectionSpec {
         label: "Movies",
-        emoji: "🎬",
         dir: "movies",
         unit: "title",
     },
     SectionSpec {
         label: "Shows",
-        emoji: "📺",
         dir: "shows",
         unit: "series",
     },
     SectionSpec {
         label: "Anime",
-        emoji: "🍥",
         dir: "anime",
         unit: "series",
     },
@@ -73,7 +69,7 @@ impl TitleEntry {
             self.languages.join(", ")
         };
         format!(
-            "  • {} — {} · {}",
+            "  · {}  —  {}  ·  {}",
             escape_html(&self.name),
             plural_videos(self.videos),
             escape_html(&languages)
@@ -85,7 +81,6 @@ impl TitleEntry {
 #[derive(Debug, Default)]
 pub struct SectionStats {
     label: &'static str,
-    emoji: &'static str,
     unit: &'static str,
     exists: bool,
     titles: Vec<TitleEntry>,
@@ -99,7 +94,10 @@ impl SectionStats {
 
     fn render_header(&self) -> String {
         if !self.exists {
-            return format!("{} <b>{}</b> — not found", self.emoji, self.label);
+            return format!(
+                "{}  <i>not found</i>",
+                crate::notify::style::key(self.label)
+            );
         }
         let unit = if self.titles.len() == 1 {
             self.unit
@@ -110,9 +108,8 @@ impl SectionStats {
             }
         };
         format!(
-            "{} <b>{}</b> — {} {unit} · {}",
-            self.emoji,
-            self.label,
+            "{}  <b>{} {unit}</b>  ·  {}",
+            crate::notify::style::key(&self.label.to_ascii_uppercase()),
             self.titles.len(),
             plural_videos(self.video_count())
         )
@@ -155,8 +152,8 @@ impl LibraryReport {
 
     fn build_body_lines(&self) -> Vec<String> {
         let mut lines = vec![
-            "🌊 <b>領域 RYOIKI • Media Library</b>".to_string(),
-            "━━━━━━━━━━━━━━━━━━━━━━━".to_string(),
+            "<b>RYOIKI</b> <i>· Media Library</i>".to_string(),
+            "────────────────────".to_string(),
         ];
         for section in &self.sections {
             lines.push(section.render_header());
@@ -164,13 +161,14 @@ impl LibraryReport {
                 lines.push(title.render_line());
             }
         }
+        lines.push(String::new());
         lines.push(format!(
-            "📦 <b>Total:</b> {} titles · {} video files",
+            "{}<b>{} titles</b>  ·  {} video files",
+            crate::notify::style::key("TOTAL"),
             self.total_titles(),
             self.total_videos()
         ));
         append_empty_folders(&mut lines, &self.empty_folders());
-        lines.push("━━━━━━━━━━━━━━━━━━━━━━━".to_string());
         lines
     }
 }
@@ -180,9 +178,13 @@ fn append_empty_folders(lines: &mut Vec<String>, empty: &[&str]) {
         return;
     }
     lines.push(String::new());
-    lines.push(format!("⚠️ <b>No video file ({}):</b>", empty.len()));
+    lines.push(format!(
+        "{}  <i>{} folder(s) without a video file</i>",
+        crate::notify::style::eyebrow("EMPTY"),
+        empty.len()
+    ));
     for path in empty {
-        lines.push(format!("• <code>{}</code>", escape_html(path)));
+        lines.push(format!("· <code>{}</code>", escape_html(path)));
     }
 }
 
@@ -234,7 +236,6 @@ fn scan_section(base: &Path, spec: &SectionSpec) -> SectionStats {
     let root = base.join(spec.dir);
     let mut stats = SectionStats {
         label: spec.label,
-        emoji: spec.emoji,
         unit: spec.unit,
         exists: root.is_dir(),
         ..SectionStats::default()

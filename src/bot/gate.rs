@@ -13,10 +13,11 @@ use super::router::extract_command;
 use super::types::{Message, User};
 use crate::notify::client::escape_html;
 use crate::notify::config::TelegramConfig;
+use crate::notify::style;
 
 /// Message shown to untrusted users who have not requested access yet.
 pub(crate) const ACCESS_REQUIRED_TEXT: &str =
-    "🔒 <b>Access required.</b>\nSend /request to ask the owner for permission.";
+    "<b>RYOIKI</b> <i>/ ACCESS</i>\n────────────────────\n\n<i>Access required.</i>\n\nSend /request to ask the owner for permission.";
 
 /// What an untrusted user's message should trigger.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,7 +57,10 @@ pub(crate) fn handle_untrusted_message(
             client,
             &config.bot_token,
             &chat_id,
-            "⏳ <b>Request already pending.</b> The owner has not answered yet.",
+            &format!(
+                "{}\n<i>The owner has not answered yet.</i>",
+                style::accent("…", "Request already pending")
+            ),
         );
         return;
     }
@@ -66,17 +70,18 @@ pub(crate) fn handle_untrusted_message(
         client,
         &config.bot_token,
         &chat_id,
-        "⏳ <b>Request sent.</b> You will get access once the owner approves.",
+        &format!(
+            "{}\n<i>You will get access once the owner approves.</i>",
+            style::accent("·", "Request sent")
+        ),
     );
 
     let name = escape_html(&user.display_name());
     let prompt = format!(
-        "🔐 <b>Access Request</b>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        User: {name}\n\
-        ID: <code>{}</code>\n\n\
-        Approve this user?",
-        user.id
+        "{}\n\n{}\n{}\n\n<i>Approve this user?</i>",
+        style::view("Access Request"),
+        style::row("USER", &name),
+        style::row("ID", &format!("<code>{}</code>", user.id))
     );
     let kb = access_request_keyboard(user.id);
     let _ = reply_with_keyboard(client, &config.bot_token, &config.chat_id, &prompt, &kb);

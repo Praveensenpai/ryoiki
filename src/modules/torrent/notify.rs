@@ -124,6 +124,7 @@ pub fn format_size(bytes: u64) -> String {
     }
 }
 use crate::notify::client::escape_html;
+use crate::notify::style;
 
 pub(crate) fn render_message(
     event: &str,
@@ -132,11 +133,11 @@ pub(crate) fn render_message(
     ts_ip: &str,
 ) -> String {
     let badge = if event == "started" {
-        "📥 <b>DOWNLOAD INITIATED</b>"
+        "<b>DOWNLOAD INITIATED</b>"
     } else if event == "completed" {
-        "✨ <b>DOWNLOAD COMPLETED</b>"
+        "<b>DOWNLOAD COMPLETED</b>"
     } else {
-        "ℹ️ <b>TORRENT EVENT</b>"
+        "<b>TORRENT EVENT</b>"
     };
 
     let (name, size_str, category) = match torrent {
@@ -166,15 +167,12 @@ pub(crate) fn render_message(
     };
 
     format!(
-        "🌊 <b>領域 RYOIKI</b> • <i>qBittorrent</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        {badge}\n\n\
-        📦 <b>File:</b> <code>{name}</code>\n\
-        📊 <b>Size:</b> <code>{size_str}</code>\n\
-        🏷 <b>Category:</b> <code>{category}</code>\n\
-        🖥 <b>Host:</b> <code>{host}</code> ({ts_ip})\n\n\
-        🌐 <a href=\"{webui_url}\">Open WebUI</a> • <i>Tailscale</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━"
+        "{}\n\n{badge}\n\n{}<code>{name}</code>\n{}<code>{size_str}</code>\n{}<code>{category}</code>\n{}<code>{host}</code> · {ts_ip}\n\n<a href=\"{webui_url}\">Open WebUI</a> · <i>Tailscale</i>",
+        style::alert("qBittorrent"),
+        style::key("FILE"),
+        style::key("SIZE"),
+        style::key("CATEGORY"),
+        style::key("HOST"),
     )
 }
 
@@ -205,18 +203,16 @@ pub(crate) fn render_organized_message(
         .map_or(String::new(), |l| format!("{l}\n"));
 
     format!(
-        "🌊 <b>領域 RYOIKI</b> • <i>Media Organizer</i>\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━\n\
-        ✨ <b>MEDIA ORGANIZED & MOVED</b>\n\n\
-        🎬 <b>Title:</b> <code>{clean_name}</code>\n\
-        📂 <b>Type:</b> {}\n\
-        ⚙️ <b>Engine:</b> {}\n\
-        📍 <b>Destination:</b> <code>{dest}</code>\n\
-        {audio_line}\
-        🗑 <b>qBittorrent:</b> {qb_status}\n\
-        🖥 <b>Host:</b> <code>{host}</code> ({ts_ip})\n\
-        ━━━━━━━━━━━━━━━━━━━━━━━",
-        org.media_info.media_type, org.media_info.engine,
+        "{}\n\n<b>MEDIA ORGANIZED & MOVED</b>\n\n{}<code>{clean_name}</code>\n{}<i>{}</i>\n{}<i>{}</i>\n{}<code>{dest}</code>\n{audio_line}{}<i>{qb_status}</i>\n{}<code>{host}</code> · {ts_ip}",
+        style::alert("Media Organizer"),
+        style::key("TITLE"),
+        style::key("TYPE"),
+        org.media_info.media_type,
+        style::key("ENGINE"),
+        org.media_info.engine,
+        style::key("DEST"),
+        style::key("QBITTORRENT"),
+        style::key("HOST"),
     )
 }
 

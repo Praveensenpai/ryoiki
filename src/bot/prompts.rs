@@ -9,8 +9,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Message shown when the prompt times out with no user response.
-pub const AUTO_QUEUED_TEXT: &str = "⌛ <b>Auto-selected: keep queued</b>\n\
-    <i>No response within the timeout — this magnet stays in the Seedr queue \
+pub const AUTO_QUEUED_TEXT: &str = "<b>RYOIKI</b> <i>/ SEEDR QUEUE</i>\n────────────────────\n\n\
+    · <b>Auto-selected: keep queued</b>\n\n\
+    <i>No response within the timeout; this magnet stays in the Seedr queue \
     and starts automatically when the slot frees.</i>";
 
 /// A prompt awaiting a user decision.
