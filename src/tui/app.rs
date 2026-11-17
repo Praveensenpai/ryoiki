@@ -137,6 +137,7 @@ pub enum Action {
     RestartService { name: String, is_user: bool },
     RestartContainer(String),
     LaunchMedia,
+    AssignAudioLanguage,
     PruneDryRun,
     ApplyPrunePolicy,
     DisablePruneTimer,

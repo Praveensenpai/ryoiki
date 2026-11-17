@@ -547,7 +547,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn cleanup_stale_multis () -> usize
   ```
 
-### `src/modules/media/audio/cli.rs` (Role: cli, Lines: 198)
+### `src/modules/media/audio/cli.rs` (Role: cli, Lines: 223)
 - **Responsibility**: Core cli logic in src/modules/media/audio/cli.rs
 - **Imports**: use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: process :: Command , use super :: { find_dubstrip_bin , strip_queue } 
 - **Types & Enums**:
@@ -1701,7 +1701,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn print_summary (module_ids : & [String] , total_duration : std :: time :: Duration , timings : & [(String , std :: time :: Duration)] ,)
   ```
 
-### `src/tui/actions.rs` (Role: tui, Lines: 400)
+### `src/tui/actions.rs` (Role: tui, Lines: 416)
 - **Responsibility**: Core tui logic in src/tui/actions.rs
 - **Imports**: use std :: process :: Command , use std :: time :: Duration , use anyhow :: { bail , Context , Result } , use crate :: tui :: app :: { Action , App , ToastLevel } , use crate :: tui :: RunOptions 
 - **Types & Enums**:
@@ -1735,7 +1735,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_refreshing (& self) -> bool
   ```
 
-### `src/tui/app.rs` (Role: tui, Lines: 336)
+### `src/tui/app.rs` (Role: tui, Lines: 337)
 - **Responsibility**: Core tui logic in src/tui/app.rs
 - **Imports**: use std :: time :: { Duration , Instant } , use crate :: notify :: config :: TelegramConfig , use crate :: settings :: Settings , use crate :: tui :: refresh :: Worker , use crate :: tui :: system :: { self , ServiceRow , Snapshot } , pub use forms :: mask_secret , use forms :: { provision_rows , settings_warning , telegram_state } 
 - **Types & Enums**:
@@ -1854,7 +1854,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn activate (app : & mut App , index : usize) -> Action
   ```
 
-### `src/tui/views/media.rs` (Role: tui, Lines: 118)
+### `src/tui/views/media.rs` (Role: tui, Lines: 120)
 - **Responsibility**: Core tui logic in src/tui/views/media.rs
 - **Imports**: use std :: path :: Path , use crate :: modules :: media :: disk :: { format_bytes , get_disk_usage } , use crate :: modules :: media :: organizer :: pathing :: get_jellyfin_media_dir , use crate :: settings :: { MAX_PRUNE , MIN_PRUNE , MIN_PRUNE_GAP , MIN_PRUNE_TARGET } , use crate :: tui :: app :: { Action , App , Confirm } , use crate :: tui :: widgets :: { step , Row } 
 - **Public Functions & Signatures**:

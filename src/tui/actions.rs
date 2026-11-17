@@ -53,6 +53,7 @@ pub fn execute(app: &mut App, action: Action, opts: RunOptions) -> Effect {
         Action::RestartService { name, is_user } => restart_service(name, is_user, opts),
         Action::RestartContainer(name) => restart_container(name),
         Action::LaunchMedia => media_manager(),
+        Action::AssignAudioLanguage => assign_audio_language(),
         Action::PruneDryRun => prune_preview(app),
         Action::ApplyPrunePolicy => apply_prune_policy(app),
         Action::DisablePruneTimer => disable_prune_timer(),
@@ -182,6 +183,21 @@ fn media_manager() -> Effect {
         crate::modules::media::handle_media_cli(None)?;
         app.request_refresh();
         Ok("media manager closed".to_string())
+    })
+}
+
+fn assign_audio_language() -> Effect {
+    suspend("Assigning audio language", true, move |app| {
+        let exe = std::env::current_exe().context("failed to locate the ryoiki binary")?;
+        let status = Command::new(&exe)
+            .args(["audio", "assign"])
+            .status()
+            .context("failed to run audio assign")?;
+        if !status.success() {
+            bail!("audio assign failed");
+        }
+        app.request_refresh();
+        Ok("audio language assigned".to_string())
     })
 }
 

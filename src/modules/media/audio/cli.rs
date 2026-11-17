@@ -56,10 +56,10 @@ pub enum AudioSubcommand {
     },
     /// Assign an original language to a `[Multi]` file: remux it, drop wrong-language siblings, delete `[Multi]`
     Assign {
-        /// Path to the `[Multi]` file (a sibling `[Multi]` is auto-detected otherwise)
-        path: String,
-        /// Language to keep (e.g. Japanese)
-        language: String,
+        /// Path to the `[Multi]` file (prompted if omitted)
+        path: Option<String>,
+        /// Language to keep (e.g. Japanese; prompted if omitted)
+        language: Option<String>,
         /// Keep the `[Multi]` sidecar instead of deleting it
         #[arg(long)]
         keep_multi: bool,
@@ -88,13 +88,38 @@ pub fn handle_cli(sub: AudioSubcommand) -> Result<()> {
             keep_siblings,
             dry_run,
         } => {
+            use std::io::{self, BufRead, Write};
+            let path = match path {
+                Some(p) if !p.trim().is_empty() => p,
+                _ => {
+                    print!("  Path to [Multi] file: ");
+                    io::stdout().flush()?;
+                    let mut buf = String::new();
+                    io::stdin().lock().read_line(&mut buf)?;
+                    buf.trim().to_string()
+                }
+            };
+            let language = match language {
+                Some(l) if !l.trim().is_empty() => l,
+                _ => {
+                    print!("  Language to keep: ");
+                    io::stdout().flush()?;
+                    let mut buf = String::new();
+                    io::stdin().lock().read_line(&mut buf)?;
+                    buf.trim().to_string()
+                }
+            };
+            if path.is_empty() || language.is_empty() {
+                println!("  {} path and language are required", "✖".red().bold());
+                return Ok(());
+            }
             return super::assign::handle_assign(
                 &path,
                 &language,
                 keep_multi,
                 keep_siblings,
                 dry_run,
-            )
+            );
         }
         AudioSubcommand::Inspect { .. }
         | AudioSubcommand::Strip { .. }

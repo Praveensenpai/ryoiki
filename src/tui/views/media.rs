@@ -43,6 +43,7 @@ pub fn rows(app: &App) -> Vec<Row> {
         Row::action("Disable auto-prune timer"),
         Row::divider(),
         Row::action("Open interactive media manager"),
+        Row::action("Assign audio language"),
         Row::action("Preview prune (dry-run)"),
         Row::action("Show storage report"),
         Row::action("Refresh storage"),
@@ -75,9 +76,10 @@ pub fn activate(app: &mut App, index: usize) -> Action {
             Action::None
         }
         10 => Action::LaunchMedia,
-        11 => Action::PruneDryRun,
-        12 => Action::ShowStorage,
-        13 => Action::Refresh,
+        11 => Action::AssignAudioLanguage,
+        12 => Action::PruneDryRun,
+        13 => Action::ShowStorage,
+        14 => Action::Refresh,
         _ => Action::None,
     }
 }
