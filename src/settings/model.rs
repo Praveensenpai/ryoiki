@@ -25,6 +25,12 @@ pub const DEFAULT_PRUNE_TARGET: u8 = 75;
 pub const DEFAULT_ALERTS: [u8; 7] = [50, 40, 30, 25, 15, 5, 1];
 /// Default UI refresh interval in seconds.
 pub const DEFAULT_REFRESH_SECS: u8 = 5;
+/// Smallest accepted RTC auto power-on wake delay.
+pub const MIN_AUTO_POWERON_DELAY: u32 = 10;
+/// Largest accepted RTC auto power-on wake delay (24 hours).
+pub const MAX_AUTO_POWERON_DELAY: u32 = 86_400;
+/// Default RTC auto power-on wake delay (5 minutes).
+pub const DEFAULT_AUTO_POWERON_DELAY: u32 = 300;
 
 const fn default_true() -> bool {
     true
@@ -52,6 +58,10 @@ const fn default_prune_threshold() -> u8 {
 
 const fn default_prune_target() -> u8 {
     DEFAULT_PRUNE_TARGET
+}
+
+const fn default_auto_poweron_delay() -> u32 {
+    DEFAULT_AUTO_POWERON_DELAY
 }
 
 /// Battery charging and alert behaviour.
@@ -126,6 +136,24 @@ impl Default for StorageSettings {
     }
 }
 
+/// RTC wake behaviour applied after every system poweroff.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AutoPoweronSettings {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default = "default_auto_poweron_delay")]
+    pub delay_secs: u32,
+}
+
+impl Default for AutoPoweronSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            delay_secs: default_auto_poweron_delay(),
+        }
+    }
+}
+
 /// Root persisted configuration for ryoiki.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct Settings {
@@ -137,6 +165,8 @@ pub struct Settings {
     pub storage: StorageSettings,
     #[serde(default)]
     pub ui: UiSettings,
+    #[serde(default)]
+    pub auto_power_on: AutoPoweronSettings,
 }
 
 impl Settings {
@@ -150,6 +180,7 @@ impl Settings {
         }
         validate_poweroff(self.power.poweroff_percent)?;
         validate_prune(self.storage.prune_threshold, self.storage.prune_target)?;
+        validate_auto_poweron_delay(self.auto_power_on.delay_secs)?;
         validate_thresholds(&self.battery.alert_thresholds)?;
         if !(1..=120).contains(&self.ui.refresh_secs) {
             bail!(
@@ -185,6 +216,15 @@ impl Settings {
 fn validate_poweroff(value: u8) -> Result<()> {
     if !(MIN_POWEROFF..=MAX_POWEROFF).contains(&value) {
         bail!("poweroff threshold must be {MIN_POWEROFF}-{MAX_POWEROFF}%, got {value}%");
+    }
+    Ok(())
+}
+
+fn validate_auto_poweron_delay(secs: u32) -> Result<()> {
+    if !(MIN_AUTO_POWERON_DELAY..=MAX_AUTO_POWERON_DELAY).contains(&secs) {
+        bail!(
+            "auto power-on delay must be {MIN_AUTO_POWERON_DELAY}-{MAX_AUTO_POWERON_DELAY}s, got {secs}"
+        );
     }
     Ok(())
 }
@@ -277,6 +317,29 @@ mod tests {
     }
 
     #[test]
+    fn test_auto_poweron_defaults_are_valid() {
+        let auto = Settings::default().auto_power_on;
+        assert!(auto.enabled);
+        assert_eq!(auto.delay_secs, 300);
+        assert!(Settings::default().validate().is_ok());
+    }
+
+    #[test]
+    fn test_rejects_bad_auto_poweron_delay() {
+        let mut settings = Settings::default();
+        settings.auto_power_on.delay_secs = 5;
+        assert!(settings.validate().is_err());
+        settings.auto_power_on.delay_secs = 86_401;
+        assert!(settings.validate().is_err());
+    }
+
+    #[test]
+    fn test_auto_poweron_defaults_when_missing() {
+        let settings: Settings = serde_json::from_str("{}").unwrap_or_default();
+        assert_eq!(settings.auto_power_on, Settings::default().auto_power_on);
+    }
+
+    #[test]
     fn test_parse_thresholds_sorts_descending() {
         let parsed = Settings::parse_thresholds("5, 50, 25 25").unwrap_or_default();
         assert_eq!(parsed, vec![50, 25, 5]);
@@ -292,6 +355,8 @@ mod tests {
         let mut settings = Settings::default();
         settings.power.poweroff_on_low = true;
         settings.battery.alert_thresholds = vec![40, 20];
+        settings.auto_power_on.enabled = false;
+        settings.auto_power_on.delay_secs = 600;
         settings.storage.prune_threshold = 70;
         settings.storage.prune_target = 60;
         let json = serde_json::to_string(&settings).unwrap_or_default();

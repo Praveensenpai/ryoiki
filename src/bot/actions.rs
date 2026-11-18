@@ -52,6 +52,42 @@ pub fn handle_charge_limit(arg: &str) -> String {
     }
 }
 
+pub fn handle_auto_poweron(arg: &str) -> String {
+    let arg = arg.trim();
+    if arg.is_empty() || arg.eq_ignore_ascii_case("status") {
+        return format!(
+            "{}\n\n<code>{}</code>\n\n<i>Use <code>/autopower on|off|seconds</code>.</i>",
+            style::view("Auto Power-On"),
+            crate::auto_poweron::status()
+        );
+    }
+
+    let Some((enable, delay)) = parse_auto_poweron_arg(arg) else {
+        return format!(
+            "{}<i>Use /autopower [on|off|status|seconds].</i>",
+            style::accent("!", "Invalid argument")
+        );
+    };
+    match crate::auto_poweron::apply_programmatic(enable, delay) {
+        Ok(msg) => format!("{}\n\n<i>{msg}</i>", style::accent("✓", "Auto Power-On")),
+        Err(e) => format!(
+            "{}<code>{e}</code>",
+            style::accent("!", "Failed to configure auto power-on")
+        ),
+    }
+}
+
+fn parse_auto_poweron_arg(arg: &str) -> Option<(bool, u32)> {
+    let delay = crate::auto_poweron::configured_delay();
+    if arg.eq_ignore_ascii_case("on") {
+        return Some((true, delay));
+    }
+    if arg.eq_ignore_ascii_case("off") {
+        return Some((false, delay));
+    }
+    arg.parse::<u32>().ok().map(|secs| (true, secs))
+}
+
 pub fn execute_reboot() -> Result<String> {
     let out = Command::new("systemctl")
         .arg("reboot")
@@ -127,5 +163,19 @@ mod tests {
         let res = handle_charge_limit("status");
         assert!(res.contains("Battery Charge Control"));
         assert!(res.contains("Active Target Limit"));
+    }
+
+    #[test]
+    fn test_parse_auto_poweron_arg() {
+        let delay = crate::auto_poweron::configured_delay();
+        assert_eq!(parse_auto_poweron_arg("on"), Some((true, delay)));
+        assert_eq!(parse_auto_poweron_arg("off"), Some((false, delay)));
+        assert_eq!(parse_auto_poweron_arg("600"), Some((true, 600)));
+        assert_eq!(parse_auto_poweron_arg("abc"), None);
+    }
+
+    #[test]
+    fn test_handle_auto_poweron_rejects_garbage() {
+        assert!(handle_auto_poweron("garbage").contains("Invalid argument"));
     }
 }

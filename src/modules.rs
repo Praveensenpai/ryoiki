@@ -48,6 +48,7 @@ pub fn requires_sudo(modules: &[String]) -> bool {
                 | "tailscale"
                 | "timezone"
                 | "charge_limit"
+                | "auto_poweron"
                 | "rclone"
         )
     })
@@ -194,6 +195,13 @@ fn environment_modules() -> Vec<Module> {
             deps: &[],
         },
         Module {
+            id: "auto_poweron",
+            title: "RTC Auto Power-On",
+            description: "Boot automatically N minutes after every shutdown (RTC wake alarm)",
+            default_enabled: true,
+            deps: &[],
+        },
+        Module {
             id: "media",
             title: "AI Media Organizer",
             description: "Auto-classify & move downloads to Jellyfin (Gemini/Regex)",
@@ -260,6 +268,7 @@ pub fn execute_module(module_id: &str, runner: &mut Runner, non_interactive: boo
         "dotfiles" => deploy_dotfiles_module(runner),
         "timezone" => timezone::setup(runner, non_interactive),
         "charge_limit" => crate::charge_limit::run(non_interactive),
+        "auto_poweron" => crate::auto_poweron::run(),
         "media" => media::organizer::setup(runner, non_interactive),
         "headless_audio" => headless_audio::setup(runner),
         "rclone" => rclone::setup(runner, non_interactive),

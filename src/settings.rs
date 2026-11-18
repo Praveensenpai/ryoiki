@@ -2,8 +2,9 @@ pub mod model;
 pub mod store;
 
 pub use model::{
-    validate_prune, Settings, DEFAULT_ALERTS, MAX_CHARGE, MAX_POWEROFF, MAX_PRUNE, MIN_CHARGE,
-    MIN_POWEROFF, MIN_PRUNE, MIN_PRUNE_GAP, MIN_PRUNE_TARGET,
+    validate_prune, AutoPoweronSettings, Settings, DEFAULT_ALERTS, MAX_AUTO_POWERON_DELAY,
+    MAX_CHARGE, MAX_POWEROFF, MAX_PRUNE, MIN_AUTO_POWERON_DELAY, MIN_CHARGE, MIN_POWEROFF,
+    MIN_PRUNE, MIN_PRUNE_GAP, MIN_PRUNE_TARGET,
 };
 pub use store::{config_dir, load, load_or_default, path as settings_path, save};
 

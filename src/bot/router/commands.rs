@@ -1,7 +1,7 @@
 use anyhow::Result;
 use reqwest::blocking::Client;
 
-use super::super::actions::{handle_charge_limit, handle_self_update};
+use super::super::actions::{handle_auto_poweron, handle_charge_limit, handle_self_update};
 use super::super::client::{reply, reply_with_keyboard};
 use super::super::maintenance::{
     handle_bot_audio, handle_bot_check, handle_bot_library, handle_bot_organize, handle_bot_prune,
@@ -186,6 +186,11 @@ fn dispatch_control(
             let text = handle_charge_limit(arg);
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
         }
+        "/autopower" => {
+            let arg = command_arg(full_text);
+            let text = handle_auto_poweron(arg);
+            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+        }
         "/check" => {
             let text = handle_bot_check();
             reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
@@ -297,6 +302,10 @@ fn help_sections() -> [(&'static str, &'static [(&'static str, &'static str)]); 
             "SERVER",
             &[
                 ("/charge [limit]", "battery charge limit"),
+                (
+                    "/autopower [on|off|sec]",
+                    "RTC auto power-on after shutdown",
+                ),
                 ("/reboot", "graceful restart"),
                 ("/poweroff", "graceful shutdown"),
                 ("/check", "audit installed tools"),

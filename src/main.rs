@@ -1,3 +1,4 @@
+mod auto_poweron;
 mod bot;
 mod charge_limit;
 mod configs;
@@ -66,6 +67,11 @@ enum Commands {
     Bot,
     /// Set battery max charge limit (60% default — extends lifespan on always-plugged servers)
     ChargeLimit,
+    /// Configure RTC auto power-on after shutdown (on, off, status, or delay in seconds)
+    AutoPoweron {
+        #[arg(value_name = "ACTION", default_value = "status")]
+        action: String,
+    },
     /// Send automated or custom Telegram notifications
     #[command(subcommand)]
     Notify(notify::NotifySubcommand),
@@ -213,6 +219,7 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
         Commands::Update => updater::run_self_update(env!("CARGO_PKG_VERSION"))?,
         Commands::Bot => bot::run_bot()?,
         Commands::ChargeLimit => charge_limit::run(yes)?,
+        Commands::AutoPoweron { action } => auto_poweron::handle_cli(&action)?,
         Commands::Notify(sub) => notify::handle_cli(sub)?,
         Commands::Organize { path, dry_run } => organize(&path, dry_run)?,
         Commands::Rclone(sub) => modules::rclone::handle_cli(sub)?,

@@ -15,6 +15,37 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ## 3. Module & Interface Skeleton
 
+### `src/auto_poweron/rtc.rs` (Role: general, Lines: 71)
+- **Responsibility**: Core general logic in src/auto_poweron/rtc.rs
+- **Imports**: use anyhow :: { bail , Context , Result } , use std :: fs , use std :: path :: Path , use std :: process :: Command 
+- **Public Functions & Signatures**:
+  ```rust
+  fn read_wakealarm () -> Option < u64 >
+  fn supported () -> bool
+  fn set_alarm (delay_secs : u32) -> Result < String >
+  ```
+
+### `src/auto_poweron/systemd.rs` (Role: general, Lines: 85)
+- **Responsibility**: Core general logic in src/auto_poweron/systemd.rs
+- **Imports**: use anyhow :: { bail , Context , Result } , use std :: path :: Path , use std :: process :: Command , use crate :: charge_limit :: sysfs :: write_privileged_file 
+- **Public Functions & Signatures**:
+  ```rust
+  fn setup (enable : bool , delay_secs : u32) -> Result < () >
+  fn unit_enabled () -> bool
+  ```
+
+### `src/auto_poweron.rs` (Role: general, Lines: 119)
+- **Responsibility**: Core general logic in src/auto_poweron.rs
+- **Imports**: use anyhow :: { bail , Result } , use colored :: Colorize , use crate :: settings :: { AutoPoweronSettings , MAX_AUTO_POWERON_DELAY , MIN_AUTO_POWERON_DELAY } 
+- **Public Functions & Signatures**:
+  ```rust
+  fn run () -> Result < () >
+  fn apply_programmatic (enable : bool , delay_secs : u32) -> Result < String >
+  fn status () -> String
+  fn configured_delay () -> u32
+  fn handle_cli (action : & str) -> Result < () >
+  ```
+
 ### `src/bot/access.rs` (Role: general, Lines: 216)
 - **Responsibility**: Core general logic in src/bot/access.rs
 - **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: collections :: BTreeSet , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: sync :: { Arc , Mutex } 
@@ -36,12 +67,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn parse_callback (data : & str) -> Option < (AccessAction , i64) >
   ```
 
-### `src/bot/actions.rs` (Role: general, Lines: 131)
+### `src/bot/actions.rs` (Role: general, Lines: 181)
 - **Responsibility**: Core general logic in src/bot/actions.rs
 - **Imports**: use anyhow :: { bail , Result } , use std :: process :: Command , use crate :: notify :: client :: escape_html , use crate :: notify :: style 
 - **Public Functions & Signatures**:
   ```rust
   fn handle_charge_limit (arg : & str) -> String
+  fn handle_auto_poweron (arg : & str) -> String
   fn execute_reboot () -> Result < String >
   fn execute_poweroff () -> Result < String >
   fn handle_self_update () -> String
@@ -122,9 +154,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn spawn_timeout < F > (prompts : & Prompts , hash : & str , timeout_secs : u64 , on_timeout : F) where F : FnOnce (i64) + Send + 'static ,
   ```
 
-### `src/bot/router/commands.rs` (Role: general, Lines: 329)
+### `src/bot/router/commands.rs` (Role: general, Lines: 338)
 - **Responsibility**: Core general logic in src/bot/router/commands.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_library , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style 
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_auto_poweron , handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_library , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style 
 
 ### `src/bot/router.rs` (Role: general, Lines: 342)
 - **Responsibility**: Core general logic in src/bot/router.rs
@@ -327,7 +359,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn deploy_dotfiles (home : & str) -> Result < () >
   ```
 
-### `src/main.rs` (Role: general, Lines: 391)
+### `src/main.rs` (Role: general, Lines: 398)
 - **Responsibility**: Core general logic in src/main.rs
 - **Imports**: use anyhow :: Result , use clap :: { Parser , Subcommand } , use colored :: Colorize , use modules :: { execute_module , get_available_modules } , use runner :: Runner , use std :: io :: IsTerminal 
 
@@ -1510,7 +1542,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn setup (runner : & mut Runner) -> Result < () >
   ```
 
-### `src/modules.rs` (Role: general, Lines: 364)
+### `src/modules.rs` (Role: general, Lines: 373)
 - **Responsibility**: Core general logic in src/modules.rs
 - **Imports**: use crate :: configs , use crate :: runner :: Runner , use anyhow :: Result , use colored :: Colorize , use std :: collections :: HashSet 
 - **Types & Enums**:
@@ -1688,7 +1720,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn apt_update (& mut self) -> Result < () >
   ```
 
-### `src/settings/model.rs` (Role: general, Lines: 301)
+### `src/settings/model.rs` (Role: general, Lines: 366)
 - **Responsibility**: Core general logic in src/settings/model.rs
 - **Imports**: use anyhow :: { bail , Result } , use serde :: { Deserialize , Serialize } 
 - **Types & Enums**:
@@ -1697,6 +1729,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   pub struct PowerSettings
   pub struct UiSettings
   pub struct StorageSettings
+  pub struct AutoPoweronSettings
   pub struct Settings
   ```
 - **Public Functions & Signatures**:
@@ -1718,9 +1751,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn save (settings : & Settings) -> Result < PathBuf >
   ```
 
-### `src/settings.rs` (Role: general, Lines: 14)
+### `src/settings.rs` (Role: general, Lines: 15)
 - **Responsibility**: Core general logic in src/settings.rs
-- **Imports**: pub use model :: { validate_prune , Settings , DEFAULT_ALERTS , MAX_CHARGE , MAX_POWEROFF , MAX_PRUNE , MIN_CHARGE , MIN_POWEROFF , MIN_PRUNE , MIN_PRUNE_GAP , MIN_PRUNE_TARGET , } , pub use store :: { config_dir , load , load_or_default , path as settings_path , save } 
+- **Imports**: pub use model :: { validate_prune , AutoPoweronSettings , Settings , DEFAULT_ALERTS , MAX_AUTO_POWERON_DELAY , MAX_CHARGE , MAX_POWEROFF , MAX_PRUNE , MIN_AUTO_POWERON_DELAY , MIN_CHARGE , MIN_POWEROFF , MIN_PRUNE , MIN_PRUNE_GAP , MIN_PRUNE_TARGET , } , pub use store :: { config_dir , load , load_or_default , path as settings_path , save } 
 - **Public Functions & Signatures**:
   ```rust
   fn effective_charge_limit () -> u8
