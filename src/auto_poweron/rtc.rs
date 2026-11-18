@@ -22,6 +22,24 @@ pub fn supported() -> bool {
     Path::new(WAKEALARM).exists() && command_exists("rtcwake")
 }
 
+/// Returns an absolute path to `rtcwake` for use in a systemd unit.
+///
+/// systemd requires an absolute `ExecStart` path, and distros place `rtcwake`
+/// in different locations (`/usr/sbin` on Ubuntu, `/usr/bin` elsewhere).
+pub fn rtcwake_path() -> &'static str {
+    for candidate in [
+        "/usr/sbin/rtcwake",
+        "/usr/bin/rtcwake",
+        "/sbin/rtcwake",
+        "/bin/rtcwake",
+    ] {
+        if Path::new(candidate).exists() {
+            return candidate;
+        }
+    }
+    "/usr/sbin/rtcwake"
+}
+
 /// Arms the RTC wake alarm without suspending the running system.
 pub fn set_alarm(delay_secs: u32) -> Result<String> {
     let value = delay_secs.to_string();

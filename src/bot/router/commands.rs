@@ -303,8 +303,8 @@ fn help_sections() -> [(&'static str, &'static [(&'static str, &'static str)]); 
             &[
                 ("/charge [limit]", "battery charge limit"),
                 (
-                    "/autopower [on|off|sec]",
-                    "RTC auto power-on after shutdown",
+                    "/autopower [on|off|battery|sec]",
+                    "RTC auto power-on + battery retry delay",
                 ),
                 ("/reboot", "graceful restart"),
                 ("/poweroff", "graceful shutdown"),

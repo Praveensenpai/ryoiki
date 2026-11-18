@@ -32,6 +32,7 @@ fn logind_config() -> &'static str {
 }
 
 fn unit_contents(delay_secs: u32) -> String {
+    let rtcwake_path = crate::auto_poweron::rtc::rtcwake_path();
     format!(
         "[Unit]\n\
          Description=Ryoiki RTC Auto Power-On\n\
@@ -39,7 +40,9 @@ fn unit_contents(delay_secs: u32) -> String {
          Before=systemd-poweroff.service poweroff.target\n\n\
          [Service]\n\
          Type=oneshot\n\
-         ExecStart=/usr/bin/rtcwake -m no -l -s {delay_secs}\n\
+         Environment=RYOIKI_DELAY={delay_secs}\n\
+         EnvironmentFile=-/run/ryoiki/poweroff-delay.conf\n\
+         ExecStart={rtcwake_path} -m no -l -s ${{RYOIKI_DELAY}}\n\
          RemainAfterExit=yes\n\n\
          [Install]\n\
          WantedBy=poweroff.target\n"
@@ -78,7 +81,13 @@ mod tests {
     #[test]
     fn test_unit_contents_embeds_delay_and_hook() {
         let unit = unit_contents(300);
-        assert!(unit.contains("ExecStart=/usr/bin/rtcwake -m no -l -s 300"));
+        assert!(unit.contains("Environment=RYOIKI_DELAY=300"));
+        assert!(unit.contains("EnvironmentFile=-/run/ryoiki/poweroff-delay.conf"));
+        assert!(unit.contains("rtcwake -m no -l -s ${RYOIKI_DELAY}"));
+        assert!(unit.contains(&format!(
+            "ExecStart={} ",
+            crate::auto_poweron::rtc::rtcwake_path()
+        )));
         assert!(unit.contains("WantedBy=poweroff.target"));
         assert!(unit.contains("Before=systemd-poweroff.service"));
     }

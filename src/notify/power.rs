@@ -158,6 +158,9 @@ fn execute_poweroff(pct: u8, threshold: u8) {
     if std::env::var_os(NO_POWEROFF_ENV).is_some() {
         return;
     }
+    // Arm the longer retry interval so the host comes back every 15 min
+    // until AC power is restored. /run is tmpfs, so this clears on boot.
+    let _ = crate::auto_poweron::write_battery_marker();
     let direct = std::process::Command::new("systemctl")
         .arg("poweroff")
         .output();

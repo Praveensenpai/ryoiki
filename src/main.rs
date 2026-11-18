@@ -67,10 +67,12 @@ enum Commands {
     Bot,
     /// Set battery max charge limit (60% default — extends lifespan on always-plugged servers)
     ChargeLimit,
-    /// Configure RTC auto power-on after shutdown (on, off, status, or delay in seconds)
+    /// Configure RTC auto power-on (on, off, battery <sec>, status, or delay in seconds)
     AutoPoweron {
         #[arg(value_name = "ACTION", default_value = "status")]
         action: String,
+        #[arg(value_name = "VALUE")]
+        value: Option<String>,
     },
     /// Send automated or custom Telegram notifications
     #[command(subcommand)]
@@ -202,11 +204,7 @@ fn print_dependency_notes(chosen: &[String], resolved: &[String]) {
             .filter(|id| !chosen.contains(id))
             .map(String::as_str)
             .collect();
-        println!(
-            "  {} Auto-included dependencies: {}\n",
-            "ℹ".cyan().bold(),
-            added.join(", ").bold()
-        );
+        println!("  ℹ Auto-included: {}\n", added.join(", ").bold());
     }
 }
 
@@ -219,7 +217,9 @@ fn handle_subcommand(cmd: Commands, runner: &mut Runner, yes: bool) -> Result<()
         Commands::Update => updater::run_self_update(env!("CARGO_PKG_VERSION"))?,
         Commands::Bot => bot::run_bot()?,
         Commands::ChargeLimit => charge_limit::run(yes)?,
-        Commands::AutoPoweron { action } => auto_poweron::handle_cli(&action)?,
+        Commands::AutoPoweron { action, value } => {
+            auto_poweron::handle_cli_args(&action, value.as_deref())?;
+        }
         Commands::Notify(sub) => notify::handle_cli(sub)?,
         Commands::Organize { path, dry_run } => organize(&path, dry_run)?,
         Commands::Rclone(sub) => modules::rclone::handle_cli(sub)?,
@@ -249,11 +249,7 @@ fn deploy_dotfiles() -> Result<()> {
     let start = std::time::Instant::now();
     configs::deploy_dotfiles(&home)?;
     let dur = runner::format_duration(start.elapsed());
-    println!(
-        "  {} Dotfiles deployed successfully to {} ({dur})",
-        "✔".green().bold(),
-        home.cyan()
-    );
+    println!("  ✔ Dotfiles deployed to {} ({dur})", home.cyan());
     Ok(())
 }
 

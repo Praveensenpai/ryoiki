@@ -15,17 +15,18 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ## 3. Module & Interface Skeleton
 
-### `src/auto_poweron/rtc.rs` (Role: general, Lines: 71)
+### `src/auto_poweron/rtc.rs` (Role: general, Lines: 89)
 - **Responsibility**: Core general logic in src/auto_poweron/rtc.rs
 - **Imports**: use anyhow :: { bail , Context , Result } , use std :: fs , use std :: path :: Path , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn read_wakealarm () -> Option < u64 >
   fn supported () -> bool
+  fn rtcwake_path () -> & 'static str
   fn set_alarm (delay_secs : u32) -> Result < String >
   ```
 
-### `src/auto_poweron/systemd.rs` (Role: general, Lines: 85)
+### `src/auto_poweron/systemd.rs` (Role: general, Lines: 94)
 - **Responsibility**: Core general logic in src/auto_poweron/systemd.rs
 - **Imports**: use anyhow :: { bail , Context , Result } , use std :: path :: Path , use std :: process :: Command , use crate :: charge_limit :: sysfs :: write_privileged_file 
 - **Public Functions & Signatures**:
@@ -34,15 +35,19 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn unit_enabled () -> bool
   ```
 
-### `src/auto_poweron.rs` (Role: general, Lines: 119)
+### `src/auto_poweron.rs` (Role: general, Lines: 195)
 - **Responsibility**: Core general logic in src/auto_poweron.rs
-- **Imports**: use anyhow :: { bail , Result } , use colored :: Colorize , use crate :: settings :: { AutoPoweronSettings , MAX_AUTO_POWERON_DELAY , MIN_AUTO_POWERON_DELAY } 
+- **Imports**: use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: path :: Path , use crate :: settings :: { AutoPoweronSettings , MAX_AUTO_POWERON_DELAY , MIN_AUTO_POWERON_DELAY } 
 - **Public Functions & Signatures**:
   ```rust
   fn run () -> Result < () >
   fn apply_programmatic (enable : bool , delay_secs : u32) -> Result < String >
   fn status () -> String
+  fn set_battery_delay (delay_secs : u32) -> Result < String >
   fn configured_delay () -> u32
+  fn configured_battery_delay () -> u32
+  fn write_battery_marker () -> Result < () >
+  fn handle_cli_args (action : & str , value : Option < & str >) -> Result < () >
   fn handle_cli (action : & str) -> Result < () >
   ```
 
@@ -67,7 +72,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn parse_callback (data : & str) -> Option < (AccessAction , i64) >
   ```
 
-### `src/bot/actions.rs` (Role: general, Lines: 181)
+### `src/bot/actions.rs` (Role: general, Lines: 201)
 - **Responsibility**: Core general logic in src/bot/actions.rs
 - **Imports**: use anyhow :: { bail , Result } , use std :: process :: Command , use crate :: notify :: client :: escape_html , use crate :: notify :: style 
 - **Public Functions & Signatures**:
@@ -359,7 +364,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn deploy_dotfiles (home : & str) -> Result < () >
   ```
 
-### `src/main.rs` (Role: general, Lines: 398)
+### `src/main.rs` (Role: general, Lines: 394)
 - **Responsibility**: Core general logic in src/main.rs
 - **Imports**: use anyhow :: Result , use clap :: { Parser , Subcommand } , use colored :: Colorize , use modules :: { execute_module , get_available_modules } , use runner :: Runner , use std :: io :: IsTerminal 
 
@@ -1614,7 +1619,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn sample_cpu_usage (previous : & mut Option < (u64 , u64) >) -> Option < f64 >
   ```
 
-### `src/notify/power.rs` (Role: general, Lines: 360)
+### `src/notify/power.rs` (Role: general, Lines: 363)
 - **Responsibility**: Core general logic in src/notify/power.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: Write , use std :: path :: Path , use std :: thread , use std :: time :: { Duration , SystemTime } , use super :: client :: { format_card , send_alert } , use super :: config :: TelegramConfig , use crate :: settings :: Settings , use lock :: acquire_pid_lock , pub use sensors :: { is_ac_online , read_battery_percent , read_battery_status , read_cpu_temp , read_cpu_usage , sample_cpu_usage , } 
 - **Public Functions & Signatures**:
@@ -1720,7 +1725,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn apt_update (& mut self) -> Result < () >
   ```
 
-### `src/settings/model.rs` (Role: general, Lines: 366)
+### `src/settings/model.rs` (Role: general, Lines: 386)
 - **Responsibility**: Core general logic in src/settings/model.rs
 - **Imports**: use anyhow :: { bail , Result } , use serde :: { Deserialize , Serialize } 
 - **Types & Enums**:

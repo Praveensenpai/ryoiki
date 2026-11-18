@@ -31,6 +31,8 @@ pub const MIN_AUTO_POWERON_DELAY: u32 = 10;
 pub const MAX_AUTO_POWERON_DELAY: u32 = 86_400;
 /// Default RTC auto power-on wake delay (5 minutes).
 pub const DEFAULT_AUTO_POWERON_DELAY: u32 = 300;
+/// Default wake delay after a low-battery shutdown (15 minutes).
+pub const DEFAULT_BATTERY_DELAY: u32 = 900;
 
 const fn default_true() -> bool {
     true
@@ -62,6 +64,10 @@ const fn default_prune_target() -> u8 {
 
 const fn default_auto_poweron_delay() -> u32 {
     DEFAULT_AUTO_POWERON_DELAY
+}
+
+const fn default_battery_delay() -> u32 {
+    DEFAULT_BATTERY_DELAY
 }
 
 /// Battery charging and alert behaviour.
@@ -143,6 +149,8 @@ pub struct AutoPoweronSettings {
     pub enabled: bool,
     #[serde(default = "default_auto_poweron_delay")]
     pub delay_secs: u32,
+    #[serde(default = "default_battery_delay")]
+    pub battery_delay_secs: u32,
 }
 
 impl Default for AutoPoweronSettings {
@@ -150,6 +158,7 @@ impl Default for AutoPoweronSettings {
         Self {
             enabled: true,
             delay_secs: default_auto_poweron_delay(),
+            battery_delay_secs: default_battery_delay(),
         }
     }
 }
@@ -181,6 +190,7 @@ impl Settings {
         validate_poweroff(self.power.poweroff_percent)?;
         validate_prune(self.storage.prune_threshold, self.storage.prune_target)?;
         validate_auto_poweron_delay(self.auto_power_on.delay_secs)?;
+        validate_auto_poweron_delay(self.auto_power_on.battery_delay_secs)?;
         validate_thresholds(&self.battery.alert_thresholds)?;
         if !(1..=120).contains(&self.ui.refresh_secs) {
             bail!(
@@ -321,7 +331,17 @@ mod tests {
         let auto = Settings::default().auto_power_on;
         assert!(auto.enabled);
         assert_eq!(auto.delay_secs, 300);
+        assert_eq!(auto.battery_delay_secs, 900);
         assert!(Settings::default().validate().is_ok());
+    }
+
+    #[test]
+    fn test_rejects_bad_battery_delay() {
+        let mut settings = Settings::default();
+        settings.auto_power_on.battery_delay_secs = 9;
+        assert!(settings.validate().is_err());
+        settings.auto_power_on.battery_delay_secs = 86_401;
+        assert!(settings.validate().is_err());
     }
 
     #[test]

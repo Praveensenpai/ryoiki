@@ -56,15 +56,35 @@ pub fn handle_auto_poweron(arg: &str) -> String {
     let arg = arg.trim();
     if arg.is_empty() || arg.eq_ignore_ascii_case("status") {
         return format!(
-            "{}\n\n<code>{}</code>\n\n<i>Use <code>/autopower on|off|seconds</code>.</i>",
+            "{}\n\n<code>{}</code>\n\n<i>Use <code>/autopower on|off|battery &lt;sec&gt;|seconds</code>.</i>",
             style::view("Auto Power-On"),
             crate::auto_poweron::status()
         );
     }
 
+    if let Some(value) = arg.strip_prefix("battery").map(str::trim) {
+        if value.is_empty() {
+            return format!(
+                "{}\n{}",
+                style::view("Battery Retry Delay"),
+                format_args!("{}s", crate::auto_poweron::configured_battery_delay())
+            );
+        }
+        let Ok(secs) = value.parse::<u32>() else {
+            return format!(
+                "{}<i>Use /autopower battery &lt;seconds&gt;.</i>",
+                style::accent("!", "Invalid delay")
+            );
+        };
+        return match crate::auto_poweron::set_battery_delay(secs) {
+            Ok(msg) => format!("{}\n\n<i>{msg}</i>", style::accent("✓", "Battery Delay")),
+            Err(e) => format!("{}<code>{e}</code>", style::accent("!", "Failed")),
+        };
+    }
+
     let Some((enable, delay)) = parse_auto_poweron_arg(arg) else {
         return format!(
-            "{}<i>Use /autopower [on|off|status|seconds].</i>",
+            "{}<i>Use /autopower [on|off|battery &lt;sec&gt;|status|seconds].</i>",
             style::accent("!", "Invalid argument")
         );
     };
