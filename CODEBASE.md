@@ -155,7 +155,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn restart_managed_service (name : & str) -> Result < String >
   ```
 
-### `src/bot/smoke_tests.rs` (Role: general, Lines: 258)
+### `src/bot/smoke_tests.rs` (Role: general, Lines: 338)
 - **Responsibility**: Core general logic in src/bot/smoke_tests.rs
 - **Imports**: use super :: actions :: handle_charge_limit , use super :: maintenance :: { handle_bot_audio , handle_bot_check } , use super :: router :: extract_command , use super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , resolve_managed_unit , } , use super :: system :: collect_system_metrics , use super :: torrents :: { handle_seedr_cmd , render_torrent_report , seedr_magnet_target } , use super :: ui :: { render_docker_view , render_maintenance_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , } , use crate :: notify :: config :: TelegramConfig 
 
@@ -176,9 +176,18 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn get_disk_info (path : & str) -> Option < (u64 , u64 , u64) >
   ```
 
-### `src/bot/torrents.rs` (Role: general, Lines: 393)
+### `src/bot/torrents/seedr_cmd.rs` (Role: general, Lines: 97)
+- **Responsibility**: Core general logic in src/bot/torrents/seedr_cmd.rs
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use crate :: modules :: torrent :: api , use crate :: modules :: torrent :: scheduler :: { self , SubmitOutcome } , use crate :: modules :: torrent :: seedr , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style , use super :: { check_and_restore , duplicate_message , event_view , seedr_magnet_target , started_message , } 
+- **Public Functions & Signatures**:
+  ```rust
+  fn handle_seedr_cmd (client : & Client , config : & TelegramConfig , target : & str) -> String
+  fn handle_torrent_file (client : & Client , config : & TelegramConfig , fname : & str , bytes : Vec < u8 > ,) -> Result < String >
+  ```
+
+### `src/bot/torrents.rs` (Role: general, Lines: 325)
 - **Responsibility**: Core general logic in src/bot/torrents.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: modules :: torrent :: notify , use crate :: modules :: torrent :: report :: { clamp_torrent_page , format_status_report , torrent_page_count , } , use crate :: modules :: torrent :: seedr , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style , use super :: keyboards :: torrents_keyboard , use super :: types :: InlineKeyboardMarkup , use crate :: modules :: torrent :: dedup :: { self , Availability } , use crate :: modules :: torrent :: scheduler :: { self , SubmitOutcome } 
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: modules :: torrent :: notify , use crate :: modules :: torrent :: report :: { clamp_torrent_page , format_status_report , torrent_page_count , } , use crate :: modules :: torrent :: seedr , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style , use super :: keyboards :: torrents_keyboard , use super :: types :: InlineKeyboardMarkup , use crate :: modules :: torrent :: dedup :: { self , Availability } , use crate :: modules :: torrent :: scheduler :: { self , SubmitOutcome } , pub use seedr_cmd :: { handle_seedr_cmd , handle_torrent_file } 
 - **Types & Enums**:
   ```rust
   pub enum MagnetOutcome
@@ -190,8 +199,6 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn pause_all (client : & Client , url : & str) -> Result < () >
   fn resume_all (client : & Client , url : & str) -> Result < () >
   fn handle_magnet (client : & Client , config : & TelegramConfig , magnet : & str) -> MagnetOutcome
-  fn handle_seedr_cmd (client : & Client , config : & TelegramConfig , target : & str) -> String
-  fn handle_torrent_file (client : & Client , config : & TelegramConfig , fname : & str , bytes : Vec < u8 > ,) -> Result < String >
   fn start_torrent_monitor (config : TelegramConfig)
   ```
 
@@ -1384,7 +1391,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/torrent/scheduler/tests.rs
 - **Imports**: use super :: * 
 
-### `src/modules/torrent/scheduler.rs` (Role: general, Lines: 338)
+### `src/modules/torrent/scheduler.rs` (Role: general, Lines: 349)
 - **Responsibility**: Core general logic in src/modules/torrent/scheduler.rs
 - **Imports**: use std :: path :: { Path , PathBuf } , use super :: api , use super :: queue :: { self , QueueEntry , QueuePolicy , QueueState } , use super :: seedr , use crate :: notify :: config :: TelegramConfig 
 - **Types & Enums**:
@@ -1423,6 +1430,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_seedr_failure (hash : Option < & str > , error : & str , config : & TelegramConfig ,) -> Result < () >
   ```
 
+### `src/modules/torrent/seedr_eviction.rs` (Role: general, Lines: 158)
+- **Responsibility**: Core general logic in src/modules/torrent/seedr_eviction.rs
+- **Imports**: use std :: collections :: HashSet , use std :: path :: Path , use super :: scheduler , use super :: seedr , use super :: seedr_tasks :: { self , base_key } 
+- **Public Functions & Signatures**:
+  ```rust
+  fn free_space_for (required : u64) -> Option < u64 >
+  ```
+
 ### `src/modules/torrent/seedr_health.rs` (Role: general, Lines: 110)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_health.rs
 - **Imports**: use anyhow :: Context , use reqwest :: blocking :: Client , use std :: time :: Duration , use super :: api , use super :: queue :: { self , QueueState } , use super :: scheduler , use super :: seedr :: { load_pending_magnet , remove_pending_magnet } , use super :: seedr_tasks , use crate :: notify :: config :: TelegramConfig 
@@ -1443,6 +1458,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn notify_reaped (names : & [String])
   ```
 
+### `src/modules/torrent/seedr_retry.rs` (Role: general, Lines: 148)
+- **Responsibility**: Core general logic in src/modules/torrent/seedr_retry.rs
+- **Imports**: use std :: collections :: HashSet , use reqwest :: blocking :: Client , use super :: api :: { self , TorrentInfo } , use super :: queue :: { self , QueueState } , use super :: seedr_tasks :: { self , base_key } , use super :: { scheduler , seedr_eviction } , use crate :: notify :: config :: TelegramConfig 
+- **Public Functions & Signatures**:
+  ```rust
+  fn retry_candidates (client : & Client , config : & TelegramConfig)
+  ```
+
 ### `src/modules/torrent/seedr_tasks/tests.rs` (Role: general, Lines: 87)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks/tests.rs
 - **Imports**: use super :: * 
@@ -1461,7 +1484,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_seedr_tasks_section (tasks : & [SeedrTaskState]) -> String
   ```
 
-### `src/modules/torrent/telegram.rs` (Role: general, Lines: 140)
+### `src/modules/torrent/telegram.rs` (Role: general, Lines: 141)
 - **Responsibility**: Core general logic in src/modules/torrent/telegram.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , pub use crate :: notify :: TelegramConfig , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
@@ -1471,7 +1494,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn configure_autorun (lines : & mut Vec < String > , enabled : bool)
   ```
 
-### `src/modules/torrent.rs` (Role: general, Lines: 395)
+### `src/modules/torrent.rs` (Role: general, Lines: 397)
 - **Responsibility**: Core general logic in src/modules/torrent.rs
 - **Imports**: use crate :: runner :: Runner , use anyhow :: { bail , Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , BufRead , Write } , use std :: path :: Path 
 - **Public Functions & Signatures**:
@@ -1516,7 +1539,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_card (category : & str , badge : & str , fields : & [(& str , & str)]) -> String
   ```
 
-### `src/notify/config.rs` (Role: general, Lines: 216)
+### `src/notify/config.rs` (Role: general, Lines: 227)
 - **Responsibility**: Core general logic in src/notify/config.rs
 - **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:

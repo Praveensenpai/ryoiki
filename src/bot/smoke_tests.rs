@@ -34,6 +34,7 @@ fn dummy_config() -> TelegramConfig {
         seedr_max_active_secs: 9_000,
         seedr_slow_speed_bps: 307_200,
         seedr_slow_grace_secs: 300,
+        seedr_max_torrent_mb: 4_999,
     }
 }
 
@@ -255,4 +256,83 @@ fn test_live_torrent_pagination_render() {
         Err(e) => panic!("clamped render must succeed: {e}"),
     };
     assert!(clamped.contains(&format!("</code>{pages}/{pages} • ")));
+}
+
+/// Live read-only inspection of the hourly Seedr retry decision. Uses the real
+/// qBittorrent list and real Seedr cloud list; never submits anything.
+#[test]
+fn test_live_hourly_seedr_candidate() {
+    let Ok(cfg) = TelegramConfig::load() else {
+        eprintln!("SKIP: no Telegram/qBittorrent config on this machine");
+        return;
+    };
+    let client = reqwest::blocking::Client::new();
+    let torrents =
+        match crate::modules::torrent::api::get_torrents(&client, &cfg.qbittorrent_url, None) {
+            Ok(t) => t,
+            Err(e) => {
+                eprintln!("SKIP: qBittorrent unreachable: {e}");
+                return;
+            }
+        };
+
+    let live = crate::modules::torrent::seedr_tasks::fetch_live_list();
+    let cloud_names: std::collections::HashSet<String> = live
+        .as_ref()
+        .map(|list| {
+            use crate::modules::torrent::seedr_tasks::base_key;
+            list.torrents
+                .iter()
+                .map(|t| base_key(&t.name))
+                .chain(list.folders.iter().map(|f| base_key(&f.name)))
+                .chain(list.files.iter().map(|f| base_key(&f.name)))
+                .collect()
+        })
+        .unwrap_or_default();
+    let queued = crate::modules::torrent::queue::load();
+    let queued_hashes: std::collections::HashSet<String> =
+        queued.entries.iter().map(|e| e.hash.clone()).collect();
+
+    let max_bytes = cfg.seedr_max_torrent_mb.saturating_mul(1_048_576);
+    let picked = crate::modules::torrent::seedr_retry::pick_candidate(
+        &torrents,
+        max_bytes,
+        &cloud_names,
+        &queued_hashes,
+    );
+    let available = crate::modules::torrent::seedr_tasks::seedr_available_bytes();
+
+    eprintln!(
+        "\nLIVE hourly retry: qb_torrents={} seedr_list={} free={:?} ceiling={}MB",
+        torrents.len(),
+        live.is_some(),
+        available.map(|b| b / 1_048_576),
+        cfg.seedr_max_torrent_mb
+    );
+    match picked {
+        Some(t) => eprintln!(
+            "  candidate: {} · {} MB · {} · metadata={}",
+            t.name,
+            t.total_size / 1_048_576,
+            t.state,
+            t.has_metadata
+        ),
+        None => eprintln!("  candidate: none (all skipped)"),
+    }
+    eprintln!(
+        "  sweep would {}: {}",
+        if available.is_some() { "run" } else { "pause" },
+        if available.is_some() {
+            "Seedr account reachable"
+        } else {
+            "Seedr quota unavailable"
+        }
+    );
+
+    if let Some(t) = picked {
+        assert!(t.has_metadata && t.total_size > 0);
+        assert!(!t.is_completed());
+        assert!(u64::try_from(t.total_size).is_ok_and(|s| s <= max_bytes));
+    }
+    assert_eq!(cfg.seedr_max_torrent_mb, 4_999);
 }

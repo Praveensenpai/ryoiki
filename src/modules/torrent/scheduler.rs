@@ -177,7 +177,18 @@ pub(crate) fn promote_next_locked(config: &TelegramConfig) -> Option<String> {
     match pick_promotion(&q.entries, policy, free, needed) {
         Promotion::Start(hash) => start_entry(&mut q, &hash, config),
         Promotion::SpaceBlocked { name, needed, free } => {
-            notify_space_blocked(&name, needed, free);
+            // Try to free the quota from completed items before declaring the
+            // slot blocked. Items still caching in Seedr are left alone.
+            let freed = super::seedr_eviction::free_space_for_with(&tracked, needed);
+            if freed.is_some_and(|bytes| bytes >= needed) {
+                if let Promotion::Start(hash) =
+                    pick_promotion(&q.entries, policy, freed, Some(needed))
+                {
+                    return start_entry(&mut q, &hash, config);
+                }
+            }
+            let remaining = freed.unwrap_or(free);
+            notify_space_blocked(&name, needed, remaining);
             None
         }
         Promotion::Idle => None,

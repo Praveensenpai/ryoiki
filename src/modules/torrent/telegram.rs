@@ -75,6 +75,7 @@ pub fn prompt_telegram_config(
         seedr_max_active_secs: 9_000,
         seedr_slow_speed_bps: 307_200,
         seedr_slow_grace_secs: 300,
+        seedr_max_torrent_mb: 4_999,
     };
 
     let test_msg = "<b>RYOIKI</b> <i>· qBittorrent</i>\n────────────────────\n\n<b>Bot active</b>\n\n<i>Type /help for commands, or paste a magnet link.</i>";
