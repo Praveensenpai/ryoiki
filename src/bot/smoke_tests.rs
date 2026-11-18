@@ -336,3 +336,37 @@ fn test_live_hourly_seedr_candidate() {
     }
     assert_eq!(cfg.seedr_max_torrent_mb, 4_999);
 }
+
+/// Real magnet captured from a drushti-sourced 1TamilMV WEB-DL thread. Verifies
+/// the admission decision path against genuine forum data, not fixtures.
+#[test]
+fn test_live_real_magnet_size_gate() {
+    let magnet = concat!(
+        "magnet:?xt=urn:btih:5d664cf513399dc489528368cad99d0acb07fae3",
+        "&dn=www.1TamilMV.style%20-%20Sarala%20Subbarao%20%282026%29%20Kannada%20WEB-DL",
+        "&xl=3391383552",
+    );
+    let hash = crate::modules::torrent::seedr::extract_btih_hash(magnet);
+    let size = crate::modules::torrent::seedr::extract_magnet_size(magnet);
+    assert_eq!(
+        hash.as_deref(),
+        Some("5d664cf513399dc489528368cad99d0acb07fae3")
+    );
+    assert_eq!(size, Some(3_391_383_552));
+
+    let cfg = dummy_config();
+    let ceiling = cfg.seedr_max_torrent_mb.saturating_mul(1_048_576);
+    assert!(size.is_some_and(|s| s <= ceiling));
+
+    eprintln!(
+        "\nLIVE real magnet: hash={} size={} MB ceiling={} MB → {}",
+        hash.as_deref().unwrap_or("?"),
+        size.unwrap_or(0) / 1_048_576,
+        cfg.seedr_max_torrent_mb,
+        if size.is_some_and(|s| s <= ceiling) {
+            "under ceiling, Seedr-eligible"
+        } else {
+            "oversized, qBittorrent only"
+        }
+    );
+}
