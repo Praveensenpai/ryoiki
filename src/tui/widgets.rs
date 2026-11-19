@@ -92,18 +92,20 @@ impl Row {
     }
 }
 
+/// Statics for one content panel render.
+pub struct Pane<'a> {
+    pub title: &'a str,
+    pub subtitle: &'a str,
+    pub note: Option<String>,
+    pub active: bool,
+}
+
 /// Draws the content panel and its rows, scrolling to keep the cursor visible.
-pub fn render_rows(
-    f: &mut Frame,
-    area: Rect,
-    rows: &[Row],
-    cursor: usize,
-    active: bool,
-    title: &str,
-    subtitle: &str,
-) {
+pub fn render_rows(f: &mut Frame, area: Rect, rows: &[Row], cursor: usize, pane: Pane<'_>) {
     let t = theme();
-    let block = content_block(title, subtitle, rows.len(), t);
+    let width = usize::from(area.width.saturating_sub(2));
+    let note = pane.note.map(|n| truncate(&n, width.saturating_sub(14)));
+    let block = content_block(pane.title, pane.subtitle, rows.len(), note.as_deref(), t);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -113,7 +115,8 @@ pub fn render_rows(
 
     let width = usize::from(inner.width);
     let height = usize::from(inner.height);
-    let offset = scroll_offset(cursor, height, rows.len());
+    let last_selectable = rows.iter().rposition(Row::is_selectable).unwrap_or(0);
+    let offset = scroll_offset(cursor, height, rows.len(), last_selectable);
     let (label_width, value_max) = row_metrics(rows, width);
     let lines: Vec<Line> = rows
         .iter()
@@ -123,7 +126,7 @@ pub fn render_rows(
         .map(|(idx, row)| {
             render_row(
                 row,
-                idx == cursor && active,
+                idx == cursor && pane.active,
                 width,
                 label_width,
                 value_max,
@@ -134,8 +137,14 @@ pub fn render_rows(
     f.render_widget(Paragraph::new(lines), inner);
 }
 
-fn content_block(title: &str, subtitle: &str, count: usize, t: Theme) -> Block<'static> {
-    Block::default()
+fn content_block(
+    title: &str,
+    subtitle: &str,
+    count: usize,
+    note: Option<&str>,
+    t: Theme,
+) -> Block<'static> {
+    let mut block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(t.border())
@@ -154,14 +163,28 @@ fn content_block(title: &str, subtitle: &str, count: usize, t: Theme) -> Block<'
                 Style::default().fg(t.overlay),
             )])
             .right_aligned(),
-        )
+        );
+    if let Some(note) = note {
+        block = block.title_bottom(Line::from(vec![Span::styled(
+            format!(" {note} "),
+            Style::default().fg(t.subtext),
+        )]));
+    }
+    block
 }
 
-fn scroll_offset(cursor: usize, height: usize, total: usize) -> usize {
-    if cursor >= height {
-        (cursor + 1 - height).min(total.saturating_sub(height))
+fn scroll_offset(cursor: usize, height: usize, total: usize, last_selectable: usize) -> usize {
+    if total <= height {
+        return 0;
+    }
+    let max_offset = total - height;
+    let min_offset = cursor.saturating_add(1).saturating_sub(height);
+    // On the last selectable row, anchor the view to the end so trailing
+    // info rows are revealed too; the cursor stays visible.
+    if cursor == last_selectable && max_offset > min_offset && max_offset <= cursor {
+        max_offset
     } else {
-        0
+        min_offset.min(max_offset)
     }
 }
 

@@ -25,20 +25,24 @@ pub fn rows(app: &App) -> Vec<Row> {
         .iter()
         .filter(|module| module.installed)
         .count();
-    rows.push(Row::divider());
     rows.push(Row::action_state(
         format!("Run {selected} selected"),
         format!("{installed}/{} installed", app.provision.len()),
     ));
-    rows.push(Row::info("Tip", "space toggles · enter runs"));
-    let about = app
-        .provision
-        .get(app.cursor())
-        .map_or("select a module to see details", |module| {
-            module.description.as_str()
-        });
-    rows.push(Row::info("About", about));
     rows
+}
+
+/// Bottom-of-panel note describing the module under the cursor.
+#[must_use]
+pub fn note(app: &App) -> String {
+    let cursor = app.cursor();
+    if let Some(module) = app.provision.get(cursor) {
+        return module.description.clone();
+    }
+    if cursor == app.provision.len() {
+        return "Enter runs the selected modules (dependencies included)".to_string();
+    }
+    "select a module to see details".to_string()
 }
 
 pub fn activate(app: &mut App, index: usize) -> Action {
@@ -47,7 +51,7 @@ pub fn activate(app: &mut App, index: usize) -> Action {
         app.provision[index].selected = !app.provision[index].selected;
         return Action::None;
     }
-    if index != count + 1 {
+    if index != count {
         return Action::None;
     }
 

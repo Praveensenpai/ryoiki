@@ -35,10 +35,21 @@ pub fn render(f: &mut Frame, area: Rect, app: &App) {
         area,
         &rows,
         app.cursor(),
-        app.focus == Focus::Content,
-        app.tab.title(),
-        app.tab.subtitle(),
+        widgets::Pane {
+            title: app.tab.title(),
+            subtitle: app.tab.subtitle(),
+            note: footer_note(app),
+            active: app.focus == Focus::Content,
+        },
     );
+}
+
+/// Fixed bottom-of-panel description for the row under the cursor.
+fn footer_note(app: &App) -> Option<String> {
+    match app.tab {
+        Tab::Provision => Some(provision::note(app)),
+        _ => None,
+    }
 }
 
 /// Maps Enter/Space on the current row to an action.

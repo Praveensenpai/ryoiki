@@ -1963,12 +1963,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn activate (app : & mut App , index : usize) -> Action
   ```
 
-### `src/tui/views/provision.rs` (Role: tui, Lines: 75)
+### `src/tui/views/provision.rs` (Role: tui, Lines: 79)
 - **Responsibility**: Core tui logic in src/tui/views/provision.rs
 - **Imports**: use crate :: tui :: app :: { Action , App , Confirm } , use crate :: tui :: widgets :: Row 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
+  fn note (app : & App) -> String
   fn activate (app : & mut App , index : usize) -> Action
   ```
 
@@ -2000,13 +2001,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn activate (app : & mut App , index : usize) -> Action
   ```
 
-### `src/tui/views.rs` (Role: tui, Lines: 107)
+### `src/tui/views.rs` (Role: tui, Lines: 112)
 - **Responsibility**: Core tui logic in src/tui/views.rs
 - **Imports**: use ratatui :: { layout :: Rect , Frame } , use crate :: tui :: app :: { Action , App , Focus , Tab } , use crate :: tui :: widgets :: { self , Row } 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
   fn render (f : & mut Frame , area : Rect , app : & App)
+  fn footer_note (app : & App) -> Option < String >
   fn activate (app : & mut App , index : usize) -> Action
   fn adjust (app : & mut App , index : usize , delta : i32)
   fn first_selectable (app : & App) -> usize
@@ -2040,13 +2042,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn step (value : u8 , delta : i32 , stride : u8 , min : u8 , max : u8) -> u8
   ```
 
-### `src/tui/widgets.rs` (Role: tui, Lines: 290)
+### `src/tui/widgets.rs` (Role: tui, Lines: 310)
 - **Responsibility**: Core tui logic in src/tui/widgets.rs
 - **Imports**: use ratatui :: { layout :: { Alignment , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , pub use theme :: { theme , Theme } , pub use util :: { bar , centered_box , centered_rect , step , tail , truncate } 
 - **Types & Enums**:
   ```rust
   pub enum RowKind
   pub struct Row
+  pub struct Pane < 'a > { title , subtitle , note , active }
   ```
 - **Public Functions & Signatures**:
   ```rust
@@ -2057,7 +2060,8 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn stepper (label : impl Into < String > , value : u8 , suffix : & 'static str) -> Self
   fn toggle (label : impl Into < String > , on : bool) -> Self
   fn is_selectable (& self) -> bool
-  fn render_rows (f : & mut Frame , area : Rect , rows : & [Row] , cursor : usize , active : bool , title : & str , subtitle : & str ,)
+  fn render_rows (f : & mut Frame , area : Rect , rows : & [Row] , cursor : usize , pane : Pane < '_ >)
+  fn scroll_offset (cursor : usize , height : usize , total : usize , last_selectable : usize) -> usize
   fn modal_frame (f : & mut Frame , area : Rect , title : & str , accent : Color) -> Rect
   ```
 
