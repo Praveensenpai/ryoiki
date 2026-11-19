@@ -26,7 +26,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn set_alarm (delay_secs : u32) -> Result < String >
   ```
 
-### `src/auto_poweron/systemd.rs` (Role: general, Lines: 94)
+### `src/auto_poweron/systemd.rs` (Role: general, Lines: 99)
 - **Responsibility**: Core general logic in src/auto_poweron/systemd.rs
 - **Imports**: use anyhow :: { bail , Context , Result } , use std :: path :: Path , use std :: process :: Command , use crate :: charge_limit :: sysfs :: write_privileged_file 
 - **Public Functions & Signatures**:
@@ -192,7 +192,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn restart_managed_service (name : & str) -> Result < String >
   ```
 
-### `src/bot/smoke_tests.rs` (Role: general, Lines: 372)
+### `src/bot/smoke_tests.rs` (Role: general, Lines: 374)
 - **Responsibility**: Core general logic in src/bot/smoke_tests.rs
 - **Imports**: use super :: actions :: handle_charge_limit , use super :: maintenance :: { handle_bot_audio , handle_bot_check } , use super :: router :: extract_command , use super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , resolve_managed_unit , } , use super :: system :: collect_system_metrics , use super :: torrents :: { handle_seedr_cmd , render_torrent_report , seedr_magnet_target } , use super :: ui :: { render_docker_view , render_maintenance_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , } , use crate :: notify :: config :: TelegramConfig 
 
@@ -496,14 +496,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn apply_probe_fallback (info : & mut MediaInfo , probe : Option < & MediaProbe >)
   ```
 
-### `src/modules/media/ai/client.rs` (Role: cli, Lines: 227)
+### `src/modules/media/ai/client.rs` (Role: cli, Lines: 181)
 - **Responsibility**: Core cli logic in src/modules/media/ai/client.rs
 - **Imports**: use anyhow :: { bail , Context , Result } , use reqwest :: blocking :: Client , use serde :: Deserialize , use serde_json :: json , use std :: thread :: sleep , use std :: time :: Duration 
 - **Public Functions & Signatures**:
   ```rust
   fn clean_json_text (text : & str) -> String
   fn send_ai_prompt (client : & Client , gemini_api_key : Option < & str > , prompt : & str ,) -> Result < String >
-  fn send_deepseek_prompt (client : & Client , prompt : & str) -> Result < String >
   fn send_gemini_prompt (client : & Client , api_key : & str , prompt : & str) -> Result < String >
   ```
 
@@ -536,7 +535,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 
 ### `src/modules/media/ai.rs` (Role: general, Lines: 30)
 - **Responsibility**: Core general logic in src/modules/media/ai.rs
-- **Imports**: pub use batch :: classify_media_batch , # [allow (unused_imports)] pub use client :: { clean_json_text , send_ai_prompt , send_deepseek_prompt , send_gemini_prompt } , pub use schema :: { ensure_language_in_clean_name , ensure_resolution_in_clean_name } , use anyhow :: Result , use reqwest :: blocking :: Client , use super :: probe :: MediaProbe , use super :: MediaInfo , use prompt :: build_single_prompt , use schema :: parse_ai_json 
+- **Imports**: pub use batch :: classify_media_batch , # [allow (unused_imports)] pub use client :: { clean_json_text , send_ai_prompt , send_gemini_prompt } , pub use schema :: { ensure_language_in_clean_name , ensure_resolution_in_clean_name } , use anyhow :: Result , use reqwest :: blocking :: Client , use super :: probe :: MediaProbe , use super :: MediaInfo , use prompt :: build_single_prompt , use schema :: parse_ai_json 
 - **Public Functions & Signatures**:
   ```rust
   fn classify_media_ai (client : & Client , api_key : Option < & str > , raw_name : & str , probe : Option < & MediaProbe > ,) -> Result < MediaInfo >
@@ -703,12 +702,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn strip_audio_auto (path : & Path , preserve_multi : bool) -> StripOutcome
   ```
 
-### `src/modules/media/config.rs` (Role: general, Lines: 141)
+### `src/modules/media/config.rs` (Role: general, Lines: 78)
 - **Responsibility**: Core general logic in src/modules/media/config.rs
 - **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write } , use crate :: notify :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn get_or_prompt_gemini_key (interactive : bool) -> Option < String >
+  fn get_gemini_model () -> String
   fn is_ai_enabled () -> bool
   ```
 
@@ -1516,7 +1516,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_seedr_tasks_section (tasks : & [SeedrTaskState]) -> String
   ```
 
-### `src/modules/torrent/telegram.rs` (Role: general, Lines: 141)
+### `src/modules/torrent/telegram.rs` (Role: general, Lines: 137)
 - **Responsibility**: Core general logic in src/modules/torrent/telegram.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , pub use crate :: notify :: TelegramConfig , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
@@ -1571,7 +1571,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_card (category : & str , badge : & str , fields : & [(& str , & str)]) -> String
   ```
 
-### `src/notify/config.rs` (Role: general, Lines: 227)
+### `src/notify/config.rs` (Role: general, Lines: 216)
 - **Responsibility**: Core general logic in src/notify/config.rs
 - **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
@@ -1623,9 +1623,6 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn run_battery_watch (config : & TelegramConfig) -> Result < () >
   fn should_power_off (pct : u8 , ac_online : bool , settings : & Settings , already_fired : bool ,) -> bool
   ```
-
-  Note: the HP charge regulation and high-charge alert are gated on
-  `settings.battery.max_charge_enabled`; the watcher reads settings fresh each poll.
 
 ### `src/notify/server.rs` (Role: general, Lines: 370)
 - **Responsibility**: Core general logic in src/notify/server.rs
@@ -1754,7 +1751,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn save (settings : & Settings) -> Result < PathBuf >
   ```
 
-### `src/settings.rs` (Role: general, Lines: 15)
+### `src/settings.rs` (Role: general, Lines: 21)
 - **Responsibility**: Core general logic in src/settings.rs
 - **Imports**: pub use model :: { validate_prune , AutoPoweronSettings , Settings , DEFAULT_ALERTS , MAX_AUTO_POWERON_DELAY , MAX_CHARGE , MAX_POWEROFF , MAX_PRUNE , MIN_AUTO_POWERON_DELAY , MIN_CHARGE , MIN_POWEROFF , MIN_PRUNE , MIN_PRUNE_GAP , MIN_PRUNE_TARGET , } , pub use store :: { config_dir , load , load_or_default , path as settings_path , save } 
 - **Public Functions & Signatures**:
@@ -1928,7 +1925,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn module_installed (id : & str) -> bool
   ```
 
-### `src/tui/views/battery.rs` (Role: tui, Lines: 118)
+### `src/tui/views/battery.rs` (Role: tui, Lines: 117)
 - **Responsibility**: Core tui logic in src/tui/views/battery.rs
 - **Imports**: use crate :: settings :: { MAX_CHARGE , MAX_POWEROFF , MIN_CHARGE , MIN_POWEROFF } , use crate :: tui :: app :: { Action , App , Confirm , InputTarget } , use crate :: tui :: widgets :: { bar , step , Row } 
 - **Public Functions & Signatures**:
@@ -2004,14 +2001,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn activate (app : & mut App , index : usize) -> Action
   ```
 
-### `src/tui/views.rs` (Role: tui, Lines: 112)
+### `src/tui/views.rs` (Role: tui, Lines: 118)
 - **Responsibility**: Core tui logic in src/tui/views.rs
 - **Imports**: use ratatui :: { layout :: Rect , Frame } , use crate :: tui :: app :: { Action , App , Focus , Tab } , use crate :: tui :: widgets :: { self , Row } 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >
   fn render (f : & mut Frame , area : Rect , app : & App)
-  fn footer_note (app : & App) -> Option < String >
   fn activate (app : & mut App , index : usize) -> Action
   fn adjust (app : & mut App , index : usize , delta : i32)
   fn first_selectable (app : & App) -> usize
@@ -2045,14 +2041,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn step (value : u8 , delta : i32 , stride : u8 , min : u8 , max : u8) -> u8
   ```
 
-### `src/tui/widgets.rs` (Role: tui, Lines: 310)
+### `src/tui/widgets.rs` (Role: tui, Lines: 313)
 - **Responsibility**: Core tui logic in src/tui/widgets.rs
 - **Imports**: use ratatui :: { layout :: { Alignment , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , pub use theme :: { theme , Theme } , pub use util :: { bar , centered_box , centered_rect , step , tail , truncate } 
 - **Types & Enums**:
   ```rust
   pub enum RowKind
   pub struct Row
-  pub struct Pane < 'a > { title , subtitle , note , active }
+  pub struct Pane
   ```
 - **Public Functions & Signatures**:
   ```rust
@@ -2064,7 +2060,6 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn toggle (label : impl Into < String > , on : bool) -> Self
   fn is_selectable (& self) -> bool
   fn render_rows (f : & mut Frame , area : Rect , rows : & [Row] , cursor : usize , pane : Pane < '_ >)
-  fn scroll_offset (cursor : usize , height : usize , total : usize , last_selectable : usize) -> usize
   fn modal_frame (f : & mut Frame , area : Rect , title : & str , accent : Color) -> Rect
   ```
 

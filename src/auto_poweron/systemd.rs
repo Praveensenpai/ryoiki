@@ -31,6 +31,8 @@ fn logind_config() -> &'static str {
     "[Login]\nHandlePowerKey=poweroff\n"
 }
 
+/// Builds the shutdown hook. `RemainAfterExit=yes` must stay absent: a unit
+/// left active skips its start job at poweroff and never arms the RTC alarm.
 fn unit_contents(delay_secs: u32) -> String {
     let rtcwake_path = crate::auto_poweron::rtc::rtcwake_path();
     format!(
@@ -42,8 +44,7 @@ fn unit_contents(delay_secs: u32) -> String {
          Type=oneshot\n\
          Environment=RYOIKI_DELAY={delay_secs}\n\
          EnvironmentFile=-/run/ryoiki/poweroff-delay.conf\n\
-         ExecStart={rtcwake_path} -m no -l -s ${{RYOIKI_DELAY}}\n\
-         RemainAfterExit=yes\n\n\
+         ExecStart={rtcwake_path} -m no -l -s ${{RYOIKI_DELAY}}\n\n\
          [Install]\n\
          WantedBy=poweroff.target\n"
     )
@@ -90,5 +91,9 @@ mod tests {
         )));
         assert!(unit.contains("WantedBy=poweroff.target"));
         assert!(unit.contains("Before=systemd-poweroff.service"));
+        assert!(
+            !unit.contains("RemainAfterExit"),
+            "an active unit is skipped at shutdown and cannot arm the alarm"
+        );
     }
 }
