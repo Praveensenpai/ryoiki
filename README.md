@@ -233,12 +233,11 @@ Battery policy lives in `~/.config/ryoiki/settings.json`:
 - **Power decisions** are appended to `~/.local/state/ryoiki/power.log`.
 - **System services** run as root with `Environment=HOME=<your home>` so the watcher reads the same settings and Telegram config as the TUI. Reinstall hooks from the Notifications tab after upgrading a rootless install.
 
-### 🎬 AI Media Organizer & Dual-Tier AI
+### 🤖 AI Media Organizer
 
-`ryoiki` features an autonomous dual-tier AI pipeline to classify, organize, and rename incoming torrents and media into Jellyfin-compliant directory hierarchies (`Movies/`, `Shows/`, `Anime/`):
-1. **Primary Provider**: **DeepSeek** via OpenAI-compatible endpoints (`http://mochi:4000/v1/chat/completions`, model `v4.1flash`).
-2. **Secondary Fallback**: **Google Gemini** (`gemini-3.1-flash-lite`) if DeepSeek is unreachable or rate-limited.
-3. **Tertiary Fallback**: Offline deterministic regex heuristics.
+`ryoiki` features an autonomous AI pipeline to classify, organize, and rename incoming torrents and media into Jellyfin-compliant directory hierarchies (`Movies/`, `Shows/`, `Anime/`):
+1. **Primary Provider**: **Google Gemini** (`gemini-3.1-flash-lite`).
+2. **Fallback**: Offline deterministic regex heuristics.
 
 #### Configuration Options
 
@@ -247,10 +246,6 @@ Battery policy lives in `~/.config/ryoiki/settings.json`:
 {
   "bot_token": "...",
   "chat_id": "...",
-  "deepseek_url": "http://mochi:4000/v1/chat/completions",
-  "deepseek_model": "v4.1flash",
-  "deepseek_api_key": "dseeker",
-  "enable_deepseek": true,
   "gemini_api_key": "AIzaSy...",
   "gemini_model": "gemini-3.1-flash-lite"
 }
@@ -258,11 +253,6 @@ Battery policy lives in `~/.config/ryoiki/settings.json`:
 
 **2. Environment Variable Overrides**:
 ```bash
-export DEEPSEEK_URL="http://mochi:4000/v1/chat/completions"
-export DEEPSEEK_MODEL="v4.1flash"
-export DEEPSEEK_API_KEY="dseeker"
-export ENABLE_DEEPSEEK="true"
-
 export GEMINI_API_KEY="AIzaSy..."
 export GEMINI_MODEL="gemini-3.1-flash-lite"
 ```

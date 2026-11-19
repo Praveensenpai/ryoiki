@@ -709,11 +709,6 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Public Functions & Signatures**:
   ```rust
   fn get_or_prompt_gemini_key (interactive : bool) -> Option < String >
-  fn is_deepseek_enabled () -> bool
-  fn get_deepseek_url () -> String
-  fn get_deepseek_model () -> String
-  fn get_deepseek_api_key () -> String
-  fn get_gemini_model () -> String
   fn is_ai_enabled () -> bool
   ```
 

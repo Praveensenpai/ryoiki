@@ -63,14 +63,7 @@ pub struct TelegramConfig {
     pub gemini_api_key: Option<String>,
     #[serde(default)]
     pub gemini_model: Option<String>,
-    #[serde(default)]
-    pub deepseek_url: Option<String>,
-    #[serde(default)]
-    pub deepseek_model: Option<String>,
-    #[serde(default)]
-    pub deepseek_api_key: Option<String>,
-    #[serde(default)]
-    pub enable_deepseek: Option<bool>,
+
     #[serde(default = "default_jellyfin_url")]
     pub jellyfin_url: String,
     #[serde(default)]
@@ -108,10 +101,6 @@ impl Default for TelegramConfig {
             api_port: default_api_port(),
             gemini_api_key: None,
             gemini_model: None,
-            deepseek_url: None,
-            deepseek_model: None,
-            deepseek_api_key: None,
-            enable_deepseek: None,
             jellyfin_url: default_jellyfin_url(),
             jellyfin_api_key: None,
             session_cooldown_mins: default_session_cooldown_mins(),
