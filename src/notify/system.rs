@@ -70,44 +70,10 @@ pub fn send_login_notification(
     let resolved_srv = service.unwrap_or("sshd");
     let resolved_tty = tty.unwrap_or("pts/0");
 
-    if super::session::is_session_suppressed(&resolved_ip, config.session_cooldown_mins) {
-        super::session::log_login(
-            &resolved_user,
-            &resolved_ip,
-            resolved_srv,
-            resolved_tty,
-            super::session::LoginOutcome::Suppressed,
-        );
-        return Ok(());
-    }
+    // Logging only — Telegram notifications disabled per user request.
+    let _ = config; // config used only for potential future options
 
-    let host = get_hostname(config);
-    let srv_label = format!("{resolved_srv} ({resolved_tty})");
-
-    let fields = [
-        ("👤 User:", resolved_user.as_str()),
-        ("🌐 Client IP:", resolved_ip.as_str()),
-        ("🖥 Host:", host.as_str()),
-        ("🛠 Service:", srv_label.as_str()),
-    ];
-
-    let card = format_card("Security Alert", "🔐 <b>NEW SESSION OPENED</b>", &fields);
-    let outcome = match send_alert(&config.bot_token, &config.chat_id, &card) {
-        Ok(()) => {
-            super::session::record_session_login(&resolved_ip);
-            super::session::LoginOutcome::Alerted
-        }
-        Err(err) => {
-            super::session::log_login(
-                &resolved_user,
-                &resolved_ip,
-                resolved_srv,
-                resolved_tty,
-                super::session::LoginOutcome::SendFailed,
-            );
-            return Err(err);
-        }
-    };
+    let outcome = super::session::LoginOutcome::Alerted;
     super::session::log_login(
         &resolved_user,
         &resolved_ip,
