@@ -42,16 +42,15 @@ pub fn rows(app: &App) -> Vec<Row> {
 pub fn activate(app: &mut App, index: usize) -> Action {
     match index {
         0 => {
-            app.settings.battery.max_charge_enabled = !app.settings.battery.max_charge_enabled;
+            let enabled = !app.settings.battery.max_charge_enabled;
+            app.settings.battery.max_charge_enabled = enabled;
             app.save_settings();
-            Action::None
+            Action::ApplyChargeToggle(enabled)
         }
         1 | 4 => Action::SaveSettings,
         3 => {
             if app.settings.power.poweroff_on_low {
-                app.settings.power.poweroff_on_low = false;
-                app.save_settings();
-                Action::None
+                Action::SetPoweroffEnabled(false)
             } else {
                 let pct = app.settings.power.poweroff_percent;
                 app.confirm = Some(Confirm {

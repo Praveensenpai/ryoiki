@@ -1614,7 +1614,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn sample_cpu_usage (previous : & mut Option < (u64 , u64) >) -> Option < f64 >
   ```
 
-### `src/notify/power.rs` (Role: general, Lines: 363)
+### `src/notify/power.rs` (Role: general, Lines: 368)
 - **Responsibility**: Core general logic in src/notify/power.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: Write , use std :: path :: Path , use std :: thread , use std :: time :: { Duration , SystemTime } , use super :: client :: { format_card , send_alert } , use super :: config :: TelegramConfig , use crate :: settings :: Settings , use lock :: acquire_pid_lock , pub use sensors :: { is_ac_online , read_battery_percent , read_battery_status , read_cpu_temp , read_cpu_usage , sample_cpu_usage , } 
 - **Public Functions & Signatures**:
@@ -1623,6 +1623,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn run_battery_watch (config : & TelegramConfig) -> Result < () >
   fn should_power_off (pct : u8 , ac_online : bool , settings : & Settings , already_fired : bool ,) -> bool
   ```
+
+  Note: the HP charge regulation and high-charge alert are gated on
+  `settings.battery.max_charge_enabled`; the watcher reads settings fresh each poll.
 
 ### `src/notify/server.rs` (Role: general, Lines: 370)
 - **Responsibility**: Core general logic in src/notify/server.rs
@@ -1791,7 +1794,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core tui logic in src/tui/actions/tests.rs
 - **Imports**: use super :: INSTALL_HOOKS_ARGS 
 
-### `src/tui/actions.rs` (Role: tui, Lines: 345)
+### `src/tui/actions.rs` (Role: tui, Lines: 389)
 - **Responsibility**: Core tui logic in src/tui/actions.rs
 - **Imports**: use std :: process :: Command , use anyhow :: { bail , Context , Result } , use crate :: tui :: app :: { Action , App , ToastLevel } , use crate :: tui :: RunOptions , use helpers :: { ensure_sudo , run_root , with_timeout } 
 - **Types & Enums**:
@@ -1825,7 +1828,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_refreshing (& self) -> bool
   ```
 
-### `src/tui/app.rs` (Role: tui, Lines: 337)
+### `src/tui/app.rs` (Role: tui, Lines: 342)
 - **Responsibility**: Core tui logic in src/tui/app.rs
 - **Imports**: use std :: time :: { Duration , Instant } , use crate :: notify :: config :: TelegramConfig , use crate :: settings :: Settings , use crate :: tui :: refresh :: Worker , use crate :: tui :: system :: { self , ServiceRow , Snapshot } , pub use forms :: mask_secret , use forms :: { provision_rows , settings_warning , telegram_state } 
 - **Types & Enums**:
@@ -1935,7 +1938,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn adjust (app : & mut App , index : usize , delta : i32)
   ```
 
-### `src/tui/views/dashboard.rs` (Role: tui, Lines: 51)
+### `src/tui/views/dashboard.rs` (Role: tui, Lines: 55)
 - **Responsibility**: Core tui logic in src/tui/views/dashboard.rs
 - **Imports**: use crate :: tui :: app :: { Action , App } , use crate :: tui :: widgets :: { bar , Row } 
 - **Public Functions & Signatures**:

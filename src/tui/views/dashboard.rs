@@ -33,7 +33,11 @@ pub fn rows(app: &App) -> Vec<Row> {
         Row::info("Charge backend", snapshot.charge_backend.as_str()),
         Row::info(
             "Max charge",
-            format!("{}%", app.settings.battery.max_charge_percent),
+            if app.settings.battery.max_charge_enabled {
+                format!("{}% ceiling", app.settings.battery.max_charge_percent)
+            } else {
+                "off · 100%".to_string()
+            },
         ),
         Row::info("Auto poweroff", cutoff),
         Row::info("Watcher", watcher),

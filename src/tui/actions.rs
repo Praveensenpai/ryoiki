@@ -40,6 +40,7 @@ pub fn execute(app: &mut App, action: Action, opts: RunOptions) -> Effect {
         }
         Action::SetPoweroffEnabled(enabled) => set_poweroff(app, enabled),
         Action::ApplyChargeLimit => apply_charge_limit(app),
+        Action::ApplyChargeToggle(enabled) => apply_ceiling_toggle(app, enabled),
         Action::ResetAlerts => reset_alerts(app),
         Action::RestartWatcher => watcher("restart", opts),
         Action::EnableWatcher => watcher("enable", opts),
@@ -74,9 +75,52 @@ fn refresh(app: &mut App) -> Effect {
 
 fn set_poweroff(app: &mut App, enabled: bool) -> Effect {
     app.settings.power.poweroff_on_low = enabled;
+    let poweroff_pct = app.settings.power.poweroff_percent;
     app.save_settings();
-    let state = if enabled { "enabled" } else { "disabled" };
-    Effect::Toast(format!("auto poweroff {state}"), ToastLevel::Success)
+    if !enabled {
+        return Effect::Toast(
+            "auto poweroff DISABLED — the host will not shut down on low battery".to_string(),
+            ToastLevel::Success,
+        );
+    }
+    let watcher = watcher_active();
+    if watcher {
+        Effect::Toast(
+            format!("auto poweroff ENABLED — host shuts down at {poweroff_pct}% (watcher active)"),
+            ToastLevel::Success,
+        )
+    } else {
+        Effect::Toast(
+            "auto poweroff enabled, but ryoiki-battery-watch.service is INACTIVE — run: sudo systemctl enable --now ryoiki-battery-watch".to_string(),
+            ToastLevel::Warn,
+        )
+    }
+}
+
+/// Whether the battery-watch systemd unit is currently running.
+fn watcher_active() -> bool {
+    std::process::Command::new("systemctl")
+        .args(["is-active", "--quiet", "ryoiki-battery-watch.service"])
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+fn apply_ceiling_toggle(app: &App, enabled: bool) -> Effect {
+    let limit = if enabled {
+        app.settings.battery.max_charge_percent
+    } else {
+        100
+    };
+    let label = if enabled {
+        format!("Applying the {limit}% charge ceiling")
+    } else {
+        "Lifting the charge ceiling (100%)".to_string()
+    };
+    suspend(label, false, move |app| {
+        let message = crate::charge_limit::apply_limit_programmatic(limit)?;
+        app.request_refresh();
+        Ok(message)
+    })
 }
 
 fn apply_charge_limit(app: &mut App) -> Effect {

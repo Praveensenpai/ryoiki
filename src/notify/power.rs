@@ -73,12 +73,17 @@ fn update_charge_state(
 ) {
     let target_limit = settings.battery.max_charge_percent;
 
-    if crate::charge_limit::hp_acpi::is_hp_acpi_supported() {
-        regulate_hp(config, pct, ac_online, target_limit, state);
-    } else if ac_online && pct >= target_limit && !state.fired_high {
-        state.fired_high = true;
-        let card = build_high_charge_card(config, pct, target_limit);
-        let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+    let ceiling_enabled = settings.battery.max_charge_enabled;
+    if ceiling_enabled {
+        if crate::charge_limit::hp_acpi::is_hp_acpi_supported() {
+            regulate_hp(config, pct, ac_online, target_limit, state);
+        } else if ac_online && pct >= target_limit && !state.fired_high {
+            state.fired_high = true;
+            let card = build_high_charge_card(config, pct, target_limit);
+            let _ = send_alert(&config.bot_token, &config.chat_id, &card);
+        }
+    } else {
+        state.fired_high = false;
     }
 
     if ac_online {

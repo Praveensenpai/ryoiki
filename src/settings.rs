@@ -8,8 +8,14 @@ pub use model::{
 };
 pub use store::{config_dir, load, load_or_default, path as settings_path, save};
 
-/// Effective charge limit: persisted settings first, then the legacy file.
+/// Effective charge limit: 100 when the ceiling is turned off, otherwise the
+/// persisted `battery.max_charge_percent`, then the legacy file.
 #[must_use]
 pub fn effective_charge_limit() -> u8 {
-    load_or_default().battery.max_charge_percent
+    let settings = load_or_default();
+    if settings.battery.max_charge_enabled {
+        settings.battery.max_charge_percent
+    } else {
+        100
+    }
 }

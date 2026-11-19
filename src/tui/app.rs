@@ -125,6 +125,8 @@ pub enum Action {
     ReloadSettings,
     SetPoweroffEnabled(bool),
     ApplyChargeLimit,
+    /// Apply (or lift) the charge ceiling because the enable toggle was flipped.
+    ApplyChargeToggle(bool),
     ResetAlerts,
     RestartWatcher,
     EnableWatcher,
@@ -134,7 +136,10 @@ pub enum Action {
     CheckUpdate,
     SelfUpdate,
     RunProvision,
-    RestartService { name: String, is_user: bool },
+    RestartService {
+        name: String,
+        is_user: bool,
+    },
     RestartContainer(String),
     LaunchMedia,
     AssignAudioLanguage,
