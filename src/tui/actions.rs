@@ -50,10 +50,10 @@ pub fn execute(app: &mut App, action: Action, opts: RunOptions) -> Effect {
         Action::CheckUpdate => check_update(),
         Action::SelfUpdate => self_update(app),
         Action::RunProvision => run_provision(app, opts),
-        Action::RestartService { name, is_user } => restart_service(name, is_user, opts),
-        Action::StopService { name, is_user } => stop_service(name, is_user, opts),
-        Action::RestartContainer(name) => restart_container(name),
-        Action::StopContainer(name) => stop_container(name),
+        Action::RestartService { name, is_user } => service_action(name, is_user, true, opts),
+        Action::StopService { name, is_user } => service_action(name, is_user, false, opts),
+        Action::RestartContainer(name) => container_action(name, true),
+        Action::StopContainer(name) => container_action(name, false),
         Action::LaunchMedia => media_manager(),
         Action::AssignAudioLanguage => assign_audio_language(),
         Action::PruneDryRun => prune_preview(app),
@@ -200,53 +200,6 @@ where
         label: label.into(),
         task: Box::new(task),
         pause,
-    })
-}
-
-fn restart_service(name: String, is_user: bool, opts: RunOptions) -> Effect {
-    suspend(format!("Restarting {name}"), false, move |app| {
-        if is_user {
-            crate::bot::services::restart_managed_service(&name)?;
-        } else {
-            run_root("systemctl", &["restart", &name], opts)?;
-        }
-        app.request_refresh();
-        Ok(format!("{name} restarted"))
-    })
-}
-
-fn stop_service(name: String, is_user: bool, opts: RunOptions) -> Effect {
-    suspend(format!("Stopping {name}"), false, move |app| {
-        if is_user {
-            run_root("systemctl", &["--user", "stop", &name], opts)?;
-        } else {
-            run_root("systemctl", &["stop", &name], opts)?;
-        }
-        app.request_refresh();
-        Ok(format!("{name} stopped"))
-    })
-}
-
-fn restart_container(name: String) -> Effect {
-    suspend(format!("Restarting container {name}"), false, move |app| {
-        crate::bot::services::restart_docker_container(&name)?;
-        app.request_refresh();
-        Ok(format!("container {name} restarted"))
-    })
-}
-
-fn stop_container(name: String) -> Effect {
-    suspend(format!("Stopping container {name}"), false, move |app| {
-        let out = Command::new("docker")
-            .args(["stop", &name])
-            .output()
-            .context("Failed to execute docker stop")?;
-        if !out.status.success() {
-            let err = String::from_utf8_lossy(&out.stderr);
-            bail!("Failed to stop {name}: {}", err.trim());
-        }
-        app.request_refresh();
-        Ok(format!("container {name} stopped"))
     })
 }
 
@@ -413,6 +366,8 @@ fn provision(app: &mut App, selected: &[String], opts: RunOptions) -> Result<Str
 
 pub mod helpers;
 use helpers::{ensure_sudo, run_root, with_timeout};
+mod service_ops;
+use service_ops::{container_action, service_action};
 
 #[cfg(test)]
 mod tests;
