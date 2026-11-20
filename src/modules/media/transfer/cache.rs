@@ -243,6 +243,7 @@ mod tests {
                     rel_path: "test.mkv".to_string(),
                     size_bytes: 1000,
                     exists_in_other: false,
+                    is_selected: false,
                 }],
                 seasons: Vec::new(),
             },

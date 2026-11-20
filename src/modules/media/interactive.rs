@@ -16,7 +16,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use super::disk::DiskUsage;
-use super::transfer::{MediaCategory, MediaItem, TransferDirection};
+use super::transfer::{MediaCategory, MediaFile, MediaItem, TransferDirection};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ItemFilter {
@@ -65,6 +65,7 @@ pub enum ViewMode {
     },
 }
 
+#[derive(Clone)]
 pub struct AppState {
     pub home_path: PathBuf,
     pub direction: TransferDirection,

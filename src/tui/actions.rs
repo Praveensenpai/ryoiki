@@ -411,7 +411,7 @@ fn provision(app: &mut App, selected: &[String], opts: RunOptions) -> Result<Str
     Ok(format!("provisioned {total} module(s)"))
 }
 
-mod helpers;
+pub mod helpers;
 use helpers::{ensure_sudo, run_root, with_timeout};
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use super::{AppState, MediaItem, TransferDirection, ViewMode};
 use crate::modules::media::trash::{self, TrashEntry, TrashKind};
+use crate::tui::actions::helpers::with_timeout;
 
 #[derive(Debug, Clone)]
 pub enum PendingAction {
@@ -230,7 +231,14 @@ fn confirm(state: &mut AppState) -> Option<bool> {
             size_bytes,
         } => trash::trash_remote(remote, *kind, title, *size_bytes).map(|_| "Moved to trash"),
         PendingAction::Restore(entry) => trash::restore_entry(entry).map(|()| "Restored"),
-        PendingAction::Purge(entry) => trash::purge_entry(entry).map(|()| "Deleted permanently"),
+        PendingAction::Purge(entry) => {
+            // Run purge in background thread with timeout so UI remains responsive
+            let entry_clone = entry.clone();
+            let result = with_timeout(300, move || -> anyhow::Result<()> {
+                trash::purge_entry(&entry_clone)
+            });
+            result.map(|_| "Deleted permanently")
+        }
     };
 
     match outcome {

@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-89b4fa?style=flat-square)](LICENSE)
 [![Rust: 2021](https://img.shields.io/badge/Rust-2021%20Edition-f38ba8?style=flat-square&logo=rust&logoColor=white)](Cargo.toml)
 [![Platform: Ubuntu](https://img.shields.io/badge/Platform-Ubuntu%20%7C%20Debian-fab387?style=flat-square&logo=ubuntu&logoColor=white)](https://ubuntu.com/)
-[![Arch: x86_64 | aarch64](https://img.shields.io/badge/Arch-x86__64%20%7C%20aarch64-94e2d5?style=flat-square)](https://github.com/Praveensenpai/ryoiki/releases)
+[![Arch: x86_64](https://img.shields.io/badge/Arch-x86_64-94e2d5?style=flat-square)](https://github.com/Praveensenpai/ryoiki/releases)
 
 </div>
 
@@ -48,7 +48,7 @@ curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-in
 
 That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 
-1. **Detects your CPU arch** — `x86_64` or `aarch64` (AWS Graviton, Raspberry Pi, etc.)
+1. **Detects your CPU arch** — `x86_64` (Intel / AMD)
 2. **Downloads the pre-compiled binary** — straight from the latest GitHub Release, no compilation
 3. **Installs to `~/.local/bin/ryoiki`** — no root required for the binary itself
 4. **Installs system hooks** — udev power rule, battery-watch service, boot & login notifications
@@ -70,7 +70,7 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 - 🎬 **Jellyfin Media Server** — Turn your server into a personal Netflix with automated Docker Compose deployment and Intel QuickSync (QSV) hardware transcoding.
 - 📥 **qBittorrent Web UI** — Remote torrent management out of the box via Docker Compose on port 6881 and UFW firewall configuration.
 - 🛡️ **Hardened Server Security** — Automated UFW firewall configuration (SSH, HTTP, HTTPS) and unneeded daemon cleanup.
-- 🚀 **Dual Architecture Releases** — Native static binaries built for both `x86_64` and `aarch64` (AWS Graviton, Ampere, Raspberry Pi).
+- 🚀 **Native x86_64 Releases** — Native static binaries built for `x86_64` (Intel / AMD).
 - 🦀 **Strict Rust Standards** — Built under strict quality gates: `<400` LOC per file, `<60` LOC per function, zero unhandled `unwrap()` calls, and zero Clippy warnings.
 
 ---
@@ -270,7 +270,7 @@ ryoiki/
 │   ├── release.yml           # Categorized GitHub release changelog config
 │   └── workflows/
 │       ├── ci.yml            # Automated CI: fmt, clippy (-D warnings), test & line limits
-│       └── release.yml       # Multi-arch binary builder & publisher (x86_64 & aarch64)
+│       └── release.yml       # Binary builder & publisher (x86_64)
 ├── configs/                  # Embedded configuration templates
 │   ├── .tmux.conf            # 256-color, vi-keys, mouse-scrolling, OSC 52 clipboard passthrough
 │   ├── .bash_aliases         # Modern tool aliases (eza, bat, toss) & PATH exports

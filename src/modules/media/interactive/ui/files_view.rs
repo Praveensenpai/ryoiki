@@ -50,7 +50,7 @@ pub fn render_files_ui(
         f,
         chunks[0],
         &title,
-        files.len(),
+        files,
         sync_status,
         state.direction,
     );
@@ -62,10 +62,11 @@ fn render_files_header(
     f: &mut Frame,
     area: Rect,
     title: &str,
-    total_files: usize,
+    files: &[MediaFile],
     sync_status: crate::modules::media::transfer::SyncStatus,
     dir: TransferDirection,
 ) {
+    let total_files = files.len();
     let total_sz = disk::format_bytes(sync_status.total_bytes);
     let line1 = match dir {
         TransferDirection::Push => Line::from(vec![
@@ -117,6 +118,26 @@ fn render_files_header(
         }
     };
 
+    let selected: Vec<&MediaFile> = files.iter().filter(|f| f.is_selected).collect();
+    let line2 = if selected.is_empty() {
+        Line::from(vec![Span::styled(
+            " Selected: none  ·  press [Space] to pick individual files",
+            Style::default().fg(Color::DarkGray),
+        )])
+    } else {
+        let sel_bytes: u64 = selected.iter().map(|f| f.size_bytes).sum();
+        Line::from(vec![
+            Span::raw(" Selected: "),
+            Span::styled(
+                format!("{} file(s) ({})", selected.len(), disk::format_bytes(sel_bytes)),
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled("  ·  press [p] to transfer", Style::default().fg(Color::DarkGray)),
+        ])
+    };
+
     let block = Block::default()
         .title(format!(" 📄 Files in {title} "))
         .title_alignment(Alignment::Center)
@@ -124,7 +145,7 @@ fn render_files_header(
         .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(Color::Cyan));
 
-    let para = Paragraph::new(vec![line1])
+    let para = Paragraph::new(vec![line1, line2])
         .alignment(Alignment::Center)
         .block(block);
     f.render_widget(para, area);
@@ -199,6 +220,17 @@ fn build_file_line(file: &MediaFile, cursor: bool, num: usize, dir: TransferDire
         Span::raw("   ")
     };
 
+    let check = if file.is_selected {
+        Span::styled(
+            "[✓] ",
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
+        )
+    } else {
+        Span::styled("[ ] ", Style::default().fg(Color::DarkGray))
+    };
+
     let badge = match dir {
         TransferDirection::Push => {
             if file.exists_in_other {
@@ -231,14 +263,18 @@ fn build_file_line(file: &MediaFile, cursor: bool, num: usize, dir: TransferDire
     let sz_str = disk::format_bytes(file.size_bytes);
     let size = Span::styled(format!("{sz_str:<10}"), Style::default().fg(Color::Cyan));
 
-    Line::from(vec![pointer, badge, title, size])
+    Line::from(vec![pointer, check, badge, title, size])
 }
 
 fn render_files_footer(f: &mut Frame, area: Rect) {
     let shortcuts = [
-        ("[Esc]/[q]/[Enter]", "Back to List"),
+        ("[Space]", "Select file"),
+        ("[a]", "Select all"),
+        ("[n]", "Clear"),
+        ("[p]", "Transfer"),
         ("[↑/k, ↓/j]", "Navigate"),
         ("[d]", "Trash"),
+        ("[Esc]/[q]/[Enter]", "Back"),
     ];
     super::footer::render_footer(f, area, &shortcuts);
 }
@@ -285,6 +321,25 @@ pub fn handle_files_key(
             };
             None
         }
+        KeyCode::Char(' ') => {
+            crate::modules::media::interactive::selection::toggle_file(
+                state, item_idx, season_idx, cursor,
+            );
+            None
+        }
+        KeyCode::Char('a') => {
+            crate::modules::media::interactive::selection::select_all_files(
+                state, item_idx, season_idx,
+            );
+            None
+        }
+        KeyCode::Char('n') => {
+            crate::modules::media::interactive::selection::clear_all_files(
+                state, item_idx, season_idx,
+            );
+            None
+        }
+        KeyCode::Char('p') => Some(true),
         KeyCode::Char('d') => {
             crate::modules::media::interactive::trash::request_from_current(state);
             None

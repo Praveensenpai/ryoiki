@@ -10,6 +10,8 @@ pub struct MediaFile {
     pub size_bytes: u64,
     #[serde(default)]
     pub exists_in_other: bool,
+    #[serde(default)]
+    pub is_selected: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -166,12 +168,14 @@ mod tests {
                 rel_path: "ep1.mkv".into(),
                 size_bytes: 100,
                 exists_in_other: true,
+                is_selected: false,
             },
             MediaFile {
                 name: "ep2.mkv".into(),
                 rel_path: "ep2.mkv".into(),
                 size_bytes: 200,
                 exists_in_other: false,
+                is_selected: false,
             },
         ];
         let status = SyncStatus::from_files(&files);
@@ -198,6 +202,7 @@ mod tests {
                 rel_path: "Movie A.mkv".into(),
                 size_bytes: 500,
                 exists_in_other: false,
+                is_selected: false,
             }],
             sync_status: SyncStatus::default(),
         }];
@@ -215,6 +220,7 @@ mod tests {
                 rel_path: "Movie A.mkv".into(),
                 size_bytes: 500,
                 exists_in_other: false,
+                is_selected: false,
             }],
             sync_status: SyncStatus::default(),
         }];
@@ -267,12 +273,14 @@ mod tests {
                         rel_path: "Season 01/ep1.mkv".into(),
                         size_bytes: 300,
                         exists_in_other: false,
+                        is_selected: false,
                     },
                     MediaFile {
                         name: "ep2.mkv".into(),
                         rel_path: "Season 01/ep2.mkv".into(),
                         size_bytes: 300,
                         exists_in_other: false,
+                        is_selected: false,
                     },
                 ],
                 sync_status: SyncStatus::default(),
@@ -301,12 +309,14 @@ mod tests {
                             rel_path: "Season 01/ep1.mkv".into(),
                             size_bytes: 300,
                             exists_in_other: false,
+                            is_selected: false,
                         },
                         MediaFile {
                             name: "ep3.mkv".into(),
                             rel_path: "Season 01/ep3.mkv".into(),
                             size_bytes: 300,
                             exists_in_other: false,
+                            is_selected: false,
                         },
                     ],
                     sync_status: SyncStatus::default(),
@@ -322,6 +332,7 @@ mod tests {
                         rel_path: "Season 02/ep1.mkv".into(),
                         size_bytes: 300,
                         exists_in_other: false,
+                        is_selected: false,
                     }],
                     sync_status: SyncStatus::default(),
                 },

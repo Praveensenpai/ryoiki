@@ -18,9 +18,8 @@ echo "🌸 ========================================= 🌸"
 ARCH="$(uname -m)"
 case "$ARCH" in
     x86_64|amd64)   TARGET="x86_64-unknown-linux-gnu" ;;
-    aarch64|arm64)  TARGET="aarch64-unknown-linux-gnu" ;;
     *)
-        echo "❌ Architecture $ARCH is not supported."
+        echo "❌ Architecture $ARCH is not supported. Only x86_64 (Intel / AMD) is supported."
         exit 1
         ;;
 esac

@@ -24,6 +24,7 @@ pub fn collect_dir_files(path: &Path, rel_prefix: &str) -> Vec<MediaFile> {
             rel_path,
             size_bytes: size,
             exists_in_other: false,
+            is_selected: false,
         }];
     }
 
@@ -49,6 +50,7 @@ pub fn collect_dir_files(path: &Path, rel_prefix: &str) -> Vec<MediaFile> {
                 rel_path: sub_rel,
                 size_bytes: size,
                 exists_in_other: false,
+                is_selected: false,
             });
         } else if p.is_dir() {
             files.extend(collect_dir_files(&p, &sub_rel));

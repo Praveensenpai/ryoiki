@@ -7,7 +7,7 @@ use std::time::Duration;
 ///
 /// DNS resolution can block past the HTTP client timeout, so the UI must never
 /// wait on it forever. The worker is detached; a late result is discarded.
-pub(super) fn with_timeout<T, F>(secs: u64, task: F) -> Result<T>
+pub(crate) fn with_timeout<T, F>(secs: u64, task: F) -> Result<T>
 where
     T: Send + 'static,
     F: FnOnce() -> Result<T> + Send + 'static,
