@@ -44,9 +44,9 @@ pub fn activate(app: &mut App, index: usize) -> Action {
     if index < app.services.len() {
         let service = &app.services[index];
         if service.container {
-            return Action::RestartContainer(service.name.clone());
+            return Action::StopContainer(service.name.clone());
         }
-        return Action::RestartService {
+        return Action::StopService {
             name: service.name.clone(),
             is_user: service.is_user,
         };

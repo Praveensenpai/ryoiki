@@ -136,11 +136,11 @@ pub enum Action {
     CheckUpdate,
     SelfUpdate,
     RunProvision,
-    RestartService {
+    StopService {
         name: String,
         is_user: bool,
     },
-    RestartContainer(String),
+    StopContainer(String),
     LaunchMedia,
     AssignAudioLanguage,
     PruneDryRun,
