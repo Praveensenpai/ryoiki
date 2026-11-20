@@ -13,6 +13,9 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Effect {
         app.help = false;
         return Effect::None;
     }
+    if app.choice.is_some() {
+        return handle_choice(app, key);
+    }
     if app.confirm.is_some() {
         return handle_confirm(app, key);
     }
@@ -20,6 +23,44 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Effect {
         return handle_input(app, key);
     }
     handle_normal(app, key)
+}
+
+fn handle_choice(app: &mut App, key: KeyEvent) -> Effect {
+    let Some(mut choice) = app.choice.take() else {
+        return Effect::None;
+    };
+    if choice.options.is_empty() {
+        return Effect::None;
+    }
+    match key.code {
+        KeyCode::Char('j') | KeyCode::Down => {
+            choice.index = (choice.index + 1) % choice.options.len();
+            app.choice = Some(choice);
+            Effect::None
+        }
+        KeyCode::Char('k') | KeyCode::Up => {
+            choice.index = (choice.index + choice.options.len() - 1) % choice.options.len();
+            app.choice = Some(choice);
+            Effect::None
+        }
+        KeyCode::Char(c) if c.is_ascii_digit() && c != '0' => {
+            let idx = (c as usize) - ('1' as usize);
+            if idx < choice.options.len() {
+                Effect::Action(choice.options[idx].action.clone())
+            } else {
+                app.choice = Some(choice);
+                Effect::None
+            }
+        }
+        KeyCode::Enter | KeyCode::Char(' ') => {
+            Effect::Action(choice.options[choice.index].action.clone())
+        }
+        KeyCode::Esc | KeyCode::Char('q' | 'n') => Effect::None,
+        _ => {
+            app.choice = Some(choice);
+            Effect::None
+        }
+    }
 }
 
 fn handle_confirm(app: &mut App, key: KeyEvent) -> Effect {

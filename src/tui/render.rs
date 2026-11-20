@@ -6,7 +6,7 @@ use ratatui::{
     Frame,
 };
 
-use crate::tui::app::{App, Confirm, Focus, Tab, TextInput, ToastLevel};
+use crate::tui::app::{App, Choice, Confirm, Focus, Tab, TextInput, ToastLevel};
 use crate::tui::views;
 use crate::tui::widgets::{centered_box, centered_rect, modal_frame, tail, theme, truncate};
 
@@ -28,6 +28,9 @@ pub fn draw(f: &mut Frame, app: &App) {
 
     if app.help {
         draw_help(f, f.area());
+    }
+    if let Some(choice) = &app.choice {
+        draw_choice(f, f.area(), choice);
     }
     if let Some(confirm) = &app.confirm {
         draw_confirm(f, f.area(), confirm);
@@ -177,6 +180,8 @@ fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
 
     let hints = if app.input.is_some() {
         "type value   ·   Enter save   ·   Esc cancel   ·   Ctrl-U clear"
+    } else if app.choice.is_some() {
+        "j/k select   ·   Enter action   ·   1/2/3 quick pick   ·   Esc cancel"
     } else if app.confirm.is_some() {
         "y / Enter confirm   ·   n / Esc cancel"
     } else if app.help {
@@ -276,6 +281,38 @@ fn draw_help(f: &mut Frame, area: Rect) {
         )),
         Line::from(Span::styled("  logs      ~/.local/state/ryoiki/", text)),
     ];
+    f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
+}
+
+fn draw_choice(f: &mut Frame, area: Rect, choice: &Choice) {
+    let t = theme();
+    let height = u16::try_from(choice.options.len() + 4).unwrap_or(8);
+    let popup = centered_box(60, height, area);
+    let title = format!(" {} ", truncate(&choice.title, 50));
+    let inner = modal_frame(f, popup, &title, t.yellow);
+
+    let mut lines: Vec<Line> = Vec::new();
+    for (i, option) in choice.options.iter().enumerate() {
+        let selected = i == choice.index;
+        let pointer = if selected { "▸ " } else { "  " };
+        let style = if selected {
+            Style::default().fg(t.text).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(t.subtext)
+        };
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("{} {}. ", pointer, i + 1),
+                Style::default().fg(t.mauve),
+            ),
+            Span::styled(option.label.clone(), style),
+        ]));
+    }
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        "j/k select   ·   Enter run   ·   1/2/3 quick pick   ·   Esc cancel",
+        Style::default().fg(t.overlay),
+    )));
     f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
 }
 

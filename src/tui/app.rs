@@ -188,6 +188,21 @@ pub struct Confirm {
     pub action: Action,
 }
 
+/// One selectable option in a choice dialog.
+#[derive(Clone, Debug)]
+pub struct ChoiceOption {
+    pub label: String,
+    pub action: Action,
+}
+
+/// A modal that asks the user to pick one of several actions.
+#[derive(Clone, Debug)]
+pub struct Choice {
+    pub title: String,
+    pub options: Vec<ChoiceOption>,
+    pub index: usize,
+}
+
 /// Single-line text editor opened over the dashboard.
 #[derive(Clone, Debug)]
 pub struct TextInput {
@@ -220,6 +235,7 @@ pub struct App {
     pub services: Vec<ServiceRow>,
     pub input: Option<TextInput>,
     pub confirm: Option<Confirm>,
+    pub choice: Option<Choice>,
     pub help: bool,
     pub toast: Option<Toast>,
     pub latest_version: Option<String>,
@@ -268,6 +284,7 @@ impl App {
             services: Vec::new(),
             input: None,
             confirm: None,
+            choice: None,
             help: false,
             toast: None,
             latest_version: None,
