@@ -50,7 +50,9 @@ pub fn execute(app: &mut App, action: Action, opts: RunOptions) -> Effect {
         Action::CheckUpdate => check_update(),
         Action::SelfUpdate => self_update(app),
         Action::RunProvision => run_provision(app, opts),
+        Action::RestartService { name, is_user } => restart_service(name, is_user, opts),
         Action::StopService { name, is_user } => stop_service(name, is_user, opts),
+        Action::RestartContainer(name) => restart_container(name),
         Action::StopContainer(name) => stop_container(name),
         Action::LaunchMedia => media_manager(),
         Action::AssignAudioLanguage => assign_audio_language(),
@@ -201,6 +203,18 @@ where
     })
 }
 
+fn restart_service(name: String, is_user: bool, opts: RunOptions) -> Effect {
+    suspend(format!("Restarting {name}"), false, move |app| {
+        if is_user {
+            crate::bot::services::restart_managed_service(&name)?;
+        } else {
+            run_root("systemctl", &["restart", &name], opts)?;
+        }
+        app.request_refresh();
+        Ok(format!("{name} restarted"))
+    })
+}
+
 fn stop_service(name: String, is_user: bool, opts: RunOptions) -> Effect {
     suspend(format!("Stopping {name}"), false, move |app| {
         if is_user {
@@ -213,20 +227,24 @@ fn stop_service(name: String, is_user: bool, opts: RunOptions) -> Effect {
     })
 }
 
+fn restart_container(name: String) -> Effect {
+    suspend(format!("Restarting container {name}"), false, move |app| {
+        crate::bot::services::restart_docker_container(&name)?;
+        app.request_refresh();
+        Ok(format!("container {name} restarted"))
+    })
+}
+
 fn stop_container(name: String) -> Effect {
     suspend(format!("Stopping container {name}"), false, move |app| {
-        use std::process::Command;
         let out = Command::new("docker")
             .args(["stop", &name])
             .output()
-            .unwrap_or_else(|_| {
-                eprintln!("Failed to stop container {name}");
-                std::process::Command::new("docker")
-                    .args(["restart", &name])
-                    .output()
-                    .unwrap()
-            });
-        let _ = out;
+            .context("Failed to execute docker stop")?;
+        if !out.status.success() {
+            let err = String::from_utf8_lossy(&out.stderr);
+            bail!("Failed to stop {name}: {}", err.trim());
+        }
         app.request_refresh();
         Ok(format!("container {name} stopped"))
     })
