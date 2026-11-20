@@ -60,9 +60,9 @@ pub fn send_login_notification(
     ip: Option<&str>,
     service: Option<&str>,
     tty: Option<&str>,
-) -> Result<()> {
+) {
     if std::env::var("PAM_TYPE").as_deref() == Ok("close_session") {
-        return Ok(());
+        return;
     }
 
     let resolved_user = resolve_user(user);
@@ -81,7 +81,6 @@ pub fn send_login_notification(
         resolved_tty,
         outcome,
     );
-    Ok(())
 }
 
 pub fn send_custom_notification(

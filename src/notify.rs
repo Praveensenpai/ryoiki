@@ -139,7 +139,7 @@ pub fn handle_cli(cmd: NotifySubcommand) -> Result<()> {
                 ip.as_deref(),
                 service.as_deref(),
                 tty.as_deref(),
-            )?;
+            );
         }
         NotifySubcommand::Torrent { event, hash } => {
             crate::modules::torrent::notify::execute(&event, &hash)?;

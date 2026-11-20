@@ -211,30 +211,26 @@ pub fn clear_all_files(state: &mut AppState, item_idx: usize, season_idx: Option
     state.warning_msg = None;
 }
 
-fn file_ref<'a>(
-    state: &'a AppState,
+fn file_ref(
+    state: &AppState,
     item_idx: usize,
     season_idx: Option<usize>,
     file_idx: usize,
-) -> Option<(&'a MediaFile, bool)> {
+) -> Option<(&MediaFile, bool)> {
     let file = files_ref(state, item_idx, season_idx)?.get(file_idx)?;
     Some((file, state.direction == TransferDirection::Pull))
 }
 
-fn file_mut<'a>(
-    state: &'a mut AppState,
+fn file_mut(
+    state: &mut AppState,
     item_idx: usize,
     season_idx: Option<usize>,
     file_idx: usize,
-) -> Option<&'a mut MediaFile> {
+) -> Option<&mut MediaFile> {
     files_mut(state, item_idx, season_idx)?.get_mut(file_idx)
 }
 
-fn files_ref<'a>(
-    state: &'a AppState,
-    item_idx: usize,
-    season_idx: Option<usize>,
-) -> Option<&'a [MediaFile]> {
+fn files_ref(state: &AppState, item_idx: usize, season_idx: Option<usize>) -> Option<&[MediaFile]> {
     let item = state.current_items().get(item_idx)?;
     Some(match season_idx {
         Some(s) => &item.seasons.get(s)?.files,
@@ -242,11 +238,11 @@ fn files_ref<'a>(
     })
 }
 
-fn files_mut<'a>(
-    state: &'a mut AppState,
+fn files_mut(
+    state: &mut AppState,
     item_idx: usize,
     season_idx: Option<usize>,
-) -> Option<&'a mut Vec<MediaFile>> {
+) -> Option<&mut Vec<MediaFile>> {
     let item = state.current_items_mut().get_mut(item_idx)?;
     Some(match season_idx {
         Some(s) => &mut item.seasons.get_mut(s)?.files,
@@ -257,11 +253,11 @@ fn files_mut<'a>(
 /// Builds a transfer item for a single individually-selected file.
 fn file_item(
     item: &MediaItem,
-    local_base: &Option<PathBuf>,
+    local_base: Option<&PathBuf>,
     remote_base: &str,
     file: &MediaFile,
 ) -> MediaItem {
-    let local_path = local_base.as_ref().map(|p| p.join(&file.rel_path));
+    let local_path = local_base.map(|p| p.join(&file.rel_path));
     MediaItem {
         title: format!("{} — {}", item.title, file.name),
         category: item.category,
@@ -271,7 +267,9 @@ fn file_item(
         remote_path: format!("{remote_base}/{}", file.rel_path),
         seasons: Vec::new(),
         files: vec![file.clone()],
-        sync_status: crate::modules::media::transfer::SyncStatus::from_files(&[file.clone()]),
+        sync_status: crate::modules::media::transfer::SyncStatus::from_files(std::slice::from_ref(
+            file,
+        )),
     }
 }
 
@@ -301,7 +299,7 @@ pub fn collect_transfer_items(state: &AppState) -> Vec<MediaItem> {
                     for file in season.files.iter().filter(|f| f.is_selected) {
                         result.push(file_item(
                             item,
-                            &season.local_path,
+                            season.local_path.as_ref(),
                             &season.remote_path,
                             file,
                         ));
@@ -312,7 +310,12 @@ pub fn collect_transfer_items(state: &AppState) -> Vec<MediaItem> {
             result.push(item.clone());
         } else {
             for file in item.files.iter().filter(|f| f.is_selected) {
-                result.push(file_item(item, &item.local_path, &item.remote_path, file));
+                result.push(file_item(
+                    item,
+                    item.local_path.as_ref(),
+                    &item.remote_path,
+                    file,
+                ));
             }
         }
     }

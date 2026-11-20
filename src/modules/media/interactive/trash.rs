@@ -237,7 +237,7 @@ fn confirm(state: &mut AppState) -> Option<bool> {
             let result = with_timeout(300, move || -> anyhow::Result<()> {
                 trash::purge_entry(&entry_clone)
             });
-            result.map(|_| "Deleted permanently")
+            result.map(|()| "Deleted permanently")
         }
     };
 

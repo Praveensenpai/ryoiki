@@ -27,7 +27,7 @@ pub enum LoginOutcome {
 }
 
 impl LoginOutcome {
-    const fn as_str(self) -> &'static str {
+    const fn as_str() -> &'static str {
         "alerted"
     }
 }
@@ -39,7 +39,7 @@ pub fn ensure_shared_state_dir() -> bool {
 }
 
 /// Appends one login to the audit log.
-pub fn log_login(user: &str, ip: &str, service: &str, tty: &str, outcome: LoginOutcome) {
+pub fn log_login(user: &str, ip: &str, service: &str, tty: &str, _outcome: LoginOutcome) {
     let dir = resolve_state_dir();
     let log_path = dir.join(LOG_FILE);
     if let Ok(mut file) = fs::OpenOptions::new()
@@ -52,7 +52,7 @@ pub fn log_login(user: &str, ip: &str, service: &str, tty: &str, outcome: LoginO
             file,
             "{}\t{}\t{}\t{}\t{}\t{}",
             crate::notify::client::ist_timestamp(),
-            outcome.as_str(),
+            LoginOutcome::as_str(),
             user,
             ip,
             service,
@@ -127,7 +127,7 @@ mod tests {
     #[test]
     fn test_log_login_appends_entry() {
         let dir = temp_state("log");
-        std::env::set_var("RYOIKI_STATE_DIR", dir.to_str().unwrap());
+        std::env::set_var("RYOIKI_STATE_DIR", dir.to_string_lossy().as_ref());
         log_login(
             "neko",
             "203.0.113.9",
