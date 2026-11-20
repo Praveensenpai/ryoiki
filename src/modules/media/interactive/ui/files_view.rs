@@ -46,14 +46,7 @@ pub fn render_files_ui(
         (item.title.clone(), &item.files, item.sync_status)
     };
 
-    render_files_header(
-        f,
-        chunks[0],
-        &title,
-        files,
-        sync_status,
-        state.direction,
-    );
+    render_files_header(f, chunks[0], &title, files, sync_status, state.direction);
     render_files_body(f, chunks[1], &title, files, cursor, state.direction);
     render_files_footer(f, chunks[2]);
 }
@@ -129,12 +122,19 @@ fn render_files_header(
         Line::from(vec![
             Span::raw(" Selected: "),
             Span::styled(
-                format!("{} file(s) ({})", selected.len(), disk::format_bytes(sel_bytes)),
+                format!(
+                    "{} file(s) ({})",
+                    selected.len(),
+                    disk::format_bytes(sel_bytes)
+                ),
                 Style::default()
                     .fg(Color::Green)
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled("  ·  press [p] to transfer", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                "  ·  press [p] to transfer",
+                Style::default().fg(Color::DarkGray),
+            ),
         ])
     };
 

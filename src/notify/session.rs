@@ -42,7 +42,11 @@ pub fn ensure_shared_state_dir() -> bool {
 pub fn log_login(user: &str, ip: &str, service: &str, tty: &str, outcome: LoginOutcome) {
     let dir = resolve_state_dir();
     let log_path = dir.join(LOG_FILE);
-    if let Ok(mut file) = fs::OpenOptions::new().create(true).append(true).open(&log_path) {
+    if let Ok(mut file) = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+    {
         set_mode(&log_path, FILE_MODE);
         let _ = writeln!(
             file,
@@ -133,8 +137,14 @@ mod tests {
         );
         let content = fs::read_to_string(dir.join(LOG_FILE)).unwrap_or_default();
         // Log format: timestamp\toutcome\tuser\tip\tservice\tty
-        assert!(content.contains("neko"), "expected 'neko' in log, got: {content:?}");
-        assert!(content.contains("203.0.113.9"), "expected IP in log, got: {content:?}");
+        assert!(
+            content.contains("neko"),
+            "expected 'neko' in log, got: {content:?}"
+        );
+        assert!(
+            content.contains("203.0.113.9"),
+            "expected IP in log, got: {content:?}"
+        );
         let _ = fs::remove_dir_all(dir);
     }
 }
