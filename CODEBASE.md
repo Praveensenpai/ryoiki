@@ -1493,7 +1493,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn free_space_for (required : u64) -> Option < u64 >
   ```
 
-### `src/modules/torrent/seedr_health.rs` (Role: general, Lines: 110)
+### `src/modules/torrent/seedr_health.rs` (Role: general, Lines: 141)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_health.rs
 - **Imports**: use anyhow :: Context , use reqwest :: blocking :: Client , use std :: time :: Duration , use super :: api , use super :: queue :: { self , QueueState } , use super :: scheduler , use super :: seedr :: { load_pending_magnet , remove_pending_magnet } , use super :: seedr_tasks , use crate :: notify :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
@@ -1501,7 +1501,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn record_active_health (config : & TelegramConfig)
   ```
 
-### `src/modules/torrent/seedr_reaper.rs` (Role: general, Lines: 130)
+### `src/modules/torrent/seedr_reaper.rs` (Role: general, Lines: 131)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_reaper.rs
 - **Imports**: use std :: collections :: HashSet , use super :: seedr_tasks :: { base_key , fetch_live_list , load_local_tasks , tasks_dir } 
 - **Public Functions & Signatures**:
@@ -1521,11 +1521,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn retry_candidates (client : & Client , config : & TelegramConfig)
   ```
 
-### `src/modules/torrent/seedr_tasks/tests.rs` (Role: general, Lines: 87)
+### `src/modules/torrent/seedr_tasks/tests.rs` (Role: general, Lines: 98)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks/tests.rs
 - **Imports**: use super :: * 
 
-### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 335)
+### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 407)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks.rs
 - **Imports**: use serde :: Deserialize , use std :: collections :: HashSet , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:

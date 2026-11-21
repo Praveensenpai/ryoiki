@@ -22,12 +22,23 @@ fn list_with_torrent(name: &str) -> SeedrCloudList {
             progress: Some(50.0),
             size: Some(2048),
             download_rate: Some(100),
+            hash: None,
         }],
         folders: Vec::new(),
         files: Vec::new(),
         space_max: Some(1024),
         space_used: Some(512),
     }
+}
+
+#[test]
+fn test_live_index_matches_tracker_prefixed_name() {
+    let index = LiveIndex::from_list(&list_with_torrent(
+        "Welcome To The Jungle 2026.1080p.WEBRip.DD  5.1.x264-KIN",
+    ));
+    assert!(index.contains(
+        "www.1TamilMV.ing - Welcome to the Jungle (2026) Hindi TRUE WEB-DL - 1080p - AVC - (DD+5.1 - 192Kbps & AAC 2.0) - 3.9GB - ESub.mkv"
+    ));
 }
 
 #[test]

@@ -57,6 +57,8 @@ pub(crate) struct SeedrCloudTorrent {
     size: Option<u64>,
     #[serde(default)]
     download_rate: Option<u64>,
+    #[serde(default)]
+    pub(crate) hash: Option<String>,
 }
 
 /// Decision on whether a locally-tracked task should survive reconciliation.
@@ -120,32 +122,86 @@ pub(crate) fn normalize(name: &str) -> String {
     name.trim().to_lowercase()
 }
 
-/// Set of names currently present in the Seedr cloud account.
+/// Set of names, titles, and hashes currently present in the Seedr cloud account.
 struct LiveIndex {
     names: HashSet<String>,
+    titles: HashSet<String>,
+    hashes: HashSet<String>,
 }
 
 impl LiveIndex {
     fn from_list(list: &SeedrCloudList) -> Self {
         let mut names = HashSet::new();
+        let mut titles = HashSet::new();
+        let mut hashes = HashSet::new();
         for t in &list.torrents {
-            names.insert(normalize(&t.name));
+            let n = normalize(&t.name);
+            names.insert(n);
+            let title = normalize(
+                &crate::modules::media::heuristic::classify_media_heuristic(&t.name).title,
+            );
+            if !title.is_empty() {
+                titles.insert(title);
+            }
+            if let Some(ref h) = t.hash {
+                hashes.insert(normalize(h));
+            }
         }
         for f in &list.folders {
-            names.insert(normalize(&f.name));
+            let n = normalize(&f.name);
+            names.insert(n);
+            let title = normalize(
+                &crate::modules::media::heuristic::classify_media_heuristic(&f.name).title,
+            );
+            if !title.is_empty() {
+                titles.insert(title);
+            }
         }
         for f in &list.files {
-            names.insert(normalize(&f.name));
+            let n = normalize(&f.name);
+            names.insert(n);
+            let title = normalize(
+                &crate::modules::media::heuristic::classify_media_heuristic(&f.name).title,
+            );
+            if !title.is_empty() {
+                titles.insert(title);
+            }
         }
-        Self { names }
+        Self {
+            names,
+            titles,
+            hashes,
+        }
     }
 
     fn contains(&self, name: &str) -> bool {
-        if self.names.contains(&normalize(name)) {
+        let target = normalize(name);
+        if self.names.contains(&target) || self.hashes.contains(&target) {
             return true;
         }
-        name.strip_prefix("folder-")
-            .is_some_and(|stripped| self.names.contains(&normalize(stripped)))
+        if let Some(stripped) = target.strip_prefix("folder-") {
+            if self.names.contains(stripped) {
+                return true;
+            }
+        }
+        for n in &self.names {
+            let n_clean = n.strip_prefix("folder-").unwrap_or(n);
+            let t_clean = target.strip_prefix("folder-").unwrap_or(&target);
+            if n_clean == t_clean || n_clean.contains(t_clean) || t_clean.contains(n_clean) {
+                return true;
+            }
+        }
+        let target_title =
+            normalize(&crate::modules::media::heuristic::classify_media_heuristic(name).title);
+        if !target_title.is_empty() && target_title.len() >= 3 {
+            if self.titles.contains(&target_title) {
+                return true;
+            }
+            if self.names.iter().any(|n| n.contains(&target_title)) {
+                return true;
+            }
+        }
+        false
     }
 }
 
@@ -163,14 +219,30 @@ pub(crate) fn cloud_contains(name: &str) -> Option<bool> {
     Some(LiveIndex::from_list(&list).contains(name))
 }
 
+/// Whether any torrent is actively caching in the Seedr cloud.
+#[must_use]
+pub(crate) fn cloud_has_active_torrents() -> Option<bool> {
+    let list = fetch_live_list()?;
+    Some(!list.torrents.is_empty())
+}
+
 /// Whether any local task matching this name has a live worker process.
 #[must_use]
 pub(crate) fn worker_alive_by_name(name: &str) -> bool {
     let target = normalize(name);
+    let target_title =
+        normalize(&crate::modules::media::heuristic::classify_media_heuristic(name).title);
     load_local_tasks(&tasks_dir()).iter().any(|(_, task)| {
         let candidate = normalize(&task.file_name);
-        (candidate == target || candidate.contains(&target) || target.contains(&candidate))
-            && worker_alive(task.pid)
+        let cand_title = normalize(
+            &crate::modules::media::heuristic::classify_media_heuristic(&task.file_name).title,
+        );
+        let matches = candidate == target
+            || candidate.contains(&target)
+            || target.contains(&candidate)
+            || (!target_title.is_empty()
+                && (cand_title == target_title || candidate.contains(&target_title)));
+        matches && worker_alive(task.pid)
     })
 }
 

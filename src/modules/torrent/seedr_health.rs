@@ -36,11 +36,12 @@ fn record_active_health_locked(config: &TelegramConfig) {
     }
 
     let elapsed = active.activated_at.map_or(0, |s| now.saturating_sub(s));
-    if elapsed >= 30
+    if elapsed >= 300
         && !seedr_tasks::worker_alive_by_name(&active.name)
         && seedr_tasks::cloud_contains(&active.name) == Some(false)
+        && seedr_tasks::cloud_has_active_torrents() == Some(false)
     {
-        expire_active(&mut q, &active, config);
+        expire_missing(&mut q, &active, config);
         return;
     }
 
@@ -59,12 +60,22 @@ fn record_active_health_locked(config: &TelegramConfig) {
 /// Reads only local task JSON, so the watchdog never triggers a network probe.
 fn download_speed_for(name: &str) -> Option<u64> {
     let target = seedr_tasks::normalize(name);
+    let target_title = seedr_tasks::normalize(
+        &crate::modules::media::heuristic::classify_media_heuristic(name).title,
+    );
     seedr_tasks::load_local_tasks(&seedr_tasks::tasks_dir())
         .into_iter()
         .map(|(_, task)| task)
         .find(|task| {
             let candidate = seedr_tasks::normalize(&task.file_name);
-            candidate == target || candidate.contains(&target) || target.contains(&candidate)
+            let cand_title = seedr_tasks::normalize(
+                &crate::modules::media::heuristic::classify_media_heuristic(&task.file_name).title,
+            );
+            candidate == target
+                || candidate.contains(&target)
+                || target.contains(&candidate)
+                || (!target_title.is_empty()
+                    && (cand_title == target_title || candidate.contains(&target_title)))
         })
         .map(|task| task.speed_bps)
 }
@@ -73,6 +84,26 @@ fn is_expired(entry: &queue::QueueEntry, now: u64, max_secs: u64) -> bool {
     entry
         .activated_at
         .is_some_and(|started| now.saturating_sub(started) >= max_secs)
+}
+
+/// Cancels an active Seedr item whose cloud transfer stopped or disappeared.
+fn expire_missing(q: &mut queue::SeedrQueue, active: &queue::QueueEntry, config: &TelegramConfig) {
+    scheduler::delete_seedr_cloud(active);
+    let fallback_ok = forward_to_qbittorrent(active, config);
+    q.finish(&active.hash, QueueState::Failed);
+    let _ = queue::save(q);
+
+    let detail = if fallback_ok {
+        "Seedr download stopped or missing — forwarded to qBittorrent"
+    } else {
+        "Seedr download stopped or missing — qBittorrent fallback failed"
+    };
+    scheduler::notify_telegram(
+        "⚠️ <b>SEEDR DOWNLOAD STOPPED — FALLBACK</b>",
+        &active.name,
+        detail,
+    );
+    let _ = scheduler::promote_next_locked(config);
 }
 
 /// Cancels an expired Seedr item, forwards it to qBittorrent, and promotes next.
