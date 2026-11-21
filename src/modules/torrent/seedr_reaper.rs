@@ -32,7 +32,8 @@ pub fn tracked_names_from(entries: &[super::queue::QueueEntry]) -> HashSet<Strin
         }
     }
     for (_, task) in load_local_tasks(&tasks_dir()) {
-        if task.status.eq_ignore_ascii_case("failed") || !super::seedr_tasks::worker_alive(task.pid) {
+        if task.status.eq_ignore_ascii_case("failed") || !super::seedr_tasks::worker_alive(task.pid)
+        {
             continue;
         }
         names.insert(base_key(&task.file_name));
