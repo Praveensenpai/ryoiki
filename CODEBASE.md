@@ -192,7 +192,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn restart_managed_service (name : & str) -> Result < String >
   ```
 
-### `src/bot/smoke_tests.rs` (Role: general, Lines: 374)
+### `src/bot/smoke_tests.rs` (Role: general, Lines: 375)
 - **Responsibility**: Core general logic in src/bot/smoke_tests.rs
 - **Imports**: use super :: actions :: handle_charge_limit , use super :: maintenance :: { handle_bot_audio , handle_bot_check } , use super :: router :: extract_command , use super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , resolve_managed_unit , } , use super :: system :: collect_system_metrics , use super :: torrents :: { handle_seedr_cmd , render_torrent_report , seedr_magnet_target } , use super :: ui :: { render_docker_view , render_maintenance_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , } , use crate :: notify :: config :: TelegramConfig 
 
@@ -1543,7 +1543,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_seedr_tasks_section (tasks : & [SeedrTaskState]) -> String
   ```
 
-### `src/modules/torrent/telegram.rs` (Role: general, Lines: 137)
+### `src/modules/torrent/telegram.rs` (Role: general, Lines: 138)
 - **Responsibility**: Core general logic in src/modules/torrent/telegram.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , pub use crate :: notify :: TelegramConfig , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
@@ -1598,7 +1598,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_card (category : & str , badge : & str , fields : & [(& str , & str)]) -> String
   ```
 
-### `src/notify/config.rs` (Role: general, Lines: 216)
+### `src/notify/config.rs` (Role: general, Lines: 224)
 - **Responsibility**: Core general logic in src/notify/config.rs
 - **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: fs , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:

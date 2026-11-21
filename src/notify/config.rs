@@ -42,6 +42,10 @@ const fn default_seedr_slow_grace_secs() -> u64 {
     300
 }
 
+const fn default_seedr_missing_grace_secs() -> u64 {
+    3_600
+}
+
 /// Largest torrent (MiB) eligible for the Seedr single-slot queue.
 ///
 /// Matches the free Seedr tier's ~5 GB budget with a small safety margin.
@@ -87,6 +91,8 @@ pub struct TelegramConfig {
     pub seedr_slow_speed_bps: u64,
     #[serde(default = "default_seedr_slow_grace_secs")]
     pub seedr_slow_grace_secs: u64,
+    #[serde(default = "default_seedr_missing_grace_secs")]
+    pub seedr_missing_grace_secs: u64,
     #[serde(default = "default_seedr_max_torrent_mb")]
     pub seedr_max_torrent_mb: u64,
 }
@@ -110,6 +116,7 @@ impl Default for TelegramConfig {
             seedr_max_active_secs: default_seedr_max_active_secs(),
             seedr_slow_speed_bps: default_seedr_slow_speed_bps(),
             seedr_slow_grace_secs: default_seedr_slow_grace_secs(),
+            seedr_missing_grace_secs: default_seedr_missing_grace_secs(),
             seedr_max_torrent_mb: default_seedr_max_torrent_mb(),
         }
     }
@@ -210,6 +217,7 @@ mod tests {
         assert_eq!(cfg.api_port, 9119);
         assert!(cfg.server_name.is_none());
         assert!(cfg.timezone.is_none());
+        assert_eq!(cfg.seedr_missing_grace_secs, 3_600);
         assert_eq!(cfg.seedr_max_torrent_mb, 4_999);
         Ok(())
     }

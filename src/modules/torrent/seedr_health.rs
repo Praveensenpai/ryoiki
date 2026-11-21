@@ -36,7 +36,7 @@ fn record_active_health_locked(config: &TelegramConfig) {
     }
 
     let elapsed = active.activated_at.map_or(0, |s| now.saturating_sub(s));
-    if elapsed >= 300
+    if elapsed >= config.seedr_missing_grace_secs
         && !seedr_tasks::worker_alive_by_name(&active.name)
         && seedr_tasks::cloud_contains(&active.name) == Some(false)
         && seedr_tasks::cloud_has_active_torrents() == Some(false)

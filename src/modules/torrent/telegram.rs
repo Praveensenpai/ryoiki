@@ -71,6 +71,7 @@ pub fn prompt_telegram_config(
         seedr_max_active_secs: 9_000,
         seedr_slow_speed_bps: 307_200,
         seedr_slow_grace_secs: 300,
+        seedr_missing_grace_secs: 3_600,
         seedr_max_torrent_mb: 4_999,
     };
 
