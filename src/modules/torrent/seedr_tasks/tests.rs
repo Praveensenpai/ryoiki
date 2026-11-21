@@ -11,6 +11,7 @@ fn sample(name: &str, pid: Option<u32>) -> SeedrTaskState {
         eta_seconds: 0,
         status: "Caching".to_string(),
         pid,
+        error: None,
     }
 }
 
@@ -69,7 +70,7 @@ fn test_verdict_prunes_absent_dead_task() {
     let index = LiveIndex::from_list(&list_with_torrent("Other"));
     assert!(matches!(
         verdict(&sample("Gone", None), &index),
-        TaskVerdict::Prune
+        TaskVerdict::Prune { .. }
     ));
 }
 

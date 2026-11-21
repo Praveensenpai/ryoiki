@@ -13,6 +13,8 @@ pub struct SeedrTaskState {
     pub status: String,
     #[serde(default)]
     pub pid: Option<u32>,
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -63,7 +65,7 @@ pub(crate) struct SeedrCloudTorrent {
 /// Decision on whether a locally-tracked task should survive reconciliation.
 enum TaskVerdict {
     Keep,
-    Prune,
+    Prune { reason: String },
 }
 
 pub(crate) fn tasks_dir() -> PathBuf {
@@ -168,17 +170,27 @@ fn verdict(task: &SeedrTaskState, index: &LiveIndex) -> TaskVerdict {
         TaskVerdict::Keep
     } else if index.contains(&task.file_name) {
         if task.status.eq_ignore_ascii_case("failed") {
-            TaskVerdict::Prune
+            let reason = task
+                .error
+                .as_deref()
+                .filter(|e| !e.is_empty())
+                .map_or_else(
+                    || "Local download worker failed".to_string(),
+                    |e| format!("Worker failed: {e}"),
+                );
+            TaskVerdict::Prune { reason }
         } else {
             TaskVerdict::Keep
         }
     } else {
-        TaskVerdict::Prune
+        TaskVerdict::Prune {
+            reason: "No longer present in Seedr cloud".to_string(),
+        }
     }
 }
 
 /// Alerts the user before a stale task's local state is removed.
-fn notify_stale(task: &SeedrTaskState) {
+fn notify_stale(task: &SeedrTaskState, reason: &str) {
     use crate::notify::client::{format_card, send_alert};
 
     let Ok(config) = crate::notify::config::TelegramConfig::load() else {
@@ -192,7 +204,7 @@ fn notify_stale(task: &SeedrTaskState) {
         &[
             ("File:", &name),
             ("Size:", &size),
-            ("Reason:", "No longer present in Seedr cloud"),
+            ("Reason:", reason),
         ],
     );
     let _ = send_alert(&config.bot_token, &config.chat_id, &card);
@@ -218,8 +230,8 @@ pub fn get_active_seedr_tasks() -> Vec<SeedrTaskState> {
     for (path, task) in local {
         match verdict(&task, &index) {
             TaskVerdict::Keep => kept.push(task),
-            TaskVerdict::Prune => {
-                notify_stale(&task);
+            TaskVerdict::Prune { reason } => {
+                notify_stale(&task, &reason);
                 let _ = std::fs::remove_file(&path);
             }
         }
@@ -256,6 +268,7 @@ fn task_from_live(t: &SeedrCloudTorrent) -> SeedrTaskState {
         eta_seconds: eta,
         status: "Caching".to_string(),
         pid: None,
+        error: None,
     }
 }
 

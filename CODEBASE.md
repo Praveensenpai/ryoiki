@@ -1525,11 +1525,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks/index.rs
 - **Imports**: use std :: collections :: HashSet , use super :: SeedrCloudList 
 
-### `src/modules/torrent/seedr_tasks/tests.rs` (Role: general, Lines: 98)
+### `src/modules/torrent/seedr_tasks/tests.rs` (Role: general, Lines: 99)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks/tests.rs
 - **Imports**: use super :: * 
 
-### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 317)
+### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 330)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks.rs
 - **Imports**: use serde :: Deserialize , use std :: path :: { Path , PathBuf } , pub (crate) use index :: { base_key , normalize , LiveIndex } 
 - **Types & Enums**:

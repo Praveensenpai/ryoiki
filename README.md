@@ -2,21 +2,27 @@
 
 # 🌸 領域 (Ryoiki)
 
-**Aesthetic Ubuntu server control center: provision, tune battery health, inspect services, and update from one terminal.**
+> **Aesthetic Ubuntu server control center: provision, tune battery health, inspect services, and orchestrate torrents & media from one terminal.**
 
-[![Release](https://img.shields.io/github/v/release/Praveensenpai/ryoiki?style=flat-square&color=cba6f7)](https://github.com/Praveensenpai/ryoiki/releases/latest)
-[![CI Status](https://img.shields.io/github/actions/workflow/status/Praveensenpai/ryoiki/ci.yml?branch=main&label=CI&style=flat-square&color=a6e3a1)](https://github.com/Praveensenpai/ryoiki/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-89b4fa?style=flat-square)](LICENSE)
-[![Rust: 2021](https://img.shields.io/badge/Rust-2021%20Edition-f38ba8?style=flat-square&logo=rust&logoColor=white)](Cargo.toml)
-[![Platform: Ubuntu](https://img.shields.io/badge/Platform-Ubuntu%20%7C%20Debian-fab387?style=flat-square&logo=ubuntu&logoColor=white)](https://ubuntu.com/)
-[![Arch: x86_64](https://img.shields.io/badge/Arch-x86_64-94e2d5?style=flat-square)](https://github.com/Praveensenpai/ryoiki/releases)
+[![Release](https://img.shields.io/github/v/release/Praveensenpai/ryoiki?style=for-the-badge&color=cba6f7)](https://github.com/Praveensenpai/ryoiki/releases/latest)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/Praveensenpai/ryoiki/ci.yml?branch=main&label=CI&style=for-the-badge&color=a6e3a1)](https://github.com/Praveensenpai/ryoiki/actions)
+[![Rust: 2021](https://img.shields.io/badge/Rust-2021%20Edition-DEA584?style=for-the-badge&logo=rust&logoColor=white)](Cargo.toml)
+[![Platform: Linux](https://img.shields.io/badge/Platform-Ubuntu%20%7C%20Debian-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://ubuntu.com/)
+[![Arch: x86_64](https://img.shields.io/badge/Arch-x86__64-94e2d5?style=for-the-badge)](https://github.com/Praveensenpai/ryoiki/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-89b4fa?style=for-the-badge)](LICENSE)
+
+<br>
+
+[⚡ Quickstart](#-quickstart) • [✨ Features](#-features) • [🔄 Architecture](#-architecture--workflow) • [🧩 Modules](#-provisioning-modules) • [⌨️ Keybindings](#%EF%B8%8F-control-center-keybindings) • [💻 CLI Usage](#%EF%B8%8F-cli-usage--commands) • [⚙️ Configuration](#%EF%B8%8F-configuration)
+
+<br>
 
 </div>
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────┐
-│  領域 Ryoiki · Control Center                              v0.1.122      │
-│  ● mochi   │  AC connected  │  62%  │  up 1h  │  Battery                   │
+│  領域 Ryoiki · Control Center                              v0.2.12       │
+│  ● mochi   │  AC connected  │  62%  │  up 1h  │  Battery                 │
 ├──────────────────┬───────────────────────────────────────────────────────┤
 │ Menu             │ Battery  Charge ceiling and low-battery policy        │
 │  1 Dashboard     │  Max charge ceiling            ● on                   │
@@ -34,44 +40,103 @@
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-
 ---
 
 ## ⚡ Quickstart
 
 > [!IMPORTANT]
-> **One command. No git clone. No Rust toolchain. No build step.**
+> **One command. Zero git clone. Zero build toolchains. Zero compile overhead.**
+
+### 🪄 One-Liner Magic (Recommended)
+
+Paste and run on any fresh Ubuntu or Debian server:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Praveensenpai/ryoiki/main/remote-install.sh | bash
 ```
 
-That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
+The installer autonomously handles setup in seconds:
+1. **Detects CPU Architecture** — Fetches the pre-compiled `x86_64` binary straight from GitHub Releases.
+2. **Rootless Binary Placement** — Installs cleanly to `~/.local/bin/ryoiki` without requiring root permissions.
+3. **Deploys System Hooks** — Configures udev power rules, battery-watch systemd unit, and boot/login alert hooks.
+4. **Launches Control Center** — Instantly boots the interactive terminal dashboard.
 
-1. **Detects your CPU arch** — `x86_64` (Intel / AMD)
-2. **Downloads the pre-compiled binary** — straight from the latest GitHub Release, no compilation
-3. **Installs to `~/.local/bin/ryoiki`** — no root required for the binary itself
-4. **Installs system hooks** — udev power rule, battery-watch service, boot & login notifications
-5. **Launches the control center** — live system dashboard with provisioning, battery health, services, media, updates, and settings
+<br>
+
+### 🛠️ Building From Source
+
+```bash
+git clone https://github.com/Praveensenpai/ryoiki.git
+cd ryoiki
+cargo build --release
+install -Dm 755 target/release/ryoiki ~/.local/bin/ryoiki
+```
+
+---
+
+## 🔄 Architecture & Workflow
+
+Ryoiki acts as an autonomous nervous system for your server, coupling terminal TUI control, remote 2-way Telegram management, power safeguards, and an automated media ingestion pipeline.
+
+```mermaid
+flowchart TD
+    subgraph Inputs["📥 Ingestion & Control"]
+        TUI["🖥️ Terminal TUI\n(Ratatui 8-Tab App)"]
+        TG["📱 2-Way Telegram Bot\n(Commands & Approvals)"]
+        Web["🌐 Webhook Gateway\n(:9119 /notify & /seedr)"]
+    end
+
+    subgraph Core["⚡ Ryoiki Core Engine"]
+        Router{"Message & Action Router"}
+        Power["🔋 Battery & Power Watcher\n(HP ACPI / sysfs Ceiling)"]
+        Pruner["🧹 Storage Auto-Pruner\n(Hourly Watermark Policy)"]
+        Seedr["☁️ Seedr Pipeline\n(Cloud Offload & Sync)"]
+    end
+
+    subgraph MediaPipeline["🎬 Autonomous Media Pipeline"]
+        SeedrDL["🔄 seedr-dl Worker\n(Multi-chunk Resilient Stream)"]
+        AI["🤖 Gemini AI Classifier\n(Dual-Tier Heuristic Fallback)"]
+        Jellyfin["🍿 Jellyfin Library\n(/movies /shows /anime)"]
+    end
+
+    subgraph Notifications["📢 Dispatch & Alerts"]
+        Cards["💌 HTML Telegram Cards\n(Boot · Power · Torrent · Error)"]
+    end
+
+    TUI --> Router
+    TG --> Router
+    Web --> Router
+
+    Router --> Power
+    Router --> Pruner
+    Router --> Seedr
+
+    Seedr --> SeedrDL
+    SeedrDL --> AI
+    AI --> Jellyfin
+
+    Power --> Cards
+    Pruner --> Cards
+    SeedrDL --> Cards
+    Jellyfin --> Cards
+```
 
 ---
 
 ## ✨ Features
 
 - 🎛️ **Persistent Control Center** — An eight-tab Ratatui interface for live metrics, provisioning, battery policy, Telegram notifications, systemd services, media, updates, and local settings.
-- 🔋 **Battery Health Guardrails** — Set a charge ceiling and optionally power the host off at a chosen battery percentage, once per discharge cycle. The watcher reads settings live and logs every shutdown decision.
-- 🖥️ **Live Dashboard** — CPU, memory, disk, battery gauge, AC state, charge backend, watcher health, and managed-service counts in one glance; slow host probes refresh on a background worker so navigation stays instant.
-- 🛡️ **Safe Provisioning Routing** — Bare non-interactive `ryoiki` only prints a plain dashboard. Installing modules always requires an explicit `ryoiki install`, `--all`, or `--yes`.
-- ⚙️ **Unified Settings Store** — One validated `~/.config/ryoiki/settings.json` for charge ceiling, alert ladder, auto poweroff, and UI refresh, written atomically.
-- 🔇 **Zero Visual Clutter** — Hides noisy `apt`, `dpkg`, and compiler scroll walls behind clean, single-line spinners. Full execution logs are saved quietly to `~/.local/state/ryoiki/install.log`.
-- 🌐 **Tailscale & MagicDNS** — Built-in WireGuard mesh. Connect via `ssh user@hostname` from anywhere without static IPs, port forwarding, or firewall holes.
-- ⏱️ **Granular Adaptive Timers** — Section, subsection, and overall total duration timings with dynamic unit formatting (`<1ms`, `420ms`, `12.4s`, `1m 24s`).
-- 📦 **Zero-Clone Embedded Dotfiles** — All configuration templates (`.tmux.conf`, `.bash_aliases`, `starship.toml`) are compiled directly into the binary with `include_str!`.
-- 🎬 **Jellyfin Media Server** — Turn your server into a personal Netflix with automated Docker Compose deployment and Intel QuickSync (QSV) hardware transcoding.
-- 📥 **qBittorrent Web UI** — Remote torrent management out of the box via Docker Compose on port 6881 and UFW firewall configuration.
-- 🛡️ **Hardened Server Security** — Automated UFW firewall configuration (SSH, HTTP, HTTPS) and unneeded daemon cleanup.
-- 🚀 **Native x86_64 Releases** — Native static binaries built for `x86_64` (Intel / AMD).
-- 🦀 **Strict Rust Standards** — Built under strict quality gates: `<400` LOC per file, `<60` LOC per function, zero unhandled `unwrap()` calls, and zero Clippy warnings.
+- 🔋 **Battery Health Guardrails** — Hardware-enforced charge ceiling (via HP ACPI and sysfs) with auto-poweroff protection at custom low-battery thresholds.
+- 🖥️ **Live System Dashboard** — Real-time CPU, RAM, disk, battery gauge, AC status, charge backend, and watcher health. Probes run on background workers so navigation stays instant.
+- ☁️ **Seedr Cloud Offloader** — Instantly offloads torrents and magnets to Seedr cloud, freeing host bandwidth and avoiding duplicate downloads.
+- 🔄 **Resilient Media Streamer** — Multi-threaded chunked downloads via `seedr-dl` with exponential retry backoff, DNS fallback, and automatic connection recovery.
+- 🤖 **Autonomous AI Media Classifier** — Classifies incoming torrents via Google Gemini (`gemini-3.1-flash-lite`) with offline deterministic regex heuristics fallback, moving files straight into Jellyfin hierarchies.
+- 🧹 **Storage Auto-Pruner** — Automatically monitors storage watermark (e.g. 90% trigger down to 75% target) and purges watched media gracefully.
+- 📱 **2-Way Telegram Command Center** — Control your server from anywhere: inspect torrents, query server status, restart services, approve actions, and receive rich HTML status cards.
+- 🛡️ **Hardened Server Security** — Automated UFW firewall configuration (ports 22, 80, 443), unneeded daemon cleanup, and SSH login alerts via PAM.
+- 🌐 **Tailscale & MagicDNS** — Embedded WireGuard mesh support. Connect via `ssh user@hostname` from anywhere without static IPs, port forwarding, or NAT traversal issues.
+- 📦 **Zero-Clone Embedded Dotfiles** — Pre-configured modern templates (`.tmux.conf`, `.bash_aliases`, `starship.toml`) embedded directly into the binary with `include_str!`.
+- 🦀 **Strict Rust Standards** — Built under strict quality limits: `<400` LOC per file, `<60` LOC per function, zero production `unwrap()`/`expect()`, and zero Clippy warnings.
 
 ---
 
@@ -85,14 +150,14 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 | `04` | **Dev Runtimes** | `dev_runtimes` | Latest stable Go, Rust toolchain (`rustup`), Python (`uv`), JavaScript (`bun`) |
 | `05` | **Server Security** | `security` | UFW Firewall (ports 22, 80, 443) & unneeded daemon cleanup |
 | `06` | **Docker Platform** | `docker` | Official Docker CE Engine, `containerd`, and Docker Compose v2 plugin |
-| `07` | **Jellyfin Media Server** | `jellyfin` | Dockerized media streaming with Intel QuickSync / VAAPI GPU acceleration (Optional) |
-| `08` | **qBittorrent Server** | `torrent` | Dockerized BitTorrent client with Web UI (port 6881) & peer ports (Optional) |
+| `07` | **Jellyfin Media Server** | `jellyfin` | Dockerized media streaming with Intel QuickSync / VAAPI GPU hardware acceleration |
+| `08` | **qBittorrent Server** | `torrent` | Dockerized BitTorrent client with Web UI (port 6881) & peer ports |
 | `09` | **Shell Prompt** | `prompt` | Cross-shell Starship prompt with Nerd Font glyphs & Fastfetch CLI |
 | `10` | **Trash Manager** | `trash` | `toss-rs` safe terminal trash TUI with FreeDesktop spec & safe `rm` alias |
 | `11` | **Tailscale Mesh VPN** | `tailscale` | WireGuard mesh, MagicDNS (hostname SSH) & Tailscale SSH without static IP |
 | `12` | **Aesthetic Dotfiles** | `dotfiles` | Zero-clone deployment of embedded `~/.tmux.conf`, `~/.bash_aliases`, and `starship.toml` |
-| `13` | **AI Media Organizer** | `media` | Automated Jellyfin library classifier & mover (Dual-tier DeepSeek Primary + Gemini 3.1 Flash-Lite Secondary + Regex fallback) |
-| `14` | **Headless Audio Null Sink** | `headless_audio` | Routes default ALSA PCM/CTL to a null device via `~/.asoundrc` (backs up custom config) |
+| `13` | **AI Media Organizer** | `media` | Automated Jellyfin library classifier & mover (Gemini Flash-Lite Primary + Regex fallback) |
+| `14` | **Headless Audio Null Sink** | `headless_audio` | Routes default ALSA PCM/CTL to a null device via `~/.asoundrc` |
 
 ---
 
@@ -112,48 +177,45 @@ That's it. Paste and run on any fresh Ubuntu / Debian server. The script:
 | <kbd>Ctrl-U</kbd> | Clear the active text input |
 | <kbd>y</kbd> / <kbd>n</kbd> | Confirm or cancel a privileged action |
 
-> Modals take over the keyboard: <kbd>Esc</kbd> cancels an input or confirmation, <kbd>Enter</kbd> saves an input, and any key closes the help overlay.
+> Modals take over keyboard inputs: <kbd>Esc</kbd> cancels an input or confirmation, <kbd>Enter</kbd> saves an input, and any key closes the help overlay.
 
 ---
 
 ## 🛠️ CLI Usage & Commands
 
+### 🎛️ Control Center & Provisioning
 ```bash
-# Open the control center dashboard (interactive terminal)
+# Open the interactive 8-tab control center
 ryoiki
 
-# Open the provisioning checklist tab
+# Open directly to the provisioning checklist
 ryoiki install
 
-# Explicit dashboard subcommand (same as bare ryoiki)
-ryoiki tui
-
-# Preview provisioning without changing the system
+# Preview provisioning changes without modifying system
 ryoiki --dry-run
 
-# Headless provisioning: all modules / defaults for prompts
-ryoiki --all
-ryoiki --yes
-
-# Piped or redirected output never provisions; it prints a plain dashboard
-ryoiki < /dev/null
-
-# Audit the host system and report which tools are installed
-ryoiki check
-
-# Deploy or update embedded dotfiles only (~/.tmux.conf, ~/.bash_aliases, starship.toml)
-ryoiki dotfiles
+# Headless provisioning: run all modules non-interactively
+ryoiki --all --yes
 
 # Run specific modules by identifier
 ryoiki run dev_runtimes docker security
 
+# Audit installed system packages and CLI tools
+ryoiki check
+
+# Deploy embedded dotfiles only (~/.tmux.conf, ~/.bash_aliases, starship.toml)
+ryoiki dotfiles
+
 # In-place self-update to latest release from GitHub
 ryoiki update
+```
 
+### 📱 Telegram Bot & Notifications
+```bash
 # Start 2-way Telegram bot & embedded webhook gateway (:9119)
 ryoiki bot
 
-# Send custom Telegram alert from any script or cron job
+# Dispatch custom Telegram alert card
 ryoiki notify send "Database backup completed successfully" --title "Backup" --level success
 
 # Dispatch system boot metrics notification
@@ -162,48 +224,44 @@ ryoiki notify boot
 # Dispatch SSH login security alert (called via PAM or shell profile)
 ryoiki notify login --user neko --ip 198.51.100.42
 
-# Fire alert via local HTTP webhook (works from Docker containers, Python, curl)
+# Fire alert via local HTTP webhook (works from Docker, Python, curl)
 curl -d "text=Service restart completed" http://127.0.0.1:9119/notify
 
 # Install systemd boot service & PAM login notification hooks
 ryoiki notify install-hooks
 
-# Send AC power plug/unplug notification (normally called by udev rule automatically)
-ryoiki notify power plugged
-ryoiki notify power unplugged
-
-# Start battery watch daemon — fires Telegram alert at 50%, 40%, 30%, 25%, 15%, 5%, 1%
+# Start battery watch daemon (alerts at 50%, 40%, 30%, 25%, 15%, 5%, 1%)
 ryoiki notify battery-watch
-
-# Seedr.cc Cloud Downloads & Live Pipeline Status
-ryoiki seedr status                      # Inspect active Seedr cloud caching & disk download progress
-ryoiki seedr "magnet:?xt=urn:btih:..."   # Offload torrent to Seedr cloud with auto-cleanup of qBittorrent duplicates
-
-# AI Media Organizer (Jellyfin Library Placement)
-ryoiki media /path/to/downloads --dry-run # Preview media classification without moving
-ryoiki media /path/to/downloads           # Classify and organize media files into Movies/Shows/Anime
-
-# Media auto-prune (uses ~/.config/ryoiki/settings.json when flags are omitted)
-ryoiki prune --threshold 90 --target 75 --dry-run  # Preview the 90% → 75% policy
-ryoiki prune --schedule                            # Deploy the hourly systemd user timer
 ```
 
-### 🎛️ Control Center & Battery Policy
+### ☁️ Seedr Cloud & Media Pipeline
+```bash
+# Inspect active Seedr cloud caching & disk download progress
+ryoiki seedr status
 
-Bare `ryoiki` opens an eight-tab control center:
+# Offload torrent/magnet to Seedr cloud (cleans up qBittorrent duplicates)
+ryoiki seedr "magnet:?xt=urn:btih:..."
 
-| Tab | What it controls |
-|:---|:---|
-| **Dashboard** | Host, kernel, CPU temperature, memory, disk, battery gauge, AC state, charge backend, watcher health |
-| **Provision** | Module checklist with installed markers, per-module details, and an explicit run action |
-| **Battery** | Charge ceiling, auto poweroff threshold, alert ladder, hardware apply, watcher start/stop |
-| **Notifications** | Telegram token, chat id, server name, timezone, test card, system hooks |
-| **Services** | Managed systemd units and Docker containers with restart actions |
-| **Media** | Jellyfin library state, auto-prune trigger/target, timer apply/disable, storage report, prune preview, media manager |
-| **Updates** | Current binary path, latest release check, in-place self-update |
-| **Settings** | Config paths, UI refresh rate, notification timezone, save/reload, resume reset |
+# Preview AI media classification without moving files
+ryoiki media /path/to/downloads --dry-run
 
-Battery policy lives in `~/.config/ryoiki/settings.json`:
+# Classify and organize media files into Jellyfin Movies/Shows/Anime
+ryoiki media /path/to/downloads
+
+# Media auto-prune: preview policy (triggers at 90%, recovers to 75%)
+ryoiki prune --threshold 90 --target 75 --dry-run
+
+# Deploy hourly media auto-prune systemd user timer
+ryoiki prune --schedule
+```
+
+---
+
+## ⚙️ Configuration
+
+### 1. Unified Settings (`~/.config/ryoiki/settings.json`)
+
+Written atomically and validated on every update:
 
 ```json
 {
@@ -226,35 +284,16 @@ Battery policy lives in `~/.config/ryoiki/settings.json`:
 }
 ```
 
-- **Charge ceiling** is written to the battery controller with `ryoiki charge-limit` or the Battery tab. The watcher also reads it for HP ACPI firmware regulation.
-- **Auto poweroff** is off by default. When enabled, the watcher fires once per discharge cycle at `poweroff_percent` or below, sends a Telegram card, then runs `systemctl poweroff`. Plugging in resets the latch. `RYOIKI_NO_POWEROFF=1` suppresses the shutdown for testing.
-- **Media auto-prune** triggers at `storage.prune_threshold` (60–95%, default 90%) and recovers to `storage.prune_target` (default 75%, at least 5 points lower). Adjust both in the Media tab with ←/→, then press **Apply auto-prune policy**. The Telegram prune command and bare `ryoiki prune` use the same settings.
-- **Alert ladder** fires each threshold once per discharge cycle. Edit it in the Battery tab or change `alert_thresholds` directly.
-- **Power decisions** are appended to `~/.local/state/ryoiki/power.log`.
-- **System services** run as root with `Environment=HOME=<your home>` so the watcher reads the same settings and Telegram config as the TUI. Reinstall hooks from the Notifications tab after upgrading a rootless install.
+### 2. Telegram & AI Config (`~/.config/ryoiki/telegram.json`)
 
-### 🤖 AI Media Organizer
-
-`ryoiki` features an autonomous AI pipeline to classify, organize, and rename incoming torrents and media into Jellyfin-compliant directory hierarchies (`Movies/`, `Shows/`, `Anime/`):
-1. **Primary Provider**: **Google Gemini** (`gemini-3.1-flash-lite`).
-2. **Fallback**: Offline deterministic regex heuristics.
-
-#### Configuration Options
-
-**1. Configuration File (`~/.config/ryoiki/telegram.json`)**:
 ```json
 {
-  "bot_token": "...",
-  "chat_id": "...",
-  "gemini_api_key": "AIzaSy...",
+  "bot_token": "123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ",
+  "chat_id": "987654321",
+  "server_name": "mochi",
+  "gemini_api_key": "AIzaSyD-ExampleKey...",
   "gemini_model": "gemini-3.1-flash-lite"
 }
-```
-
-**2. Environment Variable Overrides**:
-```bash
-export GEMINI_API_KEY="AIzaSy..."
-export GEMINI_MODEL="gemini-3.1-flash-lite"
 ```
 
 ---
@@ -264,46 +303,28 @@ export GEMINI_MODEL="gemini-3.1-flash-lite"
 ```text
 ryoiki/
 ├── .agent/
-│   ├── CODEBASE.md           # Authoritative codebase architecture map
-│   └── rules/rust.md         # Rust code quality rules (enforced in CI)
+│   ├── CODEBASE.md           # Authoritative AI codebase architecture map
+│   └── rules/rust.md         # Rust clean-code rules enforced in CI
 ├── .github/
 │   ├── release.yml           # Categorized GitHub release changelog config
 │   └── workflows/
-│       ├── ci.yml            # Automated CI: fmt, clippy (-D warnings), test & line limits
-│       └── release.yml       # Binary builder & publisher (x86_64)
-├── configs/                  # Embedded configuration templates
-│   ├── .tmux.conf            # 256-color, vi-keys, mouse-scrolling, OSC 52 clipboard passthrough
+│       ├── ci.yml            # Automated CI: fmt, clippy (-D warnings), tests & limits
+│       └── release.yml       # Linux x86_64 binary builder & publisher
+├── configs/                  # Zero-clone embedded configuration templates
+│   ├── .tmux.conf            # 256-color, vi-keys, mouse-scrolling, OSC 52 clipboard
 │   ├── .bash_aliases         # Modern tool aliases (eza, bat, toss) & PATH exports
-│   └── starship.toml         # Minimalist Catppuccin-styled prompt with Nerd Font glyphs
+│   └── starship.toml         # Minimalist Catppuccin prompt with Nerd Font glyphs
 ├── src/
 │   ├── main.rs               # CLI coordinator, argument parser & execution banner
 │   ├── modules.rs            # Module registry, dependency resolver & dispatcher
-│   ├── runner.rs             # Subprocess runner, elapsed timers & quiet output logging
+│   ├── runner.rs             # Subprocess runner, elapsed timers & quiet logging
 │   ├── state.rs              # Run state persistence & resume-on-interruption
 │   ├── tui.rs                # Control center entry, terminal guard & plain dashboard
-│   ├── tui/                  # Ratatui control center
-│   │   ├── app.rs            # Tabs, focus, actions, modals, state
-│   │   ├── app/forms.rs      # Text input and Telegram editing forms
-│   │   ├── actions.rs        # Privileged/long task execution and suspension
-│   │   ├── input.rs          # Key dispatch and navigation
-│   │   ├── render.rs         # Header, menu, footer, help/confirm/input overlays
-│   │   ├── run.rs            # Event loop, terminal restoration, plain fallback
-│   │   ├── system.rs         # Host snapshot and managed-service probes
-│   │   ├── views.rs          # Tab row/action router
-│   │   ├── views/            # Eight tab views
-│   │   └── widgets/          # Theme, row renderer, gauges, modal layout
-│   ├── settings.rs           # Unified settings schema and persistence entry
-│   ├── settings/             # Battery/power/UI model, validation & atomic store
+│   ├── tui/                  # Ratatui 8-tab interactive terminal application
+│   ├── settings.rs           # Unified settings schema & atomic persistence
 │   ├── updater.rs            # In-place binary self-update from GitHub releases
-│   ├── configs.rs            # Embedded dotfile deployment routines
-│   ├── notify.rs             # Central notification dispatcher & CLI handler
-│   ├── notify/               # Notification subsystem
-│   │   ├── config.rs         # Telegram config loader with legacy fallback
-│   │   ├── client.rs         # Telegram HTTP API client & HTML card generator
-│   │   ├── system.rs         # Boot metrics, PAM login hook & custom alerts
-│   │   ├── power.rs          # AC events, battery watcher & auto-poweroff policy
-│   │   ├── power/            # Battery/CPU sensors and PID lock
-│   │   └── server.rs         # Embedded loopback HTTP webhook server (:9119)
+│   ├── notify.rs             # Notification dispatcher & CLI handler
+│   ├── notify/               # Telegram bot, power watcher & webhook gateway (:9119)
 │   └── modules/              # Single-responsibility provisioning modules
 │       ├── cli_tools.rs      # eza, bat, zoxide, fzf, ble.sh
 │       ├── dev_runtimes.rs   # Go, Rustup, uv, Bun
@@ -315,8 +336,8 @@ ryoiki/
 │       ├── security.rs       # UFW firewall & daemon cleanup
 │       ├── tailscale.rs      # Tailscale WireGuard mesh VPN & MagicDNS
 │       ├── torrent.rs        # qBittorrent server & Web UI
-│       ├── torrent/          # Torrent API, Telegram bot & notification hooks
-│       └── trash.rs          # toss-rs safe trash manager
+│       ├── torrent/          # Seedr cloud client, task reaper & deduplication
+│       └── trash.rs          # toss-rs safe terminal trash manager
 ├── Cargo.toml                # Rust 2021 package manifest with strict lints
 ├── remote-install.sh         # Instant remote bootstrap script (curl | bash)
 └── install.sh                # Local installer script
@@ -326,13 +347,14 @@ ryoiki/
 
 ## 🛡️ Code Quality Standards
 
-The codebase enforces strict, automated quality rules checked via CI on every pull request:
+The codebase strictly enforces clean-code engineering standards validated on every pull request:
 
-- **Strict File Limits**: Max 300 lines (soft) / 400 lines (hard gate).
-- **Strict Function Limits**: Max 40 lines (soft) / 60 lines (hard gate).
-- **Zero Unhandled Errors**: No raw `unwrap()` or `expect()` in production modules.
-- **Zero Warnings**: `-D warnings` on both `cargo build` and `cargo clippy --all-targets --all-features`.
-- **Modern Module Structure**: Clean 2018+ module tree (`src/modules.rs` with `src/modules/*.rs`).
+- **Strict File Limits**: `<400` LOC per file (soft limit `300`).
+- **Strict Function Limits**: `<60` LOC per function (soft limit `40`).
+- **Nesting Depth**: Maximum `3` levels of indentation.
+- **Zero Production Unwraps**: No unhandled `unwrap()` or `expect()` in production code.
+- **Zero Clippy Warnings**: Strict `-D warnings` on `cargo build`, `cargo clippy`, and `cargo test`.
+- **Role-Based Architecture**: Separation between UI presentation, domain logic, and system infrastructure.
 
 ---
 
