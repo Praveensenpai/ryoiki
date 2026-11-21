@@ -172,17 +172,25 @@ pub fn execute_file_organize(
     let has_multiple_audio = probe.is_none_or(super::probe::needs_language_decision);
     let is_anime = matches!(media_info.media_type, MediaType::Anime);
     let (final_dest, multi_path, audio_summary) = if has_multiple_audio {
-        let outcome = super::audio::strip_audio_auto(&dest_path, !is_anime);
-        let mut summary = super::audio::AudioStripSummary::default();
-        summary.record(&outcome);
-        match outcome {
-            super::audio::StripOutcome::Stripped {
-                original_path,
-                multi_path,
-                ..
-            } => (original_path, multi_path, summary),
-            super::audio::StripOutcome::Preserved { path } => (path, None, summary),
-            super::audio::StripOutcome::Failed => (dest_path, None, summary),
+        // Check if the [Multi] sidecar actually exists on disk before trying to strip
+        let (_, has_multi_sidecar) = find_multi_sidecar(&dest_path, &dest_dir);
+
+        if has_multi_sidecar {
+            let outcome = super::audio::strip_audio_auto(&dest_path, !is_anime);
+            let mut summary = super::audio::AudioStripSummary::default();
+            summary.record(&outcome);
+            match outcome {
+                super::audio::StripOutcome::Stripped {
+                    original_path,
+                    multi_path,
+                    ..
+                } => (original_path, multi_path, summary),
+                super::audio::StripOutcome::Preserved { path } => (path, None, summary),
+                super::audio::StripOutcome::Failed => (dest_path, None, summary),
+            }
+        } else {
+            // [Multi] sidecar doesn't exist, skip stripping entirely
+            (dest_path, None, super::audio::AudioStripSummary::default())
         }
     } else {
         (dest_path, None, super::audio::AudioStripSummary::default())
@@ -337,6 +345,22 @@ fn group_videos_by_series(target: &Path, files: Vec<PathBuf>) -> BTreeMap<PathBu
         groups.entry(key).or_default().push(file);
     }
     groups
+}
+
+/// Checks if the [Multi] sidecar exists for a given media file.
+///
+/// Returns (`sidecar_name`, `exists_bool`). Used to skip stripping when the multi
+/// sidecar has been deleted or never existed.
+fn find_multi_sidecar(file_path: &Path, dest_dir: &Path) -> (Option<String>, bool) {
+    let Some(filename) = file_path.file_name().and_then(|n| n.to_str()) else {
+        return (None, false);
+    };
+
+    // Construct the [Multi] filename using the same logic as strip.rs
+    let multi_name = super::ai::ensure_language_in_clean_name(filename, "Multi");
+
+    let multi_path = dest_dir.join(&multi_name);
+    (Some(multi_name), multi_path.exists())
 }
 
 pub fn organize_torrent(

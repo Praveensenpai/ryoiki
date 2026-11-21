@@ -222,7 +222,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_torrent_file (client : & Client , config : & TelegramConfig , fname : & str , bytes : Vec < u8 > ,) -> Result < String >
   ```
 
-### `src/bot/torrents.rs` (Role: general, Lines: 325)
+### `src/bot/torrents.rs` (Role: general, Lines: 322)
 - **Responsibility**: Core general logic in src/bot/torrents.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use std :: collections :: HashMap , use std :: time :: Duration , use crate :: modules :: torrent :: api :: { self , TorrentInfo } , use crate :: modules :: torrent :: notify , use crate :: modules :: torrent :: report :: { clamp_torrent_page , format_status_report , torrent_page_count , } , use crate :: modules :: torrent :: seedr , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style , use super :: keyboards :: torrents_keyboard , use super :: types :: InlineKeyboardMarkup , use crate :: modules :: torrent :: dedup :: { self , Availability } , use crate :: modules :: torrent :: scheduler :: { self , SubmitOutcome } , pub use seedr_cmd :: { handle_seedr_cmd , handle_torrent_file } 
 - **Types & Enums**:
@@ -747,18 +747,21 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_key (code : KeyCode , state : & mut AppState) -> Option < bool >
   ```
 
-### `src/modules/media/interactive/selection.rs` (Role: general, Lines: 138)
+### `src/modules/media/interactive/selection.rs` (Role: general, Lines: 323)
 - **Responsibility**: Core general logic in src/modules/media/interactive/selection.rs
-- **Imports**: use super :: { AppState , MediaItem , TransferDirection } , use crate :: modules :: media :: disk 
+- **Imports**: use super :: { AppState , MediaFile , MediaItem , TransferDirection } , use crate :: modules :: media :: disk , use std :: path :: PathBuf 
 - **Public Functions & Signatures**:
   ```rust
   fn toggle_main_item (state : & mut AppState , real_idx : usize)
+  fn toggle_file (state : & mut AppState , item_idx : usize , season_idx : Option < usize > , file_idx : usize ,)
+  fn select_all_files (state : & mut AppState , item_idx : usize , season_idx : Option < usize >)
+  fn clear_all_files (state : & mut AppState , item_idx : usize , season_idx : Option < usize >)
   fn collect_transfer_items (state : & AppState) -> Vec < MediaItem >
   ```
 
-### `src/modules/media/interactive/trash.rs` (Role: general, Lines: 246)
+### `src/modules/media/interactive/trash.rs` (Role: general, Lines: 254)
 - **Responsibility**: Core general logic in src/modules/media/interactive/trash.rs
-- **Imports**: use crossterm :: event :: KeyCode , use std :: path :: PathBuf , use super :: { AppState , MediaItem , TransferDirection , ViewMode } , use crate :: modules :: media :: trash :: { self , TrashEntry , TrashKind } 
+- **Imports**: use crossterm :: event :: KeyCode , use std :: path :: PathBuf , use super :: { AppState , MediaItem , TransferDirection , ViewMode } , use crate :: modules :: media :: trash :: { self , TrashEntry , TrashKind } , use crate :: tui :: actions :: helpers :: with_timeout 
 - **Types & Enums**:
   ```rust
   pub enum PendingAction
@@ -772,7 +775,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_modal_key (code : KeyCode , state : & mut AppState) -> Option < bool >
   ```
 
-### `src/modules/media/interactive/ui/files_view.rs` (Role: tui, Lines: 304)
+### `src/modules/media/interactive/ui/files_view.rs` (Role: tui, Lines: 359)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui/files_view.rs
 - **Imports**: use crossterm :: event :: KeyCode , use ratatui :: { layout :: { Alignment , Constraint , Direction , Layout , Rect } , style :: { Color , Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph } , Frame , } , use super :: truncate_str , use crate :: modules :: media :: disk , use crate :: modules :: media :: interactive :: { AppState , ViewMode } , use crate :: modules :: media :: transfer :: { MediaFile , TransferDirection } 
 - **Public Functions & Signatures**:
@@ -815,23 +818,25 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_trash_key (code : KeyCode , state : & mut AppState) -> Option < bool >
   ```
 
-### `src/modules/media/interactive/ui.rs` (Role: tui, Lines: 124)
+### `src/modules/media/interactive/ui.rs` (Role: tui, Lines: 135)
 - **Responsibility**: Core tui logic in src/modules/media/interactive/ui.rs
 - **Imports**: use ratatui :: { layout :: { Margin , Rect } , style :: { Color , Style } , widgets :: { Scrollbar , ScrollbarOrientation , ScrollbarState } , Frame , } , use super :: { AppState , ViewMode } , pub use files_view :: render_files_ui , pub use main_view :: render_main_ui , pub use sub_view :: render_subview_ui , pub use trash_view :: { render_modal , render_trash_ui } 
 - **Public Functions & Signatures**:
   ```rust
   fn render_ui (f : & mut Frame , state : & AppState)
+  fn active_warning (state : & AppState) -> Option < (& 'static str , & str) >
   fn render_scrollbar (f : & mut Frame , area : Rect , content_len : usize , viewport_len : usize , offset : usize ,)
   fn truncate_str (s : & str , max_chars : usize) -> String
   ```
 
-### `src/modules/media/interactive.rs` (Role: general, Lines: 314)
+### `src/modules/media/interactive.rs` (Role: general, Lines: 318)
 - **Responsibility**: Core general logic in src/modules/media/interactive.rs
-- **Imports**: pub use trash :: ConfirmState , use anyhow :: Result , use crossterm :: { event :: { self , Event , KeyEventKind } , execute , terminal :: { disable_raw_mode , enable_raw_mode , EnterAlternateScreen , LeaveAlternateScreen } , } , use ratatui :: { backend :: CrosstermBackend , Terminal } , use std :: io , use std :: path :: { Path , PathBuf } , use super :: disk :: DiskUsage , use super :: transfer :: { MediaCategory , MediaItem , TransferDirection } 
+- **Imports**: pub use trash :: ConfirmState , use anyhow :: Result , use crossterm :: { event :: { self , Event , KeyEventKind } , execute , terminal :: { disable_raw_mode , enable_raw_mode , EnterAlternateScreen , LeaveAlternateScreen } , } , use ratatui :: { backend :: CrosstermBackend , Terminal } , use std :: io , use std :: path :: PathBuf , use super :: disk :: DiskUsage , use super :: transfer :: { MediaCategory , MediaFile , MediaItem , TransferDirection } 
 - **Types & Enums**:
   ```rust
   pub enum ItemFilter
   pub enum ViewMode
+  pub struct MediaManagerInput
   pub struct AppState
   ```
 - **Public Functions & Signatures**:
@@ -839,7 +844,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn next (self) -> Self
   fn label (self) -> & 'static str
   fn matches (self , cat : MediaCategory) -> bool
-  fn new (local : Vec < MediaItem > , remote : Vec < MediaItem > , dir : TransferDirection , local_disk : Option < DiskUsage > , home_path : PathBuf ,) -> Self
+  fn new (input : MediaManagerInput) -> Self
   fn refresh_after_mutation (& mut self)
   fn current_items (& self) -> & [MediaItem]
   fn current_items_mut (& mut self) -> & mut [MediaItem]
@@ -853,7 +858,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn reload_libraries (& mut self)
   fn toggle_main_item (& mut self , real_idx : usize)
   fn collect_transfer_items (& self) -> Vec < MediaItem >
-  fn run_interactive_tui (local : Vec < MediaItem > , remote : Vec < MediaItem > , dir : TransferDirection , local_disk : Option < DiskUsage > , home_path : & Path ,) -> Result < Option < (TransferDirection , Vec < MediaItem >) > >
+  fn run_interactive_tui (input : MediaManagerInput ,) -> Result < Option < (TransferDirection , Vec < MediaItem >) > >
   ```
 
 ### `src/modules/media/library/tests.rs` (Role: general, Lines: 170)
@@ -941,7 +946,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/media/organizer/tests.rs
 - **Imports**: use super :: * , use crate :: modules :: media :: ClassificationEngine 
 
-### `src/modules/media/organizer.rs` (Role: general, Lines: 373)
+### `src/modules/media/organizer.rs` (Role: general, Lines: 397)
 - **Responsibility**: Core general logic in src/modules/media/organizer.rs
 - **Imports**: pub use cleanup :: { cleanup_torrent_source , resolve_torrent_source } , pub use cli :: { run_organize_cli , setup } , use junk :: is_skippable_extra , pub use pathing :: { calculate_dest_dir , is_video_file , perform_move , resolve_unique_dest_path } , use specials :: assign_unique_special_numbers , use anyhow :: { Context , Result } , use colored :: Colorize , use reqwest :: blocking :: Client , use std :: fs , use std :: path :: { Path , PathBuf } , use super :: ai :: { classify_media_ai , classify_media_batch } , use super :: heuristic :: classify_media_heuristic , use super :: probe :: MediaProbe , use super :: { MediaType , OrganizeResult } , use crate :: modules :: torrent :: api :: TorrentInfo , use std :: collections :: { BTreeMap , HashMap } 
 - **Public Functions & Signatures**:
@@ -1040,7 +1045,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn run_media_sync () -> Result < () >
   ```
 
-### `src/modules/media/transfer/cache.rs` (Role: general, Lines: 317)
+### `src/modules/media/transfer/cache.rs` (Role: general, Lines: 318)
 - **Responsibility**: Core general logic in src/modules/media/transfer/cache.rs
 - **Imports**: use anyhow :: Result , use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use std :: fs , use std :: path :: { Path , PathBuf } , use std :: time :: UNIX_EPOCH , use super :: scan :: collect_dir_files , use super :: { MediaCategory , MediaFile , MediaSeason , SyncStatus } 
 - **Types & Enums**:
@@ -1058,6 +1063,19 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn invalidate (home : & Path) -> Result < () >
   fn get_or_scan_movie (& mut self , path : & Path , title : & str , cat : MediaCategory , is_local : bool ,) -> (Vec < MediaFile > , u64)
   fn get_or_scan_seasons (& mut self , dir_path : & Path , remote_base : & str , is_local : bool , cat : MediaCategory , show_title : & str ,) -> Vec < MediaSeason >
+  ```
+
+### `src/modules/media/transfer/cloud.rs` (Role: general, Lines: 265)
+- **Responsibility**: Core general logic in src/modules/media/transfer/cloud.rs
+- **Imports**: use std :: collections :: HashSet , use std :: fs , use std :: path :: Path , use std :: process :: Command , use super :: cache :: MediaScanCache , use super :: { MediaCategory , MediaItem , SyncStatus } , use crate :: modules :: rclone :: describe_error 
+- **Types & Enums**:
+  ```rust
+  pub struct RemoteScan
+  ```
+- **Public Functions & Signatures**:
+  ```rust
+  fn scan_remote_media (home : & Path , cache : & mut MediaScanCache) -> RemoteScan
+  fn is_active_mount (path : & Path) -> bool
   ```
 
 ### `src/modules/media/transfer/execute.rs` (Role: general, Lines: 255)
@@ -1084,19 +1102,22 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/media/transfer/scan/tests.rs
 - **Imports**: use super :: * 
 
-### `src/modules/media/transfer/scan.rs` (Role: general, Lines: 325)
+### `src/modules/media/transfer/scan.rs` (Role: general, Lines: 215)
 - **Responsibility**: Core general logic in src/modules/media/transfer/scan.rs
-- **Imports**: use anyhow :: Result , use std :: collections :: HashSet , use std :: fs , use std :: path :: Path , use std :: process :: Command , use super :: cache :: MediaScanCache , use super :: { MediaCategory , MediaFile , MediaItem , SyncStatus } 
+- **Imports**: use std :: collections :: HashSet , use std :: fs , use std :: path :: Path , use super :: cache :: MediaScanCache , use super :: { MediaCategory , MediaFile , MediaItem , SyncStatus } 
+- **Types & Enums**:
+  ```rust
+  pub struct LibraryScan
+  ```
 - **Public Functions & Signatures**:
   ```rust
   fn collect_dir_files (path : & Path , rel_prefix : & str) -> Vec < MediaFile >
-  fn scan_libraries (home : & Path) -> Result < (Vec < MediaItem > , Vec < MediaItem >) >
-  fn rescan_libraries (home : & Path) -> Result < (Vec < MediaItem > , Vec < MediaItem >) >
+  fn scan_libraries (home : & Path) -> LibraryScan
+  fn rescan_libraries (home : & Path) -> LibraryScan
   fn scan_local_media (home : & Path , cache : & mut MediaScanCache) -> Vec < MediaItem >
-  fn scan_remote_media (home : & Path , cache : & mut MediaScanCache) -> Result < Vec < MediaItem > >
   ```
 
-### `src/modules/media/transfer/sync_status.rs` (Role: general, Lines: 347)
+### `src/modules/media/transfer/sync_status.rs` (Role: general, Lines: 358)
 - **Responsibility**: Core general logic in src/modules/media/transfer/sync_status.rs
 - **Imports**: use serde :: { Deserialize , Serialize } , use std :: collections :: HashMap , use super :: { MediaCategory , MediaItem , MediaSeason } 
 - **Types & Enums**:
@@ -1113,7 +1134,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn cross_reference_libraries (local : & mut [MediaItem] , remote : & mut [MediaItem])
   ```
 
-### `src/modules/media/transfer.rs` (Role: general, Lines: 160)
+### `src/modules/media/transfer.rs` (Role: general, Lines: 161)
 - **Responsibility**: Core general logic in src/modules/media/transfer.rs
 - **Imports**: pub use execute :: { confirm_transfer , execute_transfer } , pub use scan :: { rescan_libraries , scan_libraries } , pub use sync_status :: { cross_reference_libraries , MediaFile , SyncStatus } , use serde :: { Deserialize , Serialize } , use std :: path :: PathBuf 
 - **Types & Enums**:
@@ -1177,7 +1198,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/media/trash.rs
 - **Imports**: pub use entry :: { TrashEntry , TrashKind } , pub use ops :: { list_all , purge_entry , purge_expired , restore_entry , trash_local , trash_remote } 
 
-### `src/modules/media.rs` (Role: general, Lines: 139)
+### `src/modules/media.rs` (Role: general, Lines: 143)
 - **Responsibility**: Core general logic in src/modules/media.rs
 - **Imports**: use colored :: Colorize , use serde :: { Deserialize , Serialize } , use std :: io :: IsTerminal , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
@@ -1210,12 +1231,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn configure_fuse_allow_other (runner : & mut Runner) -> Result < () >
   ```
 
-### `src/modules/rclone/oauth.rs` (Role: general, Lines: 143)
+### `src/modules/rclone/oauth.rs` (Role: general, Lines: 245)
 - **Responsibility**: Core general logic in src/modules/rclone/oauth.rs
 - **Imports**: use anyhow :: Result , use colored :: Colorize , use std :: io :: { self , BufRead , Write } , use std :: process :: Command 
 - **Public Functions & Signatures**:
   ```rust
   fn is_remote_configured () -> bool
+  fn describe_error (raw : & str) -> String
+  fn probe_remote () -> std :: result :: Result < () , String >
   fn ensure_remote_initialized ()
   fn prompt_and_configure_remote () -> Result < bool >
   ```
@@ -1234,9 +1257,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn stop_mount () -> Result < () >
   ```
 
-### `src/modules/rclone.rs` (Role: general, Lines: 180)
+### `src/modules/rclone.rs` (Role: general, Lines: 195)
 - **Responsibility**: Core general logic in src/modules/rclone.rs
-- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , pub use oauth :: is_remote_configured 
+- **Imports**: use crate :: runner :: Runner , use anyhow :: { Context , Result } , use clap :: Subcommand , use colored :: Colorize , use std :: fs , use std :: path :: { Path , PathBuf } , pub use oauth :: { describe_error , is_remote_configured } 
 - **Types & Enums**:
   ```rust
   pub enum RcloneSubcommand
@@ -1633,9 +1656,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn run_server (config : TelegramConfig , port : u16) -> Result < () >
   ```
 
-### `src/notify/session.rs` (Role: general, Lines: 269)
+### `src/notify/session.rs` (Role: general, Lines: 150)
 - **Responsibility**: Core general logic in src/notify/session.rs
-- **Imports**: use std :: ffi :: CString , use std :: fs , use std :: io :: Write as _ , use std :: os :: unix :: ffi :: OsStrExt , use std :: path :: { Path , PathBuf } , use std :: time :: { SystemTime , UNIX_EPOCH } 
+- **Imports**: use std :: ffi :: CString , use std :: fs , use std :: io :: Write as _ , use std :: os :: unix :: ffi :: OsStrExt , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:
   ```rust
   pub enum LoginOutcome
@@ -1643,9 +1666,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Public Functions & Signatures**:
   ```rust
   fn ensure_shared_state_dir () -> bool
-  fn is_session_suppressed (ip : & str , window_mins : u64) -> bool
-  fn record_session_login (ip : & str)
-  fn log_login (user : & str , ip : & str , service : & str , tty : & str , outcome : LoginOutcome)
+  fn log_login (user : & str , ip : & str , service : & str , tty : & str , _outcome : LoginOutcome)
   ```
 
 ### `src/notify/shutdown.rs` (Role: general, Lines: 78)
@@ -1668,13 +1689,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn accent (glyph : & str , text : & str) -> String
   ```
 
-### `src/notify/system.rs` (Role: general, Lines: 391)
+### `src/notify/system.rs` (Role: general, Lines: 356)
 - **Responsibility**: Core general logic in src/notify/system.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: mem :: MaybeUninit , use std :: process :: Command , use std :: time :: Duration , use super :: client :: { escape_html , format_card , send_alert } , use super :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn send_boot_notification (config : & TelegramConfig) -> Result < () >
-  fn send_login_notification (config : & TelegramConfig , user : Option < & str > , ip : Option < & str > , service : Option < & str > , tty : Option < & str > ,) -> Result < () >
+  fn send_login_notification (config : & TelegramConfig , user : Option < & str > , ip : Option < & str > , service : Option < & str > , tty : Option < & str > ,)
   fn send_custom_notification (config : & TelegramConfig , message : & str , title : Option < & str > , level : & str ,) -> Result < () >
   fn get_hostname (config : & TelegramConfig) -> String
   fn get_public_ip () -> String
@@ -1787,13 +1808,22 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core tui logic in src/tui/actions/helpers.rs
 - **Imports**: use crate :: tui :: RunOptions , use anyhow :: { bail , Context , Result } , use std :: process :: Command , use std :: time :: Duration 
 
+### `src/tui/actions/service_ops.rs` (Role: tui, Lines: 59)
+- **Responsibility**: Core tui logic in src/tui/actions/service_ops.rs
+- **Imports**: use std :: process :: Command , use anyhow :: { bail , Context } , use crate :: tui :: RunOptions , use super :: { suspend , Effect } 
+- **Public Functions & Signatures**:
+  ```rust
+  fn service_action (name : String , is_user : bool , restart : bool , opts : RunOptions) -> Effect
+  fn container_action (name : String , restart : bool) -> Effect
+  ```
+
 ### `src/tui/actions/tests.rs` (Role: tui, Lines: 6)
 - **Responsibility**: Core tui logic in src/tui/actions/tests.rs
 - **Imports**: use super :: INSTALL_HOOKS_ARGS 
 
-### `src/tui/actions.rs` (Role: tui, Lines: 389)
+### `src/tui/actions.rs` (Role: tui, Lines: 373)
 - **Responsibility**: Core tui logic in src/tui/actions.rs
-- **Imports**: use std :: process :: Command , use anyhow :: { bail , Context , Result } , use crate :: tui :: app :: { Action , App , ToastLevel } , use crate :: tui :: RunOptions , use helpers :: { ensure_sudo , run_root , with_timeout } 
+- **Imports**: use std :: process :: Command , use anyhow :: { bail , Context , Result } , use crate :: tui :: app :: { Action , App , ToastLevel } , use crate :: tui :: RunOptions , use helpers :: { ensure_sudo , run_root , with_timeout } , use service_ops :: { container_action , service_action } 
 - **Types & Enums**:
   ```rust
   pub struct Suspended
@@ -1825,7 +1855,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_refreshing (& self) -> bool
   ```
 
-### `src/tui/app.rs` (Role: tui, Lines: 342)
+### `src/tui/app.rs` (Role: tui, Lines: 364)
 - **Responsibility**: Core tui logic in src/tui/app.rs
 - **Imports**: use std :: time :: { Duration , Instant } , use crate :: notify :: config :: TelegramConfig , use crate :: settings :: Settings , use crate :: tui :: refresh :: Worker , use crate :: tui :: system :: { self , ServiceRow , Snapshot } , pub use forms :: mask_secret , use forms :: { provision_rows , settings_warning , telegram_state } 
 - **Types & Enums**:
@@ -1837,6 +1867,8 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   pub enum ToastLevel
   pub struct Toast
   pub struct Confirm
+  pub struct ChoiceOption
+  pub struct Choice
   pub struct TextInput
   pub struct ProvisionRow
   pub struct App
@@ -1863,7 +1895,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn telegram_status (& self) -> & 'static str
   ```
 
-### `src/tui/input.rs` (Role: tui, Lines: 192)
+### `src/tui/input.rs` (Role: tui, Lines: 233)
 - **Responsibility**: Core tui logic in src/tui/input.rs
 - **Imports**: use crossterm :: event :: { KeyCode , KeyEvent , KeyModifiers } , use crate :: tui :: actions :: Effect , use crate :: tui :: app :: { Action , App , Focus , Tab } , use crate :: tui :: views 
 - **Public Functions & Signatures**:
@@ -1887,9 +1919,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn poll (& self) -> Poll
   ```
 
-### `src/tui/render.rs` (Role: tui, Lines: 326)
+### `src/tui/render.rs` (Role: tui, Lines: 363)
 - **Responsibility**: Core tui logic in src/tui/render.rs
-- **Imports**: use ratatui :: { layout :: { Constraint , Layout , Rect } , style :: { Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph , Wrap } , Frame , } , use crate :: tui :: app :: { App , Confirm , Focus , Tab , TextInput , ToastLevel } , use crate :: tui :: views , use crate :: tui :: widgets :: { centered_box , centered_rect , modal_frame , tail , theme , truncate } 
+- **Imports**: use ratatui :: { layout :: { Constraint , Layout , Rect } , style :: { Modifier , Style } , text :: { Line , Span } , widgets :: { Block , BorderType , Borders , Paragraph , Wrap } , Frame , } , use crate :: tui :: app :: { App , Choice , Confirm , Focus , Tab , TextInput , ToastLevel } , use crate :: tui :: views , use crate :: tui :: widgets :: { centered_box , centered_rect , modal_frame , tail , theme , truncate } 
 - **Public Functions & Signatures**:
   ```rust
   fn draw (f : & mut Frame , app : & App)
@@ -1973,9 +2005,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn activate (app : & mut App , index : usize) -> Action
   ```
 
-### `src/tui/views/services.rs` (Role: tui, Lines: 58)
+### `src/tui/views/services.rs` (Role: tui, Lines: 96)
 - **Responsibility**: Core tui logic in src/tui/views/services.rs
-- **Imports**: use crate :: tui :: app :: { Action , App } , use crate :: tui :: widgets :: Row 
+- **Imports**: use crate :: tui :: app :: { Action , App , Choice , ChoiceOption } , use crate :: tui :: widgets :: Row 
 - **Public Functions & Signatures**:
   ```rust
   fn rows (app : & App) -> Vec < Row >

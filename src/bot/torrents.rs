@@ -121,29 +121,26 @@ pub fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> 
     }
 
     if let Some(size) = seedr::extract_magnet_size(magnet) {
-        if let Some(avail) = crate::modules::torrent::seedr_tasks::seedr_available_bytes() {
-            if size > avail {
-                // A full account is not a verdict: completed cloud items may be
-                // evicted to make room. Only a still-downloading blocker sends
-                // this magnet to qBittorrent instead.
-                let fits = crate::modules::torrent::seedr_eviction::free_space_for(size)
-                    .is_some_and(|freed| freed >= size);
-                if !fits {
-                    let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
-                    let sz_mb = size / 1_048_576;
-                    let av_mb = avail / 1_048_576;
-                    return MagnetOutcome::Message(event_view(
-                        "QBITTORRENT",
-                        &style::accent("↓", "Magnet queued"),
-                        &[format!(
-                            "<i>Torrent {}.{} GB exceeds Seedr space {}.{} GB; running locally.</i>",
-                            sz_mb / 1024,
-                            (sz_mb % 1024) / 100,
-                            av_mb / 1024,
-                            (av_mb % 1024) / 100
-                        )],
-                    ));
-                }
+        // Fetch a fresh space snapshot after the reaper ran, also evicting any
+        // ryoiki-owned completed items to make room before giving up on Seedr.
+        // free_space_for returns post-eviction available bytes, or None when
+        // the Seedr API is unreachable (let the scheduler decide in that case).
+        if let Some(avail_after) = crate::modules::torrent::seedr_eviction::free_space_for(size) {
+            if avail_after < size {
+                let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
+                let sz_mb = size / 1_048_576;
+                let av_mb = avail_after / 1_048_576;
+                return MagnetOutcome::Message(event_view(
+                    "QBITTORRENT",
+                    &style::accent("↓", "Magnet queued"),
+                    &[format!(
+                        "<i>Torrent {}.{} GB exceeds Seedr space {}.{} GB; running locally.</i>",
+                        sz_mb / 1024,
+                        (sz_mb % 1024) / 100,
+                        av_mb / 1024,
+                        (av_mb % 1024) / 100
+                    )],
+                ));
             }
         }
     }
