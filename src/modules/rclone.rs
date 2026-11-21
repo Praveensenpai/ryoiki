@@ -9,7 +9,7 @@ use colored::Colorize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub use oauth::is_remote_configured;
+pub use oauth::{describe_error, is_remote_configured};
 
 /// CLI subcommands for Rclone Google Drive management.
 #[derive(Subcommand, Debug, Clone, Copy)]
@@ -140,6 +140,21 @@ fn show_status() {
         remote_ok,
     );
 
+    let auth_ok = if remote_ok {
+        match oauth::probe_remote() {
+            Ok(()) => {
+                print_status_item("Auth / Token", "✔ valid", true);
+                true
+            }
+            Err(err) => {
+                print_status_item("Auth / Token", &format!("✖ {err}"), false);
+                false
+            }
+        }
+    } else {
+        false
+    };
+
     let service_active = service::is_service_active();
     print_status_item(
         "Systemd Service",
@@ -164,7 +179,7 @@ fn show_status() {
         is_mounted,
     );
 
-    if remote_ok && is_mounted {
+    if auth_ok && is_mounted {
         service::print_quota_stats();
     }
     println!();

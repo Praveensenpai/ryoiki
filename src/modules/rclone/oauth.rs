@@ -20,6 +20,77 @@ pub fn is_remote_configured() -> bool {
     })
 }
 
+/// Turns rclone stderr into a short, actionable message.
+///
+/// rclone prefixes errors with a timestamp and a level, which is noise in a
+/// status line or a TUI banner.
+#[must_use]
+pub fn describe_error(raw: &str) -> String {
+    let lower = raw.to_ascii_lowercase();
+    if lower.contains("rclone not available") {
+        return "rclone is not installed. Run: ryoiki rclone setup".to_string();
+    }
+    if lower.contains("invalid_grant") || lower.contains("couldn't fetch token") {
+        return "Google Drive token is invalid or expired. Run: rclone config reconnect gdrive:"
+            .to_string();
+    }
+    if lower.contains("no such remote") || lower.contains("didn't find section") {
+        return "rclone remote 'gdrive:' is not configured. Run: ryoiki rclone setup".to_string();
+    }
+    format!("Cloud access failed: {}", first_stderr_line(raw))
+}
+
+/// Verifies the remote with a lightweight API call.
+///
+/// [`is_remote_configured`] only checks that a token string exists; this also
+/// catches expired or revoked refresh tokens.
+pub fn probe_remote() -> std::result::Result<(), String> {
+    if !is_remote_configured() {
+        return Err(
+            "rclone remote 'gdrive:' is not configured. Run: ryoiki rclone setup".to_string(),
+        );
+    }
+
+    let output = Command::new("rclone")
+        .args(["about", "gdrive:", "--timeout", "10s", "--contimeout", "5s"])
+        .output()
+        .map_err(|err| describe_error(&format!("rclone not available: {err}")))?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    Err(describe_error(&String::from_utf8_lossy(&output.stderr)))
+}
+
+fn first_stderr_line(raw: &str) -> String {
+    let line = raw
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or("unknown rclone error");
+    strip_log_prefix(line).to_string()
+}
+
+fn strip_log_prefix(line: &str) -> &str {
+    let mut parts = line.splitn(3, ' ');
+    let (Some(date), Some(_time), Some(rest)) = (parts.next(), parts.next(), parts.next()) else {
+        return strip_level(line);
+    };
+    if date.len() == 10 && date.as_bytes().get(4) == Some(&b'/') {
+        strip_level(rest)
+    } else {
+        strip_level(line)
+    }
+}
+
+fn strip_level(line: &str) -> &str {
+    ["CRITICAL: ", "ERROR+4: ", "ERROR: ", "NOTICE: "]
+        .iter()
+        .find_map(|prefix| line.strip_prefix(prefix))
+        .unwrap_or(line)
+}
+
 /// Pre-creates the `gdrive` remote entry in `rclone.conf` if it does not yet exist.
 pub fn ensure_remote_initialized() {
     let output = Command::new("rclone").arg("listremotes").output();
@@ -140,4 +211,35 @@ fn configure_custom_credentials() -> Result<()> {
 
     run_interactive_reconnect();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn describes_expired_token() {
+        let raw = "2026/11/21 14:11:35 CRITICAL: Failed to create file system for \"gdrive:\": \
+                   couldn't fetch token: invalid_grant: maybe token expired?";
+        let message = describe_error(raw);
+        assert!(message.contains("rclone config reconnect gdrive:"));
+    }
+
+    #[test]
+    fn describes_unconfigured_remote() {
+        let message = describe_error("didn't find section in config file");
+        assert!(message.contains("ryoiki rclone setup"));
+    }
+
+    #[test]
+    fn describes_missing_rclone() {
+        let message = describe_error("rclone not available: No such file or directory");
+        assert!(message.contains("ryoiki rclone setup"));
+    }
+
+    #[test]
+    fn strips_timestamp_and_level() {
+        assert_eq!(first_stderr_line("2026/11/21 14:11:35 ERROR: boom"), "boom");
+        assert_eq!(first_stderr_line("plain error"), "plain error");
+    }
 }

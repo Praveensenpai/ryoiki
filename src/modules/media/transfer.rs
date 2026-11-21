@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod cloud;
 pub mod execute;
 pub mod notify;
 pub mod scan;

@@ -14,7 +14,7 @@ fn test_remote_subpath_preserves_other_categories() {
 }
 
 #[test]
-fn test_scan_local_category_flat_anime() -> Result<()> {
+fn test_scan_local_category_flat_anime() -> anyhow::Result<()> {
     let temp_dir = std::env::temp_dir().join("test_scan_flat_anime");
     let anime_dir = temp_dir.join("anime").join("Kimetsu no Yaiba (2025)");
     fs::create_dir_all(&anime_dir)?;
@@ -48,7 +48,7 @@ fn test_scan_local_category_flat_anime() -> Result<()> {
 }
 
 #[test]
-fn test_scan_local_anime_movies_subfolder() -> Result<()> {
+fn test_scan_local_anime_movies_subfolder() -> anyhow::Result<()> {
     let temp_dir = std::env::temp_dir().join(format!("test_anime_movies_{}", std::process::id()));
     let anime_movie_dir = temp_dir.join("anime/movie/Koe no Katachi (2016)");
     fs::create_dir_all(&anime_movie_dir)?;

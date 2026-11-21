@@ -37,6 +37,17 @@ pub fn render_ui(f: &mut Frame, state: &AppState) {
     }
 }
 
+/// The warning that should be visible in a view header.
+///
+/// A cloud access problem outranks transient messages so a key press cannot
+/// clear it before the user reads it.
+pub fn active_warning(state: &AppState) -> Option<(&'static str, &str)> {
+    if let Some(warn) = &state.cloud_warning {
+        return Some(("☁", warn));
+    }
+    state.warning_msg.as_ref().map(|warn| ("⚠", warn.as_str()))
+}
+
 /// Draws a themed vertical scrollbar on the right edge of a list body.
 ///
 /// The bar is only shown when the content overflows the viewport, and it is

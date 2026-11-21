@@ -58,9 +58,9 @@ fn render_subview_header(f: &mut Frame, area: Rect, item: &MediaItem, state: &Ap
     ]);
 
     let mut header_lines = vec![line1, build_subview_storage_line(state)];
-    if let Some(warn) = &state.warning_msg {
+    if let Some((icon, warn)) = super::active_warning(state) {
         header_lines.push(Line::from(vec![Span::styled(
-            format!(" {warn} "),
+            format!(" {icon} {warn} "),
             Style::default()
                 .fg(Color::LightRed)
                 .add_modifier(Modifier::BOLD),

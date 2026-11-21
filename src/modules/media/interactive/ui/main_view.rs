@@ -28,9 +28,9 @@ pub fn render_main_ui(f: &mut Frame, state: &AppState) {
 
 fn render_main_header(f: &mut Frame, area: Rect, state: &AppState) {
     let mut header_lines = vec![build_tab_line(state), build_storage_line(state)];
-    if let Some(warn) = &state.warning_msg {
+    if let Some((icon, warn)) = super::active_warning(state) {
         header_lines.push(Line::from(vec![Span::styled(
-            format!(" {warn} "),
+            format!(" {icon} {warn} "),
             Style::default()
                 .fg(Color::LightRed)
                 .add_modifier(Modifier::BOLD),

@@ -108,7 +108,10 @@ pub fn handle_media_cli(action: Option<&str>) -> anyhow::Result<()> {
         "\n  {} Scanning local and cloud media libraries...",
         "▶".cyan().bold()
     );
-    let (local_items, remote_items) = transfer::scan_libraries(home_path)?;
+    let scan = transfer::scan_libraries(home_path);
+    if let Some(warning) = &scan.cloud_warning {
+        println!("  {} {}\n", "⚠".yellow().bold(), warning.yellow());
+    }
 
     let media_base = home_path.join("jellyfin/media");
     let check_path = if media_base.exists() {
@@ -118,13 +121,14 @@ pub fn handle_media_cli(action: Option<&str>) -> anyhow::Result<()> {
     };
     let local_disk = disk::get_disk_usage(check_path).ok();
 
-    let res = interactive::run_interactive_tui(
-        local_items,
-        remote_items,
-        default_dir,
+    let res = interactive::run_interactive_tui(interactive::MediaManagerInput {
+        local_items: scan.local,
+        remote_items: scan.remote,
+        direction: default_dir,
         local_disk,
-        home_path,
-    )?;
+        home_path: home_path.to_path_buf(),
+        cloud_warning: scan.cloud_warning,
+    })?;
     let Some((dir, selected)) = res else {
         println!("\n  {} Transfer cancelled.\n", "•".dimmed());
         return Ok(());

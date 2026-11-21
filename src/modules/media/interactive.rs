@@ -13,7 +13,7 @@ use crossterm::{
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::disk::DiskUsage;
 use super::transfer::{MediaCategory, MediaFile, MediaItem, TransferDirection};
@@ -65,6 +65,16 @@ pub enum ViewMode {
     },
 }
 
+/// Everything needed to open one interactive media manager session.
+pub struct MediaManagerInput {
+    pub local_items: Vec<MediaItem>,
+    pub remote_items: Vec<MediaItem>,
+    pub direction: TransferDirection,
+    pub local_disk: Option<DiskUsage>,
+    pub home_path: PathBuf,
+    pub cloud_warning: Option<String>,
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub home_path: PathBuf,
@@ -78,6 +88,8 @@ pub struct AppState {
     pub view_mode: ViewMode,
     pub local_disk: Option<DiskUsage>,
     pub warning_msg: Option<String>,
+    /// Cloud access problem that stays visible until the next successful scan.
+    pub cloud_warning: Option<String>,
     /// True while the third tab (Trash) is showing.
     pub trash_open: bool,
     pub trash_entries: Vec<crate::modules::media::trash::TrashEntry>,
@@ -86,27 +98,22 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(
-        local: Vec<MediaItem>,
-        remote: Vec<MediaItem>,
-        dir: TransferDirection,
-        local_disk: Option<DiskUsage>,
-        home_path: PathBuf,
-    ) -> Self {
-        let local_len = local.len();
-        let remote_len = remote.len();
+    pub fn new(input: MediaManagerInput) -> Self {
+        let local_len = input.local_items.len();
+        let remote_len = input.remote_items.len();
         Self {
-            home_path,
-            direction: dir,
-            local_items: local,
-            remote_items: remote,
+            home_path: input.home_path,
+            direction: input.direction,
+            local_items: input.local_items,
+            remote_items: input.remote_items,
             local_selected: vec![false; local_len],
             remote_selected: vec![false; remote_len],
             filter: ItemFilter::All,
             cursor: 0,
             view_mode: ViewMode::Main,
-            local_disk,
+            local_disk: input.local_disk,
             warning_msg: None,
+            cloud_warning: input.cloud_warning,
             trash_open: false,
             trash_entries: crate::modules::media::trash::list_all(),
             trash_cursor: 0,
@@ -217,16 +224,16 @@ impl AppState {
     }
 
     pub fn reload_libraries(&mut self) {
-        if let Ok((local, remote)) = super::transfer::rescan_libraries(&self.home_path) {
-            let local_len = local.len();
-            let remote_len = remote.len();
-            self.local_items = local;
-            self.remote_items = remote;
-            self.local_selected = vec![false; local_len];
-            self.remote_selected = vec![false; remote_len];
-            self.cursor = 0;
-            self.warning_msg = Some("✨ Cache refreshed from disk and cloud".to_string());
-        }
+        let scan = super::transfer::rescan_libraries(&self.home_path);
+        let local_len = scan.local.len();
+        let remote_len = scan.remote.len();
+        self.local_items = scan.local;
+        self.remote_items = scan.remote;
+        self.local_selected = vec![false; local_len];
+        self.remote_selected = vec![false; remote_len];
+        self.cursor = 0;
+        self.cloud_warning = scan.cloud_warning;
+        self.warning_msg = Some("✨ Cache refreshed from disk and cloud".to_string());
     }
 
     pub fn toggle_main_item(&mut self, real_idx: usize) {
@@ -239,11 +246,7 @@ impl AppState {
 }
 
 pub fn run_interactive_tui(
-    local: Vec<MediaItem>,
-    remote: Vec<MediaItem>,
-    dir: TransferDirection,
-    local_disk: Option<DiskUsage>,
-    home_path: &Path,
+    input: MediaManagerInput,
 ) -> Result<Option<(TransferDirection, Vec<MediaItem>)>> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -251,7 +254,7 @@ pub fn run_interactive_tui(
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut state = AppState::new(local, remote, dir, local_disk, home_path.to_path_buf());
+    let mut state = AppState::new(input);
     // Purge anything past the 7-day retention window before showing the UI.
     if let Ok(purged) = crate::modules::media::trash::purge_expired() {
         if purged > 0 {
