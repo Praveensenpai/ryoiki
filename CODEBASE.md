@@ -1521,13 +1521,17 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn retry_candidates (client : & Client , config : & TelegramConfig)
   ```
 
+### `src/modules/torrent/seedr_tasks/index.rs` (Role: general, Lines: 98)
+- **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks/index.rs
+- **Imports**: use std :: collections :: HashSet , use super :: SeedrCloudList 
+
 ### `src/modules/torrent/seedr_tasks/tests.rs` (Role: general, Lines: 98)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks/tests.rs
 - **Imports**: use super :: * 
 
-### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 407)
+### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 317)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks.rs
-- **Imports**: use serde :: Deserialize , use std :: collections :: HashSet , use std :: path :: { Path , PathBuf } 
+- **Imports**: use serde :: Deserialize , use std :: path :: { Path , PathBuf } , pub (crate) use index :: { base_key , normalize , LiveIndex } 
 - **Types & Enums**:
   ```rust
   pub struct SeedrTaskState

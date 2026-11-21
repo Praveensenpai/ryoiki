@@ -1,7 +1,6 @@
 //! Seedr task polling, formatting, and stale-state reconciliation.
 
 use serde::Deserialize;
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Deserialize)]
@@ -118,92 +117,9 @@ pub(crate) fn fetch_live_list() -> Option<SeedrCloudList> {
     None
 }
 
-pub(crate) fn normalize(name: &str) -> String {
-    name.trim().to_lowercase()
-}
+pub(crate) mod index;
 
-/// Set of names, titles, and hashes currently present in the Seedr cloud account.
-struct LiveIndex {
-    names: HashSet<String>,
-    titles: HashSet<String>,
-    hashes: HashSet<String>,
-}
-
-impl LiveIndex {
-    fn from_list(list: &SeedrCloudList) -> Self {
-        let mut names = HashSet::new();
-        let mut titles = HashSet::new();
-        let mut hashes = HashSet::new();
-        for t in &list.torrents {
-            let n = normalize(&t.name);
-            names.insert(n);
-            let title = normalize(
-                &crate::modules::media::heuristic::classify_media_heuristic(&t.name).title,
-            );
-            if !title.is_empty() {
-                titles.insert(title);
-            }
-            if let Some(ref h) = t.hash {
-                hashes.insert(normalize(h));
-            }
-        }
-        for f in &list.folders {
-            let n = normalize(&f.name);
-            names.insert(n);
-            let title = normalize(
-                &crate::modules::media::heuristic::classify_media_heuristic(&f.name).title,
-            );
-            if !title.is_empty() {
-                titles.insert(title);
-            }
-        }
-        for f in &list.files {
-            let n = normalize(&f.name);
-            names.insert(n);
-            let title = normalize(
-                &crate::modules::media::heuristic::classify_media_heuristic(&f.name).title,
-            );
-            if !title.is_empty() {
-                titles.insert(title);
-            }
-        }
-        Self {
-            names,
-            titles,
-            hashes,
-        }
-    }
-
-    fn contains(&self, name: &str) -> bool {
-        let target = normalize(name);
-        if self.names.contains(&target) || self.hashes.contains(&target) {
-            return true;
-        }
-        if let Some(stripped) = target.strip_prefix("folder-") {
-            if self.names.contains(stripped) {
-                return true;
-            }
-        }
-        for n in &self.names {
-            let n_clean = n.strip_prefix("folder-").unwrap_or(n);
-            let t_clean = target.strip_prefix("folder-").unwrap_or(&target);
-            if n_clean == t_clean || n_clean.contains(t_clean) || t_clean.contains(n_clean) {
-                return true;
-            }
-        }
-        let target_title =
-            normalize(&crate::modules::media::heuristic::classify_media_heuristic(name).title);
-        if !target_title.is_empty() && target_title.len() >= 3 {
-            if self.titles.contains(&target_title) {
-                return true;
-            }
-            if self.names.iter().any(|n| n.contains(&target_title)) {
-                return true;
-            }
-        }
-        false
-    }
-}
+pub(crate) use index::{base_key, normalize, LiveIndex};
 
 /// Returns true when the background worker process is still alive.
 pub(crate) fn worker_alive(pid: Option<u32>) -> bool {
@@ -280,12 +196,6 @@ fn notify_stale(task: &SeedrTaskState) {
         ],
     );
     let _ = send_alert(&config.bot_token, &config.chat_id, &card);
-}
-
-/// Normalized comparison key: lowercased, trimmed, without a `folder-` prefix.
-pub(crate) fn base_key(name: &str) -> String {
-    let n = normalize(name);
-    n.strip_prefix("folder-").unwrap_or(&n).to_string()
 }
 
 #[must_use]
