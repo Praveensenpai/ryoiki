@@ -150,7 +150,7 @@ impl LiveIndex {
 }
 
 /// Returns true when the background worker process is still alive.
-fn worker_alive(pid: Option<u32>) -> bool {
+pub(crate) fn worker_alive(pid: Option<u32>) -> bool {
     pid.is_some_and(|p| Path::new(&format!("/proc/{p}")).exists())
 }
 
@@ -176,8 +176,14 @@ pub(crate) fn worker_alive_by_name(name: &str) -> bool {
 
 /// Decides whether a local task should be kept or pruned.
 fn verdict(task: &SeedrTaskState, index: &LiveIndex) -> TaskVerdict {
-    if index.contains(&task.file_name) || worker_alive(task.pid) {
+    if worker_alive(task.pid) {
         TaskVerdict::Keep
+    } else if index.contains(&task.file_name) {
+        if task.status.eq_ignore_ascii_case("failed") {
+            TaskVerdict::Prune
+        } else {
+            TaskVerdict::Keep
+        }
     } else {
         TaskVerdict::Prune
     }

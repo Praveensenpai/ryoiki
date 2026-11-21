@@ -1485,7 +1485,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_seedr_failure (hash : Option < & str > , error : & str , config : & TelegramConfig ,) -> Result < () >
   ```
 
-### `src/modules/torrent/seedr_eviction.rs` (Role: general, Lines: 158)
+### `src/modules/torrent/seedr_eviction.rs` (Role: general, Lines: 179)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_eviction.rs
 - **Imports**: use std :: collections :: HashSet , use std :: path :: Path , use super :: scheduler , use super :: seedr , use super :: seedr_tasks :: { self , base_key } 
 - **Public Functions & Signatures**:
@@ -1501,7 +1501,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn record_active_health (config : & TelegramConfig)
   ```
 
-### `src/modules/torrent/seedr_reaper.rs` (Role: general, Lines: 123)
+### `src/modules/torrent/seedr_reaper.rs` (Role: general, Lines: 130)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_reaper.rs
 - **Imports**: use std :: collections :: HashSet , use super :: seedr_tasks :: { base_key , fetch_live_list , load_local_tasks , tasks_dir } 
 - **Public Functions & Signatures**:
@@ -1525,7 +1525,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks/tests.rs
 - **Imports**: use super :: * 
 
-### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 329)
+### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 335)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks.rs
 - **Imports**: use serde :: Deserialize , use std :: collections :: HashSet , use std :: path :: { Path , PathBuf } 
 - **Types & Enums**:

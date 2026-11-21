@@ -98,23 +98,44 @@ fn local_pull_done(name: &str) -> bool {
         .into_iter()
         .any(|(_, task)| {
             let key = seedr_tasks::normalize(&task.file_name);
-            (key == target || key.contains(&target) || target.contains(&key))
+            let matches = key == target || key.contains(&target) || target.contains(&key);
+            matches
+                && !task.status.eq_ignore_ascii_case("failed")
+                && seedr_tasks::worker_alive(task.pid)
                 && task.downloaded_bytes < task.total_bytes
         });
     !has_partial && local_copy_exists(name)
 }
 
 /// Checks both the raw cloud name and its `folder-`-stripped form under
-/// `~/torrents`, where `seedr-dl` writes before the organizer moves files.
+/// `~/torrents`, or anywhere in the Jellyfin media library via download history.
 fn local_copy_exists(name: &str) -> bool {
-    let Ok(home) = std::env::var("HOME") else {
-        return false;
-    };
-    let base = Path::new(&home).join("torrents");
-    base.join(name).exists()
-        || base
-            .join(name.strip_prefix("folder-").unwrap_or(name))
-            .exists()
+    if let Ok(home) = std::env::var("HOME") {
+        let base = Path::new(&home).join("torrents");
+        if base.join(name).exists()
+            || base
+                .join(name.strip_prefix("folder-").unwrap_or(name))
+                .exists()
+        {
+            return true;
+        }
+    }
+
+    let history = super::history::load_history();
+    let target = seedr_tasks::normalize(name);
+    let stripped = target.strip_prefix("folder-").unwrap_or(&target);
+
+    history.entries.values().any(|record| {
+        let title_norm = seedr_tasks::normalize(&record.title);
+        let clean_norm = seedr_tasks::normalize(&record.clean_name);
+        let matches = (!title_norm.is_empty()
+            && (stripped.contains(&title_norm) || title_norm.contains(stripped)))
+            || (!clean_norm.is_empty()
+                && (stripped.contains(&clean_norm) || clean_norm.contains(stripped)));
+        matches
+            && (record.paths.iter().any(|p| p.exists())
+                || record.files.iter().any(|f| f.path.exists()))
+    })
 }
 
 #[cfg(test)]
