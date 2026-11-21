@@ -170,14 +170,10 @@ fn verdict(task: &SeedrTaskState, index: &LiveIndex) -> TaskVerdict {
         TaskVerdict::Keep
     } else if index.contains(&task.file_name) {
         if task.status.eq_ignore_ascii_case("failed") {
-            let reason = task
-                .error
-                .as_deref()
-                .filter(|e| !e.is_empty())
-                .map_or_else(
-                    || "Local download worker failed".to_string(),
-                    |e| format!("Worker failed: {e}"),
-                );
+            let reason = task.error.as_deref().filter(|e| !e.is_empty()).map_or_else(
+                || "Local download worker failed".to_string(),
+                |e| format!("Worker failed: {e}"),
+            );
             TaskVerdict::Prune { reason }
         } else {
             TaskVerdict::Keep
@@ -201,11 +197,7 @@ fn notify_stale(task: &SeedrTaskState, reason: &str) {
     let card = format_card(
         "Seedr",
         "🧹 <b>STALE SEEDR TASK REMOVED</b>",
-        &[
-            ("File:", &name),
-            ("Size:", &size),
-            ("Reason:", reason),
-        ],
+        &[("File:", &name), ("Size:", &size), ("Reason:", reason)],
     );
     let _ = send_alert(&config.bot_token, &config.chat_id, &card);
 }
