@@ -424,7 +424,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn setup (runner : & mut Runner) -> Result < () >
   ```
 
-### `src/modules/jellyfin/api.rs` (Role: api, Lines: 131)
+### `src/modules/jellyfin/api.rs` (Role: api, Lines: 193)
 - **Responsibility**: Core api logic in src/modules/jellyfin/api.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: path :: Path , use std :: time :: Duration , use crate :: notify :: TelegramConfig 
 - **Public Functions & Signatures**:
@@ -1078,7 +1078,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn is_active_mount (path : & Path) -> bool
   ```
 
-### `src/modules/media/transfer/execute.rs` (Role: general, Lines: 255)
+### `src/modules/media/transfer/execute.rs` (Role: general, Lines: 249)
 - **Responsibility**: Core general logic in src/modules/media/transfer/execute.rs
 - **Imports**: use anyhow :: { Context , Result } , use colored :: Colorize , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , use std :: time :: Duration , use super :: { notify , MediaItem , TransferDirection } , use crate :: modules :: media :: disk , use crate :: runner :: format_duration 
 - **Public Functions & Signatures**:
@@ -1529,7 +1529,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks/tests.rs
 - **Imports**: use super :: * 
 
-### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 330)
+### `src/modules/torrent/seedr_tasks.rs` (Role: general, Lines: 322)
 - **Responsibility**: Core general logic in src/modules/torrent/seedr_tasks.rs
 - **Imports**: use serde :: Deserialize , use std :: path :: { Path , PathBuf } , pub (crate) use index :: { base_key , normalize , LiveIndex } 
 - **Types & Enums**:

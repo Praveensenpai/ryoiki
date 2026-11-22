@@ -203,13 +203,7 @@ fn clean_empty_parents(path: &Path, base: &Path) {
 }
 
 fn refresh_jellyfin() {
-    let Ok(client) = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(3))
-        .build()
-    else {
-        return;
-    };
-    let _ = client.post("http://localhost:8096/Library/Refresh").send();
+    crate::modules::jellyfin::api::refresh_library_async();
 }
 
 fn print_cli_transfer_summary(
