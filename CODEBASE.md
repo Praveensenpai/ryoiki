@@ -541,7 +541,18 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn classify_media_ai (client : & Client , api_key : Option < & str > , raw_name : & str , probe : Option < & MediaProbe > ,) -> Result < MediaInfo >
   ```
 
-### `src/modules/media/audio/approval/scan.rs` (Role: general, Lines: 71)
+### `src/modules/media/audio/approval/notify.rs` (Role: general, Lines: 189)
+- **Responsibility**: Core general logic in src/modules/media/audio/approval/notify.rs
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: decisions :: { self , days_left , now_secs , DecisionRecord , PendingDecision } , use super :: super :: super :: probe :: MediaProbe , use super :: { recommend_language , resolve } , use crate :: bot :: keyboards :: language_keyboard , use crate :: notify :: client :: { escape_html , format_card , send_alert } , use crate :: notify :: config :: TelegramConfig 
+- **Public Functions & Signatures**:
+  ```rust
+  fn expire_overdue (config : & TelegramConfig) -> usize
+  fn notify_pending (config : & TelegramConfig) -> Result < usize >
+  fn render_prompt (entry : & PendingDecision) -> String
+  fn list_pending_text () -> String
+  ```
+
+### `src/modules/media/audio/approval/scan.rs` (Role: general, Lines: 72)
 - **Responsibility**: Core general logic in src/modules/media/audio/approval/scan.rs
 - **Imports**: use anyhow :: Result , use std :: path :: Path , use super :: super :: decisions :: { self , now_secs , DecisionRecord } , use super :: { register , StageOutcome } , use crate :: modules :: media :: organizer :: find_videos_recursive , use crate :: modules :: media :: organizer :: pathing :: is_video_file , use crate :: modules :: media :: probe 
 - **Public Functions & Signatures**:
@@ -550,13 +561,13 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn scan_library (root : & Path) -> Result < usize >
   ```
 
-### `src/modules/media/audio/approval/tests.rs` (Role: general, Lines: 107)
+### `src/modules/media/audio/approval/tests.rs` (Role: general, Lines: 135)
 - **Responsibility**: Core general logic in src/modules/media/audio/approval/tests.rs
 - **Imports**: use super :: super :: decisions :: DecisionStore , use super :: * , use std :: path :: PathBuf 
 
-### `src/modules/media/audio/approval.rs` (Role: general, Lines: 368)
+### `src/modules/media/audio/approval.rs` (Role: general, Lines: 254)
 - **Responsibility**: Core general logic in src/modules/media/audio/approval.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use serde :: Deserialize , use std :: path :: Path , use super :: super :: probe :: { self , MediaProbe } , use super :: decisions :: { self , days_left , find_history , now_secs , DecisionRecord , PendingDecision } , use super :: remux :: apply_language , use crate :: bot :: keyboards :: language_keyboard , use crate :: notify :: client :: { escape_html , format_card , send_alert } , use crate :: notify :: config :: TelegramConfig , pub use scan :: { scan_library , silence } 
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use serde :: Deserialize , use std :: path :: { Path , PathBuf } , use super :: super :: probe :: { self , MediaProbe } , use super :: decisions :: { self , find_history , now_secs , DecisionRecord , PendingDecision } , use super :: remux :: apply_language , # [cfg (test)] pub use notify :: render_prompt , pub use notify :: { list_pending_text , notify_pending } , pub use scan :: { scan_library , silence } 
 - **Types & Enums**:
   ```rust
   pub enum StageOutcome
@@ -566,11 +577,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn recommend_language (client : & Client , raw_name : & str , probe : Option < & MediaProbe > ,) -> Option < String >
   fn register (stripped_path : & Path , multi_path : & Path , probe : Option < & MediaProbe > , recommended : Option < & str > ,) -> StageOutcome
   fn resolve (id : & str , chosen : & str , auto : bool) -> Result < String >
-  fn expire_overdue (config : & TelegramConfig) -> usize
-  fn notify_pending (config : & TelegramConfig) -> Result < usize >
   fn recommend (name : & str , probe : Option < & MediaProbe >) -> Option < String >
-  fn render_prompt (entry : & PendingDecision) -> String
-  fn list_pending_text () -> String
   fn find_pending (id : & str) -> Option < PendingDecision >
   ```
 
@@ -590,7 +597,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_assign (path : & str , language : & str , keep_multi : bool , keep_siblings : bool , dry_run : bool ,) -> Result < () >
   ```
 
-### `src/modules/media/audio/cleanup.rs` (Role: general, Lines: 106)
+### `src/modules/media/audio/cleanup.rs` (Role: general, Lines: 109)
 - **Responsibility**: Core general logic in src/modules/media/audio/cleanup.rs
 - **Imports**: use colored :: Colorize , use std :: fs , use super :: decisions , use super :: decisions :: DecisionRecord 
 - **Public Functions & Signatures**:
@@ -610,7 +617,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_cli (sub : AudioSubcommand) -> Result < () >
   ```
 
-### `src/modules/media/audio/decisions.rs` (Role: general, Lines: 209)
+### `src/modules/media/audio/decisions.rs` (Role: general, Lines: 229)
 - **Responsibility**: Core general logic in src/modules/media/audio/decisions.rs
 - **Imports**: use anyhow :: { Context , Result } , use serde :: { Deserialize , Serialize } , use std :: path :: { Path , PathBuf } , use std :: { fs , time } 
 - **Types & Enums**:
@@ -629,6 +636,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn days_pending (entry : & PendingDecision) -> u64
   fn days_left (entry : & PendingDecision) -> u64
   fn find_history < 'a > (store : & 'a DecisionStore , id : & str) -> Option < & 'a DecisionRecord >
+  fn locate_media_path (path : & Path) -> Option < PathBuf >
   ```
 
 ### `src/modules/media/audio/pending_timer.rs` (Role: general, Lines: 92)

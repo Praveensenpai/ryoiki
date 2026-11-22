@@ -35,6 +35,8 @@ fn test_render_prompt_marks_recommendation() {
     let card = render_prompt(&entry);
     assert!(card.contains("Telugu"));
     assert!(card.contains("AI recommends"));
+    assert!(card.contains("\n<code>AI RECOMMENDS"));
+    assert!(card.contains("\n<code>TRACKS"));
 }
 
 #[test]
@@ -104,4 +106,30 @@ fn test_should_remove_stripped_removes_superseded_native() {
 
     // Normal staging: the stale native copy is removed, the multi is not.
     assert!(should_remove_stripped(&native, &multi, &applied));
+}
+
+#[test]
+fn test_is_already_stripped_to_checks_file_tag() {
+    let tmp = std::env::temp_dir().join(format!("ryoiki_tag_{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&tmp);
+    let hindi = tmp.join("The Bads - S01E01 [Hindi] [1080p].mkv");
+    std::fs::write(&hindi, b"test").unwrap_or_default();
+
+    assert!(is_already_stripped_to(&hindi, "Hindi"));
+    assert!(is_already_stripped_to(&hindi, "hindi"));
+    assert!(!is_already_stripped_to(&hindi, "Tamil"));
+
+    let non_existent = tmp.join("NonExistent [Hindi].mkv");
+    assert!(!is_already_stripped_to(&non_existent, "Hindi"));
+}
+
+#[test]
+fn test_locate_media_path_finds_existing() {
+    let tmp = std::env::temp_dir().join(format!("ryoiki_loc_{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&tmp);
+    let sample = tmp.join("sample.mkv");
+    std::fs::write(&sample, b"test").unwrap_or_default();
+
+    let found = decisions::locate_media_path(&sample);
+    assert_eq!(found, Some(sample));
 }

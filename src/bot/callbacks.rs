@@ -32,10 +32,10 @@ pub fn handle_callback_query(
     data: &str,
     msg_id: i64,
 ) -> Result<()> {
-    if handle_seedrq_callback(client, config, prompts, data, msg_id)? {
+    if handle_seedrq_callback(client, config, prompts, data, msg_id) {
         return Ok(());
     }
-    if handle_language_callback(client, config, data, msg_id)? {
+    if handle_language_callback(client, config, data, msg_id) {
         return Ok(());
     }
     if handle_view_callback(client, config, data, msg_id)? {
@@ -51,12 +51,12 @@ fn handle_language_callback(
     config: &TelegramConfig,
     data: &str,
     msg_id: i64,
-) -> Result<bool> {
+) -> bool {
     let Some(rest) = data.strip_prefix("cb:al:") else {
-        return Ok(false);
+        return false;
     };
     let Some((id, action)) = rest.split_once(':') else {
-        return Ok(false);
+        return false;
     };
 
     let text = if action == "silent" {
@@ -66,20 +66,20 @@ fn handle_language_callback(
         }
     } else {
         let Ok(index) = action.parse::<usize>() else {
-            return Ok(false);
+            return false;
         };
         resolve_language_text(id, index)
     };
 
-    edit_message(
+    let _ = edit_message(
         client,
         &config.bot_token,
         &config.chat_id,
         msg_id,
         &text,
         None,
-    )?;
-    Ok(true)
+    );
+    true
 }
 
 /// Builds the reply text for a language-selection callback.
@@ -105,12 +105,12 @@ fn handle_seedrq_callback(
     prompts: &crate::bot::prompts::Prompts,
     data: &str,
     msg_id: i64,
-) -> Result<bool> {
+) -> bool {
     let Some(rest) = data.strip_prefix("cb:seedrq:") else {
-        return Ok(false);
+        return false;
     };
     let Some((action, hash)) = rest.split_once(':') else {
-        return Ok(false);
+        return false;
     };
     // User answered: cancel the timeout prompt.
     let _ = crate::bot::prompts::take(prompts, hash);
@@ -129,15 +129,15 @@ fn handle_seedrq_callback(
             "<i>Downloads automatically when the slot frees.</i>"
         )
     };
-    edit_message(
+    let _ = edit_message(
         client,
         &config.bot_token,
         &config.chat_id,
         msg_id,
         &text,
         None,
-    )?;
-    Ok(true)
+    );
+    true
 }
 
 fn resolve_view(

@@ -16,8 +16,6 @@ pub const PENDING_DAYS: u64 = 7;
 const STORE_FILENAME: &str = "audio-decisions.json";
 /// Seconds in one day, shared with the grace-window maths.
 pub const SECS_PER_DAY: u64 = 86_400;
-/// Reminder cadence: one prompt per pending title every hour.
-pub const SECS_PER_HOUR: u64 = 3_600;
 
 /// A language choice that is waiting on the user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,6 +161,28 @@ pub fn days_left(entry: &PendingDecision) -> u64 {
 #[must_use]
 pub fn find_history<'a>(store: &'a DecisionStore, id: &str) -> Option<&'a DecisionRecord> {
     store.history.iter().find(|r| r.id == id)
+}
+
+/// Finds the on-disk location of a media file, resolving paths that may have
+/// moved between local SSD (`jellyfin/media`) and cloud mount (`gdrive/media`).
+#[must_use]
+pub fn locate_media_path(path: &Path) -> Option<PathBuf> {
+    if path.exists() {
+        return Some(path.to_path_buf());
+    }
+    let path_str = path.to_str()?;
+    if path_str.contains("/jellyfin/media/") {
+        let alt = PathBuf::from(path_str.replace("/jellyfin/media/", "/gdrive/media/"));
+        if alt.exists() {
+            return Some(alt);
+        }
+    } else if path_str.contains("/gdrive/media/") {
+        let alt = PathBuf::from(path_str.replace("/gdrive/media/", "/jellyfin/media/"));
+        if alt.exists() {
+            return Some(alt);
+        }
+    }
+    None
 }
 
 #[cfg(test)]

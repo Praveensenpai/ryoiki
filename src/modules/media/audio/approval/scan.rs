@@ -19,6 +19,7 @@ pub fn silence(id: &str) -> Result<String> {
         anyhow::bail!("No pending decision with id {id}");
     };
     let entry = store.pending.remove(pos);
+    let multi_path = decisions::locate_media_path(&entry.multi_path).unwrap_or(entry.multi_path);
 
     store.history.push(DecisionRecord {
         id: entry.id.clone(),
@@ -28,7 +29,7 @@ pub fn silence(id: &str) -> Result<String> {
         auto: false,
         silenced: true,
         created_secs: entry.created_secs,
-        multi_path: Some(entry.multi_path.clone()),
+        multi_path: Some(multi_path),
     });
     decisions::save(&store)?;
 

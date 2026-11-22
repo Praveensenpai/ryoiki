@@ -4,22 +4,23 @@
 use anyhow::Result;
 use reqwest::blocking::Client;
 use serde::Deserialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::super::probe::{self, MediaProbe};
-use super::decisions::{self, days_left, find_history, now_secs, DecisionRecord, PendingDecision};
+use super::decisions::{self, find_history, now_secs, DecisionRecord, PendingDecision};
 use super::remux::apply_language;
-use crate::bot::keyboards::language_keyboard;
-use crate::notify::client::{escape_html, format_card, send_alert};
-use crate::notify::config::TelegramConfig;
 
 const MAX_CANDIDATES: usize = 6;
 
+mod notify;
 mod scan;
 
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+pub use notify::render_prompt;
+pub use notify::{list_pending_text, notify_pending};
 pub use scan::{scan_library, silence};
 
 #[derive(Debug, Deserialize)]
@@ -160,6 +161,26 @@ fn should_remove_stripped(stripped: &Path, multi: &Path, applied: &Path) -> bool
     stripped != multi && stripped.exists() && stripped != applied
 }
 
+/// Returns true when `path` exists and its filename already carries `[language]`.
+fn is_already_stripped_to(path: &Path, language: &str) -> bool {
+    if !path.exists() {
+        return false;
+    }
+    let Some(filename) = path.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    let tag = format!("[{}]", language.to_ascii_lowercase());
+    filename.to_ascii_lowercase().contains(&tag)
+}
+
+fn apply_and_cleanup(multi: &Path, stripped: &Path, chosen: &str) -> Result<PathBuf> {
+    let path = apply_language(multi, chosen)?;
+    if should_remove_stripped(stripped, multi, &path) {
+        let _ = std::fs::remove_file(stripped);
+    }
+    Ok(path)
+}
+
 /// Resolves a pending decision: applies the language and moves it to history.
 pub fn resolve(id: &str, chosen: &str, auto: bool) -> Result<String> {
     let mut store = decisions::load()?;
@@ -168,16 +189,26 @@ pub fn resolve(id: &str, chosen: &str, auto: bool) -> Result<String> {
     };
     let entry = store.pending.remove(pos);
 
-    let applied = match apply_language(&entry.multi_path, chosen) {
-        Ok(path) => path,
-        Err(e) => {
-            store.pending.insert(pos, entry);
-            return Err(e);
+    let stripped_path = decisions::locate_media_path(&entry.stripped_path)
+        .unwrap_or_else(|| entry.stripped_path.clone());
+    let multi_path = decisions::locate_media_path(&entry.multi_path)
+        .unwrap_or_else(|| entry.multi_path.clone());
+
+    let (applied, multi_record) = if is_already_stripped_to(&stripped_path, chosen) {
+        (Some(stripped_path), Some(multi_path))
+    } else if multi_path.exists() {
+        match apply_and_cleanup(&multi_path, &stripped_path, chosen) {
+            Ok(path) => (Some(path), Some(multi_path)),
+            Err(e) => {
+                store.pending.insert(pos, entry);
+                return Err(e);
+            }
         }
+    } else if stripped_path.exists() {
+        (Some(stripped_path), None)
+    } else {
+        (None, None)
     };
-    if should_remove_stripped(&entry.stripped_path, &entry.multi_path, &applied) {
-        let _ = std::fs::remove_file(&entry.stripped_path);
-    }
 
     store.history.push(DecisionRecord {
         id: entry.id.clone(),
@@ -187,118 +218,16 @@ pub fn resolve(id: &str, chosen: &str, auto: bool) -> Result<String> {
         auto,
         silenced: false,
         created_secs: entry.created_secs,
-        multi_path: Some(entry.multi_path.clone()),
+        multi_path: multi_record,
     });
     decisions::save(&store)?;
 
-    Ok(format!(
-        "{} as [{}]",
-        if auto {
-            "Auto-applied recommendation"
-        } else {
-            "Applied"
-        },
-        chosen
-    ))
-}
-
-/// Applies the AI recommendation for every pending entry past the grace window.
-///
-/// Returns the number of entries auto-resolved.
-pub fn expire_overdue(config: &TelegramConfig) -> usize {
-    let Ok(store) = decisions::load() else {
-        return 0;
+    let status = match applied {
+        Some(_) if auto => "Auto-applied recommendation",
+        Some(_) => "Applied",
+        None => "Resolved (file removed)",
     };
-    let mut applied = 0usize;
-    for entry in store.pending.clone() {
-        if days_left(&entry) > 0 {
-            continue;
-        }
-        let Some(chosen) = entry.recommended.clone() else {
-            continue;
-        };
-        if let Ok(msg) = resolve(&entry.id, &chosen, true) {
-            applied += 1;
-            let card = format_card(
-                "DubStrip",
-                "⌛ <b>GRACE WINDOW EXPIRED</b>",
-                &[
-                    ("🎬 Title:", entry.title.as_str()),
-                    ("🌐 Language:", chosen.as_str()),
-                    ("ℹ Result:", msg.as_str()),
-                ],
-            );
-            let _ = send_alert(&config.bot_token, &config.chat_id, &card);
-        }
-    }
-    applied
-}
-
-/// Sends one Telegram prompt per pending decision, and applies overdue ones.
-pub fn notify_pending(config: &TelegramConfig) -> Result<usize> {
-    let _ = super::cleanup::cleanup_stale_multis();
-    let _ = expire_overdue(config);
-    let mut store = decisions::load()?;
-    let client = notify_client();
-    let mut sent = 0usize;
-
-    let now = now_secs();
-    for idx in 0..store.pending.len() {
-        if store.pending[idx].recommended.is_none() {
-            let candidates = store.pending[idx].candidates.clone();
-            let title = store.pending[idx].title.clone();
-            let probe = MediaProbe {
-                audio_languages: candidates,
-                ..MediaProbe::default()
-            };
-            store.pending[idx].recommended = recommend_language(&client, &title, Some(&probe));
-        }
-
-        // Re-remind hourly: only skip when a prompt went out within the last hour.
-        let last = store.pending[idx].last_reminded_secs;
-        if last > 0 && now.saturating_sub(last) < decisions::SECS_PER_HOUR {
-            continue;
-        }
-
-        // Replace the previous prompt instead of stacking a new one. Deleting
-        // first keeps exactly one live message per pending title; a failed
-        // delete (message already gone) must not block the fresh prompt.
-        if let Some(old_id) = store.pending[idx].prompt_msg_id {
-            let _ = crate::bot::client::delete_message(
-                &client,
-                &config.bot_token,
-                &config.chat_id,
-                old_id,
-            );
-        }
-
-        let card = render_prompt(&store.pending[idx]);
-        let keyboard = language_keyboard(
-            &store.pending[idx].id,
-            &store.pending[idx].candidates,
-            store.pending[idx].recommended.as_deref(),
-        );
-        let msg_id = crate::bot::client::reply_with_keyboard_id(
-            &client,
-            &config.bot_token,
-            &config.chat_id,
-            &card,
-            &keyboard,
-        )
-        .ok();
-        store.pending[idx].last_reminded_secs = now_secs();
-        store.pending[idx].prompt_msg_id = msg_id;
-        sent += 1;
-    }
-    decisions::save(&store)?;
-    Ok(sent)
-}
-
-fn notify_client() -> Client {
-    Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .unwrap_or_else(|_| Client::new())
+    Ok(format!("{status} as [{chosen}]"))
 }
 
 fn ai_client() -> Client {
@@ -312,49 +241,6 @@ fn ai_client() -> Client {
 #[must_use]
 pub fn recommend(name: &str, probe: Option<&MediaProbe>) -> Option<String> {
     recommend_language(&ai_client(), name, probe)
-}
-
-/// Renders the interactive prompt card for one pending decision.
-#[must_use]
-pub fn render_prompt(entry: &PendingDecision) -> String {
-    let rec = entry.recommended.as_deref().unwrap_or("unknown");
-    let remaining = days_left(entry);
-    let title_esc = escape_html(&entry.title);
-    let rec_esc = escape_html(rec);
-    let langs = entry.candidates.join(", ");
-    let langs_esc = escape_html(&langs);
-    format!(
-        "{}\n\n<b>WHICH TRACK IS THE ORIGINAL?</b>\n\n{}{}{}\n\n<i>No reply within {remaining} day(s); AI recommends is applied and the [Multi] copy is kept.</i>",
-        crate::notify::style::alert("DubStrip"),
-        crate::notify::style::row("TITLE", &format!("<code>{title_esc}</code>")),
-        crate::notify::style::row("AI RECOMMENDS", &format!("<b>{rec_esc}</b>")),
-        crate::notify::style::row("TRACKS", &format!("<code>{langs_esc}</code>")),
-    )
-}
-
-/// Plain-text listing of pending decisions for the CLI and bot.
-#[must_use]
-pub fn list_pending_text() -> String {
-    let Ok(store) = decisions::load() else {
-        return "No pending audio decisions.".to_string();
-    };
-    if store.pending.is_empty() {
-        return "No pending audio decisions.".to_string();
-    }
-    let mut lines = vec![format!(
-        "{} pending audio decision(s):",
-        store.pending.len()
-    )];
-    for e in &store.pending {
-        let rec = e.recommended.as_deref().unwrap_or("unknown");
-        lines.push(format!(
-            "  • {} — AI: {} — {} day(s) left",
-            e.title,
-            rec,
-            days_left(e)
-        ));
-    }
-    lines.join("\n")
 }
 
 /// Looks up a pending decision by its callback id.

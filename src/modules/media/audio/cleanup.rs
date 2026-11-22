@@ -25,14 +25,16 @@ pub fn cleanup_stale_multis() -> usize {
         if decisions::days_pending(entry) < AUTO_REMOVE_DAYS {
             continue;
         }
+        let mp = decisions::locate_media_path(&entry.multi_path)
+            .unwrap_or_else(|| entry.multi_path.clone());
         let distinct = entry.stripped_path != entry.multi_path;
-        if distinct && entry.multi_path.exists() {
-            let _ = fs::remove_file(&entry.multi_path);
+        if distinct && mp.exists() {
+            let _ = fs::remove_file(&mp);
             println!(
                 "  {} Auto-removed stale [Multi] ({} days): {}",
                 "🧹".cyan(),
                 decisions::days_pending(entry),
-                entry.multi_path.display()
+                mp.display()
             );
             removed += 1;
         }
@@ -89,6 +91,7 @@ pub fn cleanup_stale_multis() -> usize {
         if !is_sidecar {
             continue;
         }
+        let mp = decisions::locate_media_path(&mp).unwrap_or(mp);
         if mp.exists() {
             let _ = fs::remove_file(&mp);
             println!(
