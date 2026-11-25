@@ -3,8 +3,8 @@
 use anyhow::Result;
 use reqwest::blocking::Client;
 
-use super::super::decisions::{self, days_left, now_secs, DecisionRecord, PendingDecision};
 use super::super::super::probe::MediaProbe;
+use super::super::decisions::{self, days_left, now_secs, DecisionRecord, PendingDecision};
 use super::{recommend_language, resolve};
 use crate::bot::keyboards::language_keyboard;
 use crate::notify::client::{escape_html, format_card, send_alert};
@@ -91,20 +91,12 @@ fn dispatch_prompt(
     }
 
     if let Some(old_id) = entry.prompt_msg_id {
-        let _ = crate::bot::client::delete_message(
-            client,
-            &config.bot_token,
-            &config.chat_id,
-            old_id,
-        );
+        let _ =
+            crate::bot::client::delete_message(client, &config.bot_token, &config.chat_id, old_id);
     }
 
     let card = render_prompt(entry);
-    let keyboard = language_keyboard(
-        &entry.id,
-        &entry.candidates,
-        entry.recommended.as_deref(),
-    );
+    let keyboard = language_keyboard(&entry.id, &entry.candidates, entry.recommended.as_deref());
     let msg_id = crate::bot::client::reply_with_keyboard_id(
         client,
         &config.bot_token,
@@ -154,12 +146,15 @@ pub fn render_prompt(entry: &PendingDecision) -> String {
     let rec_esc = escape_html(rec);
     let langs = entry.candidates.join(", ");
     let langs_esc = escape_html(&langs);
-    format!(
-        "{}\n\n<b>WHICH TRACK IS THE ORIGINAL?</b>\n\n{}\n{}\n{}\n\n<i>No reply within {remaining} day(s); AI recommends is applied and the [Multi] copy is kept.</i>",
-        crate::notify::style::alert("DubStrip"),
+    let card_body = crate::notify::style::card(&format!(
+        "{}\n{}\n{}",
         crate::notify::style::row("TITLE", &format!("<code>{title_esc}</code>")),
         crate::notify::style::row("AI RECOMMENDS", &format!("<b>{rec_esc}</b>")),
         crate::notify::style::row("TRACKS", &format!("<code>{langs_esc}</code>")),
+    ));
+    format!(
+        "{}\n\n🎵 <b>WHICH TRACK IS THE ORIGINAL?</b>\n\n{card_body}\n\n<i>No reply within {remaining} day(s); AI recommends is applied and the [Multi] copy is kept.</i>",
+        crate::notify::style::alert("DubStrip"),
     )
 }
 

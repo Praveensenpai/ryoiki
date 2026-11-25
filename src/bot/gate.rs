@@ -17,7 +17,7 @@ use crate::notify::style;
 
 /// Message shown to untrusted users who have not requested access yet.
 pub(crate) const ACCESS_REQUIRED_TEXT: &str =
-    "<b>RYOIKI</b> <i>/ ACCESS</i>\n────────────────────\n\n<i>Access required.</i>\n\nSend /request to ask the owner for permission.";
+    "🌸 <b>領域 RYOIKI</b> · <i>ACCESS</i>\n────────────────────\n\n<blockquote><i>Access required.</i>\n\nSend /request to ask the owner for permission.</blockquote>";
 
 /// What an untrusted user's message should trigger.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

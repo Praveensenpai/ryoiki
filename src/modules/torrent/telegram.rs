@@ -75,8 +75,13 @@ pub fn prompt_telegram_config(
         seedr_max_torrent_mb: 4_999,
     };
 
-    let test_msg = "<b>RYOIKI</b> <i>· qBittorrent</i>\n────────────────────\n\n<b>Bot active</b>\n\n<i>Type /help for commands, or paste a magnet link.</i>";
-    let _ = crate::notify::client::send_alert(&config.bot_token, &config.chat_id, test_msg);
+    let test_msg = format!(
+        "{}\n\n{}\n\n{}",
+        crate::notify::style::alert("qBittorrent"),
+        "🤖 <b>Bot active</b>",
+        crate::notify::style::card("<i>Type /help for commands, or paste a magnet link.</i>")
+    );
+    let _ = crate::notify::client::send_alert(&config.bot_token, &config.chat_id, &test_msg);
 
     println!("  ✔ Sent Telegram test notification");
     Ok(Some(config))

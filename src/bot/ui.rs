@@ -14,52 +14,74 @@ pub fn render_unified_status(
     torrent_count: usize,
     active_containers: usize,
 ) -> (String, InlineKeyboardMarkup) {
-    let mut lines = vec![style::view("Command Center"), String::new()];
-    lines.push(style::row("HOST", &escape_html(&sys.host)));
-    lines.push(style::row("KERNEL", &escape_html(&sys.kernel)));
-    lines.push(style::row("UPTIME", &escape_html(&sys.uptime)));
-    lines.push(style::row(
-        "NETWORK",
-        &format!(
-            "{} · {}",
-            escape_html(&sys.tailscale_ip),
-            escape_html(&sys.local_ip)
-        ),
+    let header = format!(
+        "{}\n🟢 <b>{}</b>  ·  {}  ·  ⏱ {}",
+        style::view("Command Center"),
+        escape_html(&sys.host),
+        escape_html(&sys.kernel),
+        escape_html(&sys.uptime),
+    );
+    let telemetry_card = style::card(&format_unified_telemetry(sys));
+    let storage_card = style::card(&format!(
+        "{}\n{}",
+        format_disk_summary(&sys.disks),
+        style::row(
+            "WORKLOADS",
+            &format!("🐳 {active_containers} active  ·  🧲 {torrent_count} tracked")
+        )
     ));
-    lines.push(String::new());
+    let text = [
+        header,
+        String::new(),
+        format!("📊 {}", style::eyebrow("TELEMETRY")),
+        telemetry_card,
+        String::new(),
+        format!("💾 {}", style::eyebrow("STORAGE & WORKLOADS")),
+        storage_card,
+    ]
+    .join("\n");
 
+    (text, status_keyboard())
+}
+
+fn format_unified_telemetry(sys: &SystemMetrics) -> String {
     let (l1, l5, l15) = sys.load_avg;
-    lines.push(style::row(
-        "CPU",
-        &format!(
-            "{} · load {l1:.2} {l5:.2} {l15:.2}",
-            format_cpu_usage(sys.cpu_usage)
-        ),
-    ));
-    lines.push(style::row(
-        "MEM",
-        &format!(
-            "{} {}% · {} / {}",
-            make_progress_bar(sys.mem_pct, 8),
-            sys.mem_pct,
-            format_bytes(sys.mem_used),
-            format_bytes(sys.mem_total)
-        ),
-    ));
     let temp = sys
         .cpu_temp
         .map_or_else(|| "N/A".to_string(), |t| format!("{t:.1}°C"));
-    lines.push(style::row("TEMP", &temp));
-    lines.push(style::row("POWER", &format_unified_power_status(sys)));
-    lines.push(String::new());
-
-    lines.push(style::eyebrow("STORAGE"));
-    lines.push(format_disk_summary(&sys.disks));
-    lines.push(String::new());
-    lines.push(style::row("DOCKER", &format!("{active_containers} active")));
-    lines.push(style::row("TORRENTS", &format!("{torrent_count} tracked")));
-
-    (lines.join("\n"), status_keyboard())
+    let mem_dot = style::status_dot(sys.mem_pct);
+    [
+        style::row(
+            "CPU",
+            &format!(
+                "{} · load {l1:.2} {l5:.2} {l15:.2}",
+                format_cpu_usage(sys.cpu_usage)
+            ),
+        ),
+        style::row(
+            "MEM",
+            &format!(
+                "{mem_dot} <code>{}</code> {}% · {} / {}",
+                make_progress_bar(sys.mem_pct, 8),
+                sys.mem_pct,
+                format_bytes(sys.mem_used),
+                format_bytes(sys.mem_total)
+            ),
+        ),
+        style::row(
+            "TEMP",
+            &format!("{temp}  ·  {}", format_unified_power_status(sys)),
+        ),
+        style::row(
+            "NET",
+            &format!(
+                "{} · {}",
+                escape_html(&sys.tailscale_ip),
+                escape_html(&sys.local_ip)
+            ),
+        ),
+    ]
+    .join("\n")
 }
 
 fn format_unified_power_status(sys: &SystemMetrics) -> String {
@@ -74,23 +96,37 @@ fn format_unified_power_status(sys: &SystemMetrics) -> String {
 }
 
 pub fn render_system_view(sys: &SystemMetrics) -> (String, InlineKeyboardMarkup) {
-    let mut lines = vec![style::view("Host Telemetry"), String::new()];
-    lines.push(style::row("HOST", &escape_html(&sys.host)));
-    lines.push(style::row("KERNEL", &escape_html(&sys.kernel)));
-    lines.push(style::row("UPTIME", &escape_html(&sys.uptime)));
-    lines.push(String::new());
-    lines.push(style::eyebrow("CPU & MEMORY"));
-    lines.push(format_system_cpu_mem(sys));
-    lines.push(String::new());
-    lines.push(style::eyebrow("POWER"));
-    lines.push(format_system_power(sys));
-    lines.push(String::new());
-    lines.push(style::eyebrow("NETWORK"));
-    lines.push(style::row("TAILSCALE", &escape_html(&sys.tailscale_ip)));
-    lines.push(style::row("LAN", &escape_html(&sys.local_ip)));
-    lines.push(style::row("PUBLIC", &escape_html(&sys.public_ip)));
+    let host_card = [
+        style::row("HOST", &escape_html(&sys.host)),
+        style::row("KERNEL", &escape_html(&sys.kernel)),
+        style::row("UPTIME", &escape_html(&sys.uptime)),
+    ]
+    .join("\n");
 
-    (lines.join("\n"), system_keyboard())
+    let net_card = [
+        style::row("TAILSCALE", &escape_html(&sys.tailscale_ip)),
+        style::row("LAN", &escape_html(&sys.local_ip)),
+        style::row("PUBLIC", &escape_html(&sys.public_ip)),
+    ]
+    .join("\n");
+
+    let text = [
+        style::view("Host Telemetry"),
+        String::new(),
+        style::card(&host_card),
+        String::new(),
+        format!("📊 {}", style::eyebrow("CPU & MEMORY")),
+        style::card(&format_system_cpu_mem(sys)),
+        String::new(),
+        format!("🔋 {}", style::eyebrow("POWER")),
+        style::card(&format_system_power(sys)),
+        String::new(),
+        format!("🌐 {}", style::eyebrow("NETWORK")),
+        style::card(&net_card),
+    ]
+    .join("\n");
+
+    (text, system_keyboard())
 }
 
 fn format_system_cpu_mem(sys: &SystemMetrics) -> String {
@@ -102,7 +138,8 @@ fn format_system_cpu_mem(sys: &SystemMetrics) -> String {
         .cpu_temp
         .map_or_else(|| "N/A".to_string(), |t| format!("{t:.1}°C"));
     let mem = format!(
-        "{} / {} ({}%)",
+        "{} {} / {} ({}%)",
+        style::status_dot(sys.mem_pct),
         format_bytes(sys.mem_used),
         format_bytes(sys.mem_total),
         sys.mem_pct
@@ -149,30 +186,35 @@ pub fn render_storage_view(
 ) -> (String, InlineKeyboardMarkup) {
     let mut lines = vec![style::view("Storage Health"), String::new()];
     if disks.is_empty() {
-        lines.push("No local mounts detected.".to_string());
-    }
-    for disk in disks {
-        let name = escape_html(&disk.name);
-        let path = escape_html(&disk.path);
-        let warning = if disk.pct >= 85 { "  ! high usage" } else { "" };
-        lines.push(format!(
-            "{}<b>{name}</b>  <code>{path}</code>{warning}",
-            style::key("MOUNT")
-        ));
-        lines.push(format!(
-            "{}<code>{}</code> {}% · {} / {} · {} free",
-            style::key("USED"),
-            make_progress_bar(disk.pct, 10),
-            disk.pct,
-            format_bytes(disk.used),
-            format_bytes(disk.total),
-            format_bytes(disk.free)
-        ));
+        lines.push(style::card("No local mounts detected."));
+    } else {
+        let mut disk_rows = Vec::new();
+        for disk in disks {
+            let dot = style::status_dot(disk.pct);
+            let name = escape_html(&disk.name);
+            let path = escape_html(&disk.path);
+            let warning = if disk.pct >= 85 { "  ⚠️ high" } else { "" };
+            disk_rows.push(format!(
+                "{}{} <b>{name}</b>  <code>{path}</code>{warning}",
+                style::key("MOUNT"),
+                dot
+            ));
+            disk_rows.push(format!(
+                "{}<code>{}</code> {}% · {} / {} · {} free",
+                style::key("USED"),
+                make_progress_bar(disk.pct, 10),
+                disk.pct,
+                format_bytes(disk.used),
+                format_bytes(disk.total),
+                format_bytes(disk.free)
+            ));
+        }
+        lines.push(style::card(&disk_rows.join("\n")));
     }
     if let Some(info) = gdrive {
         lines.push(String::new());
-        lines.push(style::eyebrow("GOOGLE DRIVE"));
-        lines.push(escape_html(info));
+        lines.push(format!("☁️ {}", style::eyebrow("GOOGLE DRIVE")));
+        lines.push(style::card(&escape_html(info)));
     }
     (lines.join("\n"), storage_keyboard())
 }
@@ -180,72 +222,82 @@ pub fn render_storage_view(
 pub fn render_docker_view(containers: &[ContainerInfo]) -> (String, InlineKeyboardMarkup) {
     let mut lines = vec![style::view("Docker Containers"), String::new()];
     if containers.is_empty() {
-        lines.push("No containers detected.".to_string());
-    }
-    for container in containers {
-        let mark = if container.is_running { "●" } else { "○" };
-        let ports = if container.ports.is_empty() {
-            String::new()
-        } else {
-            format!("  <code>{}</code>", escape_html(&container.ports))
-        };
-        lines.push(format!(
-            "{mark} <b>{}</b>  <code>{}</code>{ports}",
-            escape_html(&container.name),
-            escape_html(&container.status)
-        ));
+        lines.push(style::card("No containers detected."));
+    } else {
+        let rows: Vec<String> = containers
+            .iter()
+            .map(|c| {
+                let dot = if c.is_running { "🟢" } else { "⚪" };
+                let ports = if c.ports.is_empty() {
+                    String::new()
+                } else {
+                    format!("  <code>{}</code>", escape_html(&c.ports))
+                };
+                format!(
+                    "{dot} <b>{}</b>  <code>{}</code>{ports}",
+                    escape_html(&c.name),
+                    escape_html(&c.status)
+                )
+            })
+            .collect();
+        lines.push(style::card(&rows.join("\n")));
     }
     (lines.join("\n"), docker_keyboard())
 }
 
 pub fn render_services_view(services: &[ServiceInfo]) -> (String, InlineKeyboardMarkup) {
     let mut lines = vec![style::view("Managed Services"), String::new()];
-    for service in services {
-        let mark = match service.state.as_str() {
-            "active" => "●",
-            "inactive" => "○",
-            _ => "!",
-        };
-        let scope = if service.is_user { "user" } else { "system" };
-        lines.push(format!(
-            "{mark} <b>{}</b>  <code>{}</code>  <i>{scope}</i>",
-            escape_html(&service.name),
-            escape_html(&service.state)
-        ));
-    }
+    let rows: Vec<String> = services
+        .iter()
+        .map(|s| {
+            let dot = style::service_dot(&s.state);
+            let scope = if s.is_user { "user" } else { "system" };
+            format!(
+                "{dot} <b>{}</b>  <code>{}</code>  <i>{scope}</i>",
+                escape_html(&s.name),
+                escape_html(&s.state)
+            )
+        })
+        .collect();
+    lines.push(style::card(&rows.join("\n")));
     (lines.join("\n"), services_keyboard())
 }
 
 pub fn render_maintenance_view() -> (String, InlineKeyboardMarkup) {
     let entries = [
-        ("ORGANIZE", "ingest completed media into Jellyfin"),
-        ("PRUNE", "archive cold or watched media"),
-        ("SYNC", "refresh Jellyfin and cloud"),
-        ("DUBSTRIP", "process queued audio removals"),
-        ("AUDIT", "verify installed CLI tools"),
+        ("🚀 ORGANIZE", "ingest completed media into Jellyfin"),
+        ("🧹 PRUNE", "archive cold or watched media"),
+        ("🔄 SYNC", "refresh Jellyfin and cloud"),
+        ("🔇 DUBSTRIP", "process queued audio removals"),
+        ("🔍 AUDIT", "verify installed CLI tools"),
     ];
-    let mut lines = vec![style::view("Server Maintenance"), String::new()];
-    for (label, description) in entries {
-        lines.push(format!("{}<i>{description}</i>", style::key(label)));
-    }
-    (lines.join("\n"), maintenance_keyboard())
+    let rows: Vec<String> = entries
+        .iter()
+        .map(|(label, description)| format!("{} <i>{description}</i>", style::key(label)))
+        .collect();
+    let text = format!(
+        "{}\n\n{}",
+        style::view("Server Maintenance"),
+        style::card(&rows.join("\n"))
+    );
+    (text, maintenance_keyboard())
 }
 
 pub fn render_reboot_confirm() -> (String, InlineKeyboardMarkup) {
-    let text = format!(
-        "{}\n\n{}\n\n<i>Active connections and tasks will restart.</i>",
-        style::view("Reboot"),
-        style::accent("!", "CONFIRM SYSTEM REBOOT")
-    );
+    let body = style::card(&format!(
+        "{}\n\n<i>Active connections and tasks will restart.</i>",
+        style::accent("⚠️", "CONFIRM SYSTEM REBOOT")
+    ));
+    let text = format!("{}\n\n{body}", style::view("Reboot"));
     (text, reboot_keyboard())
 }
 
 pub fn render_poweroff_confirm() -> (String, InlineKeyboardMarkup) {
-    let text = format!(
-        "{}\n\n{}\n\n<i>Physical or Wake-on-LAN access is required to restart.</i>",
-        style::view("Power Off"),
-        style::accent("!", "CONFIRM SYSTEM POWER OFF")
-    );
+    let body = style::card(&format!(
+        "{}\n\n<i>Physical or Wake-on-LAN access is required to restart.</i>",
+        style::accent("⚠️", "CONFIRM SYSTEM POWER OFF")
+    ));
+    let text = format!("{}\n\n{body}", style::view("Power Off"));
     (text, poweroff_keyboard())
 }
 
@@ -262,7 +314,11 @@ fn format_cpu_usage(cpu_usage: Option<f64>) -> String {
         |usage| {
             let clamped = usage.round().clamp(0.0, 100.0);
             let pct: u8 = format!("{clamped:.0}").parse().unwrap_or(0);
-            format!("<code>{}</code> {usage:.1}%", make_progress_bar(pct, 8))
+            let dot = style::status_dot(pct);
+            format!(
+                "{dot} <code>{}</code> {usage:.1}%",
+                make_progress_bar(pct, 8)
+            )
         },
     )
 }
@@ -275,8 +331,9 @@ fn format_disk_summary(disks: &[DiskMount]) -> String {
         .iter()
         .map(|disk| {
             format!(
-                "{}<code>{}</code> {}% · {} free",
+                "{}{} <code>{}</code> {}% · {} free",
                 style::key(&disk.name),
+                style::status_dot(disk.pct),
                 make_progress_bar(disk.pct, 6),
                 disk.pct,
                 format_bytes(disk.free)
@@ -327,6 +384,7 @@ mod tests {
         assert!(text.contains("test-box"));
         assert!(text.contains("100.64.0.1"));
         assert!(text.contains("25.5%"));
+        assert!(text.contains("<blockquote>"));
         assert!(!text.contains('━'));
         assert!(!text.contains("🌊"));
         assert_eq!(kb.inline_keyboard.len(), 3);

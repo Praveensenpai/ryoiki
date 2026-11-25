@@ -3,6 +3,7 @@ use reqwest::blocking::Client;
 
 use super::super::actions::{handle_auto_poweron, handle_charge_limit, handle_self_update};
 use super::super::client::{reply, reply_with_keyboard};
+use super::super::keyboards::{action_done_keyboard, help_keyboard};
 use super::super::maintenance::{
     handle_bot_audio, handle_bot_check, handle_bot_library, handle_bot_organize, handle_bot_prune,
     handle_bot_sync,
@@ -42,7 +43,8 @@ pub(super) fn dispatch_command(
         return Ok(());
     }
 
-    reply(
+    let kb = help_keyboard();
+    reply_with_keyboard(
         client,
         &config.bot_token,
         &config.chat_id,
@@ -50,6 +52,7 @@ pub(super) fn dispatch_command(
             "{} Unknown command. Send /help for the command list.",
             style::accent("?", "Unknown")
         ),
+        &kb,
     )
 }
 
@@ -75,6 +78,11 @@ fn dispatch_telemetry(client: &Client, config: &TelegramConfig, cmd: &str) -> Re
     }
 }
 
+fn reply_torrents_done(client: &Client, config: &TelegramConfig, text: &str) -> Result<bool> {
+    let kb = action_done_keyboard("cb:torrents", "🧲 Torrents");
+    reply_with_keyboard(client, &config.bot_token, &config.chat_id, text, &kb).map(|()| true)
+}
+
 fn dispatch_torrent(
     client: &Client,
     config: &TelegramConfig,
@@ -96,45 +104,29 @@ fn dispatch_torrent(
         "/add" | "/magnet" => {
             let arg = command_arg(full_text);
             if arg.is_empty() {
-                reply(
-                    client,
-                    &config.bot_token,
-                    &config.chat_id,
-                    &format!(
-                        "{}<code>/magnet &lt;magnet-url-or-hash&gt;</code>",
-                        style::key("USAGE")
-                    ),
-                )?;
+                let usage = format!(
+                    "{}<code>/magnet &lt;magnet-url-or-hash&gt;</code>",
+                    style::key("USAGE")
+                );
+                reply(client, &config.bot_token, &config.chat_id, &usage)?;
             } else {
                 let mag = super::extract_magnet(arg).unwrap_or_else(|| arg.to_string());
                 super::handle_magnet_message(client, config, prompts, &mag);
             }
             Ok(true)
         }
-        "/seedr" => {
-            let arg = command_arg(full_text);
-            let text = handle_seedr_cmd(client, config, arg);
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
-        }
+        "/seedr" => reply_torrents_done(
+            client,
+            config,
+            &handle_seedr_cmd(client, config, command_arg(full_text)),
+        ),
         "/pause" => {
             pause_all(client, &config.qbittorrent_url)?;
-            reply(
-                client,
-                &config.bot_token,
-                &config.chat_id,
-                &style::accent("‖", "All torrents paused"),
-            )
-            .map(|()| true)
+            reply_torrents_done(client, config, &style::accent("⏸", "All torrents paused"))
         }
         "/resume" => {
             resume_all(client, &config.qbittorrent_url)?;
-            reply(
-                client,
-                &config.bot_token,
-                &config.chat_id,
-                &style::accent("→", "All torrents resumed"),
-            )
-            .map(|()| true)
+            reply_torrents_done(client, config, &style::accent("▶️", "All torrents resumed"))
         }
         _ => Ok(false),
     }
@@ -150,20 +142,28 @@ fn dispatch_media(
         "/services" | "/service" => handle_services_cmd(client, config, full_text).map(|()| true),
         "/organize" | "/organise" => {
             let text = handle_bot_organize(config)?;
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+            let kb = action_done_keyboard("cb:maintenance", "🧰 Maintenance");
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/prune" => {
             let text = handle_bot_prune()?;
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+            let kb = action_done_keyboard("cb:maintenance", "🧰 Maintenance");
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/sync" | "/refresh" => {
             let text = handle_bot_sync();
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+            let kb = action_done_keyboard("cb:maintenance", "🧰 Maintenance");
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/audio" => {
             let arg = command_arg(full_text);
             let text = handle_bot_audio(arg)?;
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+            let kb = action_done_keyboard("cb:maintenance", "🧰 Maintenance");
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/movies" | "/library" => {
             for page in handle_bot_library() {
@@ -184,16 +184,22 @@ fn dispatch_control(
         "/charge" => {
             let arg = command_arg(full_text);
             let text = handle_charge_limit(arg);
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+            let kb = action_done_keyboard("cb:sys", "🖥 System");
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/autopower" => {
             let arg = command_arg(full_text);
             let text = handle_auto_poweron(arg);
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+            let kb = action_done_keyboard("cb:sys", "🖥 System");
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/check" => {
             let text = handle_bot_check();
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+            let kb = action_done_keyboard("cb:maintenance", "🧰 Maintenance");
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/reboot" => {
             let (text, kb) = render_reboot_confirm();
@@ -207,7 +213,9 @@ fn dispatch_control(
         }
         "/update" => {
             let text = handle_self_update();
-            reply(client, &config.bot_token, &config.chat_id, &text).map(|()| true)
+            let kb = action_done_keyboard("cb:status", "🏠 Overview");
+            reply_with_keyboard(client, &config.bot_token, &config.chat_id, &text, &kb)
+                .map(|()| true)
         }
         "/help" | "/start" => send_help(client, config).map(|()| true),
         "/request" => reply(
@@ -235,15 +243,18 @@ fn handle_docker_cmd(client: &Client, config: &TelegramConfig, full: &str) -> Re
     let args: Vec<&str> = full.split_whitespace().collect();
     if args.len() >= 3 && args[1] == "restart" {
         let res = restart_docker_container(args[2])?;
-        reply(client, &config.bot_token, &config.chat_id, &res)?;
+        let kb = action_done_keyboard("cb:docker", "🐳 Docker");
+        reply_with_keyboard(client, &config.bot_token, &config.chat_id, &res, &kb)?;
     } else if args.len() >= 3 && args[1] == "logs" {
         let logs = get_docker_logs(args[2], 25)?;
         let clean = escape_html(&logs);
         let res = format!(
-            "{}<code>{clean}</code>",
-            style::key(&format!("LOGS {}", args[2]))
+            "{}\n\n{}",
+            style::view(&format!("Logs · {}", escape_html(args[2]))),
+            style::drawer(&format!("<code>{clean}</code>"))
         );
-        reply(client, &config.bot_token, &config.chat_id, &res)?;
+        let kb = action_done_keyboard("cb:docker", "🐳 Docker");
+        reply_with_keyboard(client, &config.bot_token, &config.chat_id, &res, &kb)?;
     } else {
         let containers = get_docker_containers()?;
         let (text, kb) = render_docker_view(&containers);
@@ -320,19 +331,22 @@ fn send_help(client: &Client, config: &TelegramConfig) -> Result<()> {
     let mut lines = vec![style::view("COMMANDS"), String::new()];
     for (section, entries) in help_sections() {
         lines.push(style::eyebrow(section));
-        for (cmd, description) in entries {
-            lines.push(format!(
-                "{}<i>{description}</i>",
-                style::key(&escape_html(cmd))
-            ));
-        }
+        let card_rows: Vec<String> = entries
+            .iter()
+            .map(|(cmd, description)| {
+                format!("{}<i>{description}</i>", style::key(&escape_html(cmd)))
+            })
+            .collect();
+        lines.push(style::card(&card_rows.join("\n")));
         lines.push(String::new());
     }
     lines.pop();
-    reply(
+    let kb = help_keyboard();
+    reply_with_keyboard(
         client,
         &config.bot_token,
         &config.chat_id,
         &lines.join("\n"),
+        &kb,
     )
 }

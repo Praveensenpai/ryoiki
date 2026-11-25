@@ -235,13 +235,24 @@ fn handle_action_callback(
     }
 
     if let Some(text) = resolve_action(config, data)? {
+        let kb = if matches!(
+            data,
+            "cb:organize" | "cb:prune" | "cb:sync" | "cb:audio" | "cb:check"
+        ) {
+            Some(super::keyboards::action_done_keyboard(
+                "cb:maintenance",
+                "🧰 Maintenance",
+            ))
+        } else {
+            None
+        };
         edit_message(
             client,
             &config.bot_token,
             &config.chat_id,
             msg_id,
             &text,
-            None,
+            kb.as_ref(),
         )?;
     }
     Ok(())

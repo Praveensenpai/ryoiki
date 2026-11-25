@@ -191,8 +191,8 @@ pub fn resolve(id: &str, chosen: &str, auto: bool) -> Result<String> {
 
     let stripped_path = decisions::locate_media_path(&entry.stripped_path)
         .unwrap_or_else(|| entry.stripped_path.clone());
-    let multi_path = decisions::locate_media_path(&entry.multi_path)
-        .unwrap_or_else(|| entry.multi_path.clone());
+    let multi_path =
+        decisions::locate_media_path(&entry.multi_path).unwrap_or_else(|| entry.multi_path.clone());
 
     let (applied, multi_record) = if is_already_stripped_to(&stripped_path, chosen) {
         (Some(stripped_path), Some(multi_path))

@@ -85,6 +85,8 @@ pub struct InlineKeyboardButton {
     pub callback_data: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub style: Option<String>,
 }
 
 impl InlineKeyboardButton {
@@ -94,6 +96,31 @@ impl InlineKeyboardButton {
             text: text.to_string(),
             callback_data: Some(data.to_string()),
             url: None,
+            style: None,
+        }
+    }
+
+    #[must_use]
+    pub fn primary(text: &str, data: &str) -> Self {
+        Self {
+            style: Some("primary".to_string()),
+            ..Self::callback(text, data)
+        }
+    }
+
+    #[must_use]
+    pub fn success(text: &str, data: &str) -> Self {
+        Self {
+            style: Some("success".to_string()),
+            ..Self::callback(text, data)
+        }
+    }
+
+    #[must_use]
+    pub fn danger(text: &str, data: &str) -> Self {
+        Self {
+            style: Some("danger".to_string()),
+            ..Self::callback(text, data)
         }
     }
 }

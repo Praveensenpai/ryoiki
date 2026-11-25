@@ -310,10 +310,10 @@ pub fn format_seedr_tasks_section(tasks: &[SeedrTaskState]) -> String {
             "downloading to disk"
         };
         let key = crate::notify::style::key("SIZE");
-        lines.push(format!(
+        lines.push(crate::notify::style::card(&format!(
             "<b>{clean_name}</b>\n<code>{bar}</code>  {label}\n{key}{dl_mb}/{tot_mb} MB  ↓ {spd:.2} MB/s  η {}s",
             t.eta_seconds
-        ));
+        )));
     }
     lines.join("\n")
 }

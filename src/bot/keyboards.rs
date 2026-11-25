@@ -1,22 +1,25 @@
 use super::types::{InlineKeyboardButton, InlineKeyboardMarkup};
 
-fn row(buttons: &[(&str, &str)]) -> Vec<InlineKeyboardButton> {
+fn primary_row(buttons: &[(&str, &str)]) -> Vec<InlineKeyboardButton> {
     buttons
         .iter()
-        .map(|(label, data)| InlineKeyboardButton::callback(label, data))
+        .map(|(label, data)| InlineKeyboardButton::primary(label, data))
         .collect()
 }
 
 pub fn status_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
-            row(&[
-                ("System", "cb:sys"),
-                ("Torrents", "cb:torrents"),
-                ("Docker", "cb:docker"),
+            primary_row(&[
+                ("🖥 System", "cb:sys"),
+                ("🧲 Torrents", "cb:torrents"),
+                ("🐳 Docker", "cb:docker"),
             ]),
-            row(&[("Storage", "cb:storage"), ("Services", "cb:services")]),
-            row(&[("Maintenance", "cb:maintenance"), ("Refresh", "cb:status")]),
+            primary_row(&[("💾 Storage", "cb:storage"), ("⚙️ Services", "cb:services")]),
+            vec![
+                InlineKeyboardButton::primary("🧰 Maintenance", "cb:maintenance"),
+                InlineKeyboardButton::success("🔄 Refresh", "cb:status"),
+            ],
         ],
     }
 }
@@ -24,8 +27,8 @@ pub fn status_keyboard() -> InlineKeyboardMarkup {
 pub fn system_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
-            row(&[("Overview", "cb:status"), ("Storage", "cb:storage")]),
-            row(&[("Refresh", "cb:sys")]),
+            primary_row(&[("🏠 Overview", "cb:status"), ("💾 Storage", "cb:storage")]),
+            vec![InlineKeyboardButton::success("🔄 Refresh", "cb:sys")],
         ],
     }
 }
@@ -33,8 +36,11 @@ pub fn system_keyboard() -> InlineKeyboardMarkup {
 pub fn storage_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
-            row(&[("Overview", "cb:status"), ("Prune Cloud", "cb:prune")]),
-            row(&[("Refresh", "cb:storage")]),
+            vec![
+                InlineKeyboardButton::primary("🏠 Overview", "cb:status"),
+                InlineKeyboardButton::danger("🧹 Prune Cloud", "cb:prune"),
+            ],
+            vec![InlineKeyboardButton::success("🔄 Refresh", "cb:storage")],
         ],
     }
 }
@@ -42,8 +48,8 @@ pub fn storage_keyboard() -> InlineKeyboardMarkup {
 pub fn docker_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
-            row(&[("Overview", "cb:status"), ("Services", "cb:services")]),
-            row(&[("Refresh", "cb:docker")]),
+            primary_row(&[("🏠 Overview", "cb:status"), ("⚙️ Services", "cb:services")]),
+            vec![InlineKeyboardButton::success("🔄 Refresh", "cb:docker")],
         ],
     }
 }
@@ -51,8 +57,8 @@ pub fn docker_keyboard() -> InlineKeyboardMarkup {
 pub fn services_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
-            row(&[("Overview", "cb:status"), ("Docker", "cb:docker")]),
-            row(&[("Refresh", "cb:services")]),
+            primary_row(&[("🏠 Overview", "cb:status"), ("🐳 Docker", "cb:docker")]),
+            vec![InlineKeyboardButton::success("🔄 Refresh", "cb:services")],
         ],
     }
 }
@@ -73,16 +79,16 @@ pub fn torrents_keyboard(page: usize, total_pages: usize) -> InlineKeyboardMarku
         rows.push(
             pager
                 .iter()
-                .map(|(label, data)| InlineKeyboardButton::callback(label, data))
+                .map(|(label, data)| InlineKeyboardButton::primary(label, data))
                 .collect(),
         );
     }
 
-    rows.push(row(&[
-        ("Overview", "cb:status"),
-        ("System", "cb:sys"),
-        ("Refresh", &format!("cb:torrents:{page}")),
-    ]));
+    rows.push(vec![
+        InlineKeyboardButton::primary("🏠 Overview", "cb:status"),
+        InlineKeyboardButton::primary("🖥 System", "cb:sys"),
+        InlineKeyboardButton::success("🔄 Refresh", &format!("cb:torrents:{page}")),
+    ]);
 
     InlineKeyboardMarkup {
         inline_keyboard: rows,
@@ -92,9 +98,18 @@ pub fn torrents_keyboard(page: usize, total_pages: usize) -> InlineKeyboardMarku
 pub fn maintenance_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
-            row(&[("Organize", "cb:organize"), ("Prune", "cb:prune")]),
-            row(&[("Sync", "cb:sync"), ("Dubstrip", "cb:audio")]),
-            row(&[("Audit Tools", "cb:check"), ("Overview", "cb:status")]),
+            vec![
+                InlineKeyboardButton::success("🚀 Organize", "cb:organize"),
+                InlineKeyboardButton::danger("🧹 Prune", "cb:prune"),
+            ],
+            vec![
+                InlineKeyboardButton::success("🔄 Sync", "cb:sync"),
+                InlineKeyboardButton::primary("🔇 Dubstrip", "cb:audio"),
+            ],
+            vec![
+                InlineKeyboardButton::primary("🔍 Audit Tools", "cb:check"),
+                InlineKeyboardButton::primary("🏠 Overview", "cb:status"),
+            ],
         ],
     }
 }
@@ -116,13 +131,18 @@ pub fn language_keyboard(
             } else {
                 lang.clone()
             };
-            vec![InlineKeyboardButton::callback(
-                &label,
-                &format!("cb:al:{id}:{idx}"),
-            )]
+            let btn = if is_rec {
+                InlineKeyboardButton::success(&label, &format!("cb:al:{id}:{idx}"))
+            } else {
+                InlineKeyboardButton::primary(&label, &format!("cb:al:{id}:{idx}"))
+            };
+            vec![btn]
         })
         .collect();
-    rows.push(row(&[("Stop asking", &format!("cb:al:{id}:silent"))]));
+    rows.push(vec![InlineKeyboardButton::danger(
+        "Stop asking",
+        &format!("cb:al:{id}:silent"),
+    )]);
     InlineKeyboardMarkup {
         inline_keyboard: rows,
     }
@@ -130,10 +150,10 @@ pub fn language_keyboard(
 
 pub fn seedr_queue_keyboard(hash: &str) -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
-        inline_keyboard: vec![row(&[
-            ("Keep queued", &format!("cb:seedrq:keep:{hash}")),
-            ("Download first", &format!("cb:seedrq:front:{hash}")),
-        ])],
+        inline_keyboard: vec![vec![
+            InlineKeyboardButton::primary("Keep queued", &format!("cb:seedrq:keep:{hash}")),
+            InlineKeyboardButton::success("Download first", &format!("cb:seedrq:front:{hash}")),
+        ]],
     }
 }
 
@@ -141,8 +161,14 @@ pub fn seedr_queue_keyboard(hash: &str) -> InlineKeyboardMarkup {
 pub fn access_request_keyboard(user_id: i64) -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
-            row(&[("Approve", &format!("cb:access:ok:{user_id}"))]),
-            row(&[("Deny", &format!("cb:access:no:{user_id}"))]),
+            vec![InlineKeyboardButton::success(
+                "✅ Approve",
+                &format!("cb:access:ok:{user_id}"),
+            )],
+            vec![InlineKeyboardButton::danger(
+                "❌ Deny",
+                &format!("cb:access:no:{user_id}"),
+            )],
         ],
     }
 }
@@ -150,8 +176,11 @@ pub fn access_request_keyboard(user_id: i64) -> InlineKeyboardMarkup {
 pub fn reboot_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
-            row(&[("Confirm reboot", "cb:reboot_confirm")]),
-            row(&[("Cancel", "cb:cancel")]),
+            vec![InlineKeyboardButton::danger(
+                "🔁 Confirm Reboot",
+                "cb:reboot_confirm",
+            )],
+            vec![InlineKeyboardButton::primary("✖ Cancel", "cb:cancel")],
         ],
     }
 }
@@ -159,9 +188,36 @@ pub fn reboot_keyboard() -> InlineKeyboardMarkup {
 pub fn poweroff_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
-            row(&[("Confirm power off", "cb:poweroff_confirm")]),
-            row(&[("Cancel", "cb:cancel")]),
+            vec![InlineKeyboardButton::danger(
+                "⏻ Confirm Power Off",
+                "cb:poweroff_confirm",
+            )],
+            vec![InlineKeyboardButton::primary("✖ Cancel", "cb:cancel")],
         ],
+    }
+}
+
+/// Quick-nav keyboard for /help and /start.
+pub fn help_keyboard() -> InlineKeyboardMarkup {
+    InlineKeyboardMarkup {
+        inline_keyboard: vec![
+            primary_row(&[("📊 Status", "cb:status"), ("🧲 Torrents", "cb:torrents")]),
+            primary_row(&[("🐳 Docker", "cb:docker"), ("💾 Storage", "cb:storage")]),
+            vec![InlineKeyboardButton::primary(
+                "🧰 Maintenance",
+                "cb:maintenance",
+            )],
+        ],
+    }
+}
+
+/// Re-run / back-nav keyboard appended to one-shot action result messages.
+pub fn action_done_keyboard(back_cb: &str, back_label: &str) -> InlineKeyboardMarkup {
+    InlineKeyboardMarkup {
+        inline_keyboard: vec![vec![
+            InlineKeyboardButton::primary("🏠 Overview", "cb:status"),
+            InlineKeyboardButton::primary(back_label, back_cb),
+        ]],
     }
 }
 
@@ -205,5 +261,18 @@ mod tests {
             kb.inline_keyboard[0][2].callback_data.as_deref(),
             Some("cb:torrents:1")
         );
+    }
+
+    #[test]
+    fn test_colored_button_styles() {
+        let status_kb = status_keyboard();
+        let refresh_btn = &status_kb.inline_keyboard[2][1];
+        assert_eq!(refresh_btn.style.as_deref(), Some("success"));
+
+        let reboot_kb = reboot_keyboard();
+        let confirm_btn = &reboot_kb.inline_keyboard[0][0];
+        assert_eq!(confirm_btn.style.as_deref(), Some("danger"));
+        let cancel_btn = &reboot_kb.inline_keyboard[1][0];
+        assert_eq!(cancel_btn.style.as_deref(), Some("primary"));
     }
 }

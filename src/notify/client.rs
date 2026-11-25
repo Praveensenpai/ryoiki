@@ -78,45 +78,19 @@ pub fn send_alert(token: &str, chat_id: &str, text: &str) -> Result<()> {
 pub fn format_card(category: &str, badge: &str, fields: &[(&str, &str)]) -> String {
     let mut body = String::new();
     for (key, val) in fields {
-        let label = plain_label(key);
         let _ = writeln!(
             body,
             "{}<code>{val}</code>",
-            crate::notify::style::key(&label)
+            crate::notify::style::key(key.trim().trim_end_matches(':'))
         );
     }
 
     format!(
         "{}\n\n{}\n\n{}",
         crate::notify::style::alert(category),
-        plain_badge(badge),
-        body.trim_end()
+        badge,
+        crate::notify::style::card(body.trim_end())
     )
-}
-
-/// Strips legacy leading emoji from alert badges so every card uses the same
-/// restrained typographic headline.
-fn plain_badge(badge: &str) -> String {
-    let trimmed = badge.trim();
-    let Some((glyph, rest)) = trimmed.split_once(' ') else {
-        return trimmed.to_string();
-    };
-    if glyph.starts_with('<') || glyph.chars().all(char::is_alphanumeric) {
-        return trimmed.to_string();
-    }
-    rest.trim_start().to_string()
-}
-
-/// Removes a legacy leading glyph and trailing colon from a card field label.
-fn plain_label(key: &str) -> String {
-    let trimmed = key.trim().trim_end_matches(':');
-    let Some((glyph, rest)) = trimmed.split_once(' ') else {
-        return trimmed.to_string();
-    };
-    if glyph.chars().all(char::is_alphanumeric) {
-        return trimmed.to_string();
-    }
-    rest.trim_start().to_string()
 }
 
 #[cfg(test)]
@@ -134,19 +108,11 @@ mod tests {
     #[test]
     fn test_format_card() {
         let card = format_card("Test", "<b>OK</b>", &[("💾 Key:", "Val")]);
-        assert!(card.contains("<b>RYOIKI</b> <i>· Test</i>"));
+        assert!(card.contains("RYOIKI"));
+        assert!(card.contains("Test"));
         assert!(card.contains("<b>OK</b>"));
-        assert!(card.contains("<code>Key        </code><code>Val</code>"));
+        assert!(card.contains("<blockquote>"));
         assert!(!card.contains('━'));
-        assert!(!card.contains("領域"));
-        assert!(!card.contains('💾'));
-    }
-
-    #[test]
-    fn test_plain_badge_strips_legacy_glyph() {
-        assert_eq!(plain_badge("✨ <b>ONLINE</b>"), "<b>ONLINE</b>");
-        assert_eq!(plain_badge("<b>ONLINE</b>"), "<b>ONLINE</b>");
-        assert_eq!(plain_badge("NEW SESSION"), "NEW SESSION");
     }
 
     #[test]

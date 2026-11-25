@@ -54,18 +54,18 @@ pub fn route_message(
         return;
     }
 
-    let text_content = msg.text.as_deref().or(msg.caption.as_deref());
-    let Some(text) = text_content else {
+    let Some(text) = msg.text.as_deref().or(msg.caption.as_deref()) else {
         return;
     };
     let trimmed = text.trim();
 
     if let Some((cmd, full_text)) = extract_command(trimmed) {
+        super::client::send_typing(client, &config.bot_token, &config.chat_id);
         if let Err(e) = dispatch_command(client, config, prompts, (cmd, full_text)) {
-            let clean_err = escape_html(&e.to_string());
             let err_msg = format!(
-                "{}\n<code>{clean_err}</code>",
-                style::accent("!", &format!("Command {cmd} failed"))
+                "{}\n<code>{}</code>",
+                style::accent("!", &format!("Command {cmd} failed")),
+                escape_html(&e.to_string())
             );
             let _ = reply(client, &config.bot_token, &config.chat_id, &err_msg);
         }
@@ -73,6 +73,7 @@ pub fn route_message(
     }
 
     if let Some(magnet) = extract_magnet(trimmed) {
+        super::client::send_typing(client, &config.bot_token, &config.chat_id);
         handle_magnet_message(client, config, prompts, &magnet);
     }
 }
@@ -159,7 +160,12 @@ pub fn route_callback(
     // Only the owner may grant or revoke access.
     if is_owner {
         if let Some((action, target)) = access::parse_callback(&data) {
-            let _ = super::client::answer_callback(client, &config.bot_token, &cb.id, None);
+            let _ = super::client::answer_callback(
+                client,
+                &config.bot_token,
+                &cb.id,
+                callback_toast(&data),
+            );
             handle_access_callback(client, config, access, action, target, cb.message.as_ref());
             return;
         }
@@ -171,7 +177,8 @@ pub fn route_callback(
         return;
     };
 
-    let _ = super::client::answer_callback(client, &config.bot_token, &cb.id, None);
+    let _ =
+        super::client::answer_callback(client, &config.bot_token, &cb.id, callback_toast(&data));
     let reply_config;
     let config = if is_owner {
         config
@@ -238,6 +245,27 @@ fn handle_access_callback(
             &text,
             None,
         );
+    }
+}
+
+fn callback_toast(data: &str) -> Option<&'static str> {
+    match data {
+        "cb:status" => Some("🔄 Refreshing overview..."),
+        "cb:sys" => Some("🖥 Loading telemetry..."),
+        "cb:storage" => Some("💾 Checking storage..."),
+        "cb:docker" => Some("🐳 Listing containers..."),
+        "cb:services" => Some("⚙️ Checking services..."),
+        "cb:maintenance" => Some("🧰 Maintenance menu"),
+        "cb:organize" => Some("🚀 Organizing media..."),
+        "cb:prune" => Some("🧹 Pruning media..."),
+        "cb:sync" => Some("🔄 Syncing Jellyfin..."),
+        "cb:audio" => Some("🔇 Processing audio..."),
+        "cb:check" => Some("🔍 Auditing tools..."),
+        "cb:cancel" => Some("✖ Cancelled"),
+        _ if data.starts_with("cb:torrents") => Some("🧲 Loading torrents..."),
+        _ if data.starts_with("cb:al:") => Some("🎵 Audio selection"),
+        _ if data.starts_with("cb:seedrq:") => Some("☁️ Seedr queue updated"),
+        _ => None,
     }
 }
 

@@ -16,7 +16,8 @@ const MAX_DEPTH: usize = 4;
 /// Characters allowed per page body, leaving room for the timestamp footer.
 const PAGE_BUDGET: usize = 3200;
 
-const CONTINUED_HEADER: &str = "<b>RYOIKI</b> <i>· Media Library / cont.</i>\n────────────────────";
+const CONTINUED_HEADER: &str =
+    "🌸 <b>RYOIKI</b> · <i>Media Library / cont.</i>\n────────────────────";
 
 /// Static description of one library section.
 struct SectionSpec {
@@ -151,10 +152,7 @@ impl LibraryReport {
     }
 
     fn build_body_lines(&self) -> Vec<String> {
-        let mut lines = vec![
-            "<b>RYOIKI</b> <i>· Media Library</i>".to_string(),
-            "────────────────────".to_string(),
-        ];
+        let mut lines = vec![crate::notify::style::alert("Media Library")];
         for section in &self.sections {
             lines.push(section.render_header());
             for title in &section.titles {

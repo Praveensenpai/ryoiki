@@ -37,6 +37,7 @@ pub fn reply_with_keyboard(
         "text": text,
         "parse_mode": "HTML",
         "reply_markup": keyboard,
+        "link_preview_options": {"is_disabled": true},
     });
 
     let resp = client.post(&url).json(&payload).send()?;
@@ -62,6 +63,7 @@ pub fn reply_with_keyboard_id(
         "text": text,
         "parse_mode": "HTML",
         "reply_markup": keyboard,
+        "link_preview_options": {"is_disabled": true},
     });
     let resp: serde_json::Value = client.post(&url).json(&payload).send()?.json()?;
     resp["result"]["message_id"]
@@ -84,6 +86,7 @@ pub fn edit_message(
         "message_id": message_id,
         "text": text,
         "parse_mode": "HTML",
+        "link_preview_options": {"is_disabled": true},
     });
 
     if let Some(kb) = keyboard {
@@ -128,6 +131,47 @@ pub fn answer_callback(
     }
 
     client.post(&url).json(&payload).send()?;
+    Ok(())
+}
+
+/// Sends a `typing` chat action. Fire-and-forget; errors are silently dropped.
+pub fn send_typing(client: &Client, token: &str, chat_id: &str) {
+    let url = format!("https://api.telegram.org/bot{token}/sendChatAction");
+    let payload = json!({
+        "chat_id": chat_id,
+        "action": "typing",
+    });
+    let _ = client.post(&url).json(&payload).send();
+}
+
+/// Registers the bot's command list with Telegram via `setMyCommands`.
+pub fn set_commands(client: &Client, token: &str) -> Result<()> {
+    let url = format!("https://api.telegram.org/bot{token}/setMyCommands");
+    let payload = json!({
+        "commands": [
+            {"command": "status",     "description": "Dashboard — full system overview"},
+            {"command": "system",     "description": "Host telemetry — CPU, MEM, TEMP, NET"},
+            {"command": "storage",    "description": "Storage health — disks and cloud"},
+            {"command": "docker",     "description": "Docker containers status"},
+            {"command": "services",   "description": "Managed systemd services"},
+            {"command": "torrents",   "description": "Torrent list (paged)"},
+            {"command": "seedr",      "description": "Seedr cloud upload command"},
+            {"command": "organize",   "description": "Ingest completed media into Jellyfin"},
+            {"command": "prune",      "description": "Archive cold or watched media"},
+            {"command": "sync",       "description": "Refresh Jellyfin and cloud"},
+            {"command": "audio",      "description": "Process queued audio removals"},
+            {"command": "check",      "description": "Audit installed CLI tools"},
+            {"command": "charge",     "description": "Battery charge limit control"},
+            {"command": "reboot",     "description": "Reboot the server"},
+            {"command": "poweroff",   "description": "Shut down the server"},
+            {"command": "help",       "description": "Show all commands"},
+        ]
+    });
+    let resp = client.post(&url).json(&payload).send()?;
+    if !resp.status().is_success() {
+        let err_text = resp.text().unwrap_or_default();
+        anyhow::bail!("setMyCommands failed: {err_text}");
+    }
     Ok(())
 }
 

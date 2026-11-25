@@ -190,6 +190,7 @@ fn write_response(stream: &mut TcpStream, status_code: u16, json_body: &str) -> 
         200 => "OK",
         400 => "Bad Request",
         404 => "Not Found",
+        409 => "Conflict",
         _ => "Internal Server Error",
     };
 
@@ -358,9 +359,25 @@ fn handle_magnet_post(
 
     match crate::modules::torrent::cli::add_magnet_pipeline(&magnet, config) {
         Ok(result) => {
+            let status_code = match result.status.as_str() {
+                "duplicate" | "already_available" => 409,
+                _ => 200,
+            };
+            if status_code == 200 {
+                let result_clone = result.clone();
+                let magnet_clone = magnet.clone();
+                let config_clone = config.clone();
+                std::thread::spawn(move || {
+                    crate::modules::torrent::notify::notify_magnet_queued(
+                        &result_clone,
+                        &magnet_clone,
+                        &config_clone,
+                    );
+                });
+            }
             let json = serde_json::to_string(&result)
                 .unwrap_or_else(|_| r#"{"status":"ok","message":"magnet accepted"}"#.to_string());
-            write_response(&mut *stream, 200, &json)
+            write_response(&mut *stream, status_code, &json)
         }
         Err(e) => {
             let err_json = format!(r#"{{"error":"{e}"}}"#);

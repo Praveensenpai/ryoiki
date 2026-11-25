@@ -30,6 +30,7 @@ pub fn run_bot() -> Result<()> {
         .context("Failed to initialize HTTP client for bot")?;
 
     println!("  ⚡ Ryoiki Pure-Rust Command Center & Bot active (Listening for commands)...");
+    let _ = client::set_commands(&client, &config.bot_token);
     crate::notify::server::spawn_background_server(config.clone(), config.api_port);
     torrents::start_torrent_monitor(config.clone());
     maintenance::start_trash_reaper();

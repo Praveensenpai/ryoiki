@@ -6,6 +6,8 @@ use std::time::Duration;
 use super::api::{self, TorrentInfo};
 use super::telegram::TelegramConfig;
 use crate::modules::media::OrganizeResult;
+use crate::modules::torrent::cli::MagnetResult;
+use crate::modules::torrent::dedup;
 
 pub fn execute(event: &str, hash: &str) -> Result<()> {
     let config = TelegramConfig::load()?;
@@ -133,11 +135,11 @@ pub(crate) fn render_message(
     ts_ip: &str,
 ) -> String {
     let badge = if event == "started" {
-        "<b>DOWNLOAD INITIATED</b>"
+        "🚀 <b>DOWNLOAD INITIATED</b>"
     } else if event == "completed" {
-        "<b>DOWNLOAD COMPLETED</b>"
+        "✅ <b>DOWNLOAD COMPLETED</b>"
     } else {
-        "<b>TORRENT EVENT</b>"
+        "🧲 <b>TORRENT EVENT</b>"
     };
 
     let (name, size_str, category) = match torrent {
@@ -166,13 +168,17 @@ pub(crate) fn render_message(
         format!("http://{ts_ip}:6881")
     };
 
-    format!(
-        "{}\n\n{badge}\n\n{}<code>{name}</code>\n{}<code>{size_str}</code>\n{}<code>{category}</code>\n{}<code>{host}</code> · {ts_ip}\n\n<a href=\"{webui_url}\">Open WebUI</a> · <i>Tailscale</i>",
-        style::alert("qBittorrent"),
+    let card_body = style::card(&format!(
+        "{}<code>{name}</code>\n{}<code>{size_str}</code>\n{}<code>{category}</code>\n{}<code>{host}</code> · {ts_ip}",
         style::key("FILE"),
         style::key("SIZE"),
         style::key("CATEGORY"),
         style::key("HOST"),
+    ));
+
+    format!(
+        "{}\n\n{badge}\n\n{card_body}\n\n<a href=\"{webui_url}\">Open WebUI</a> · <i>Tailscale</i>",
+        style::alert("qBittorrent"),
     )
 }
 
@@ -202,9 +208,8 @@ pub(crate) fn render_organized_message(
         .render_html_line()
         .map_or(String::new(), |l| format!("{l}\n"));
 
-    format!(
-        "{}\n\n<b>MEDIA ORGANIZED & MOVED</b>\n\n{}<code>{clean_name}</code>\n{}<i>{}</i>\n{}<i>{}</i>\n{}<code>{dest}</code>\n{audio_line}{}<i>{qb_status}</i>\n{}<code>{host}</code> · {ts_ip}",
-        style::alert("Media Organizer"),
+    let card_body = style::card(&format!(
+        "{}<code>{clean_name}</code>\n{}<i>{}</i>\n{}<i>{}</i>\n{}<code>{dest}</code>\n{audio_line}{}<i>{qb_status}</i>\n{}<code>{host}</code> · {ts_ip}",
         style::key("TITLE"),
         style::key("TYPE"),
         org.media_info.media_type,
@@ -213,7 +218,52 @@ pub(crate) fn render_organized_message(
         style::key("DEST"),
         style::key("QBITTORRENT"),
         style::key("HOST"),
+    ));
+
+    format!(
+        "{}\n\n🎬 <b>MEDIA ORGANIZED & MOVED</b>\n\n{card_body}",
+        style::alert("Media Organizer"),
     )
+}
+
+/// Fires a Telegram card when a magnet is accepted via the HTTP API.
+///
+/// Skipped for `duplicate` and `already_available` outcomes — those return
+/// HTTP 409 to the caller and produce no notification.
+pub fn notify_magnet_queued(result: &MagnetResult, magnet: &str, config: &TelegramConfig) {
+    let Ok(client) = Client::builder().timeout(Duration::from_secs(10)).build() else {
+        return;
+    };
+
+    let (ts_ip, host) = super::get_access_urls();
+    let (_, dn) = dedup::parse_magnet(magnet);
+    let name = escape_html(dn.as_deref().unwrap_or("Unknown Torrent"));
+
+    let badge = match result.status.as_str() {
+        "started" => "<b>QUEUED VIA API</b> · Seedr active",
+        "queued" => "<b>QUEUED VIA API</b> · Seedr busy",
+        "fallback" => "<b>QUEUED VIA API</b> · qBittorrent direct",
+        "restored" => "<b>RESTORED FROM DRIVE</b>",
+        _ => "<b>QUEUED VIA API</b>",
+    };
+
+    let status_detail = escape_html(&result.message);
+
+    let webui_url = if ts_ip.is_empty() {
+        "http://localhost:6881".to_string()
+    } else {
+        format!("http://{ts_ip}:6881")
+    };
+
+    let text = format!(
+        "{}\n\n{badge}\n\n{}<code>{name}</code>\n{}<code>{status_detail}</code>\n{}<code>{host}</code> · {ts_ip}\n\n<a href=\"{webui_url}\">Open WebUI</a> · <i>Tailscale</i>",
+        style::alert("qBittorrent"),
+        style::key("FILE"),
+        style::key("STATUS"),
+        style::key("HOST"),
+    );
+
+    let _ = send_telegram_alert(&client, &config.bot_token, &config.chat_id, &text);
 }
 
 pub(crate) fn send_telegram_alert(

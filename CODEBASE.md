@@ -84,7 +84,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_self_update () -> String
   ```
 
-### `src/bot/callbacks.rs` (Role: general, Lines: 263)
+### `src/bot/callbacks.rs` (Role: general, Lines: 274)
 - **Responsibility**: Core general logic in src/bot/callbacks.rs
 - **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: actions :: { execute_poweroff , execute_reboot } , use super :: client :: edit_message , use super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: services :: { get_docker_containers , get_managed_services } , use super :: system :: collect_system_metrics , use super :: torrents :: render_torrent_report , use super :: ui :: { render_docker_view , render_maintenance_view , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style 
 - **Public Functions & Signatures**:
@@ -92,7 +92,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_callback_query (client : & Client , config : & TelegramConfig , prompts : & crate :: bot :: prompts :: Prompts , data : & str , msg_id : i64 ,) -> Result < () >
   ```
 
-### `src/bot/client.rs` (Role: cli, Lines: 149)
+### `src/bot/client.rs` (Role: cli, Lines: 193)
 - **Responsibility**: Core cli logic in src/bot/client.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use serde_json :: json , use super :: types :: { FileResult , InlineKeyboardMarkup , TelegramResponse , Update } , use crate :: notify :: client :: finalize_telegram_message 
 - **Public Functions & Signatures**:
@@ -104,6 +104,8 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn edit_message (client : & Client , token : & str , chat_id : & str , message_id : i64 , text : & str , keyboard : Option < & InlineKeyboardMarkup > ,) -> Result < () >
   fn delete_message (client : & Client , token : & str , chat_id : & str , message_id : i64) -> Result < () >
   fn answer_callback (client : & Client , token : & str , callback_id : & str , toast : Option < & str > ,) -> Result < () >
+  fn send_typing (client : & Client , token : & str , chat_id : & str)
+  fn set_commands (client : & Client , token : & str) -> Result < () >
   fn download_telegram_file (client : & Client , token : & str , file_id : & str ,) -> Result < (String , Vec < u8 >) >
   ```
 
@@ -111,7 +113,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/bot/gate.rs
 - **Imports**: use reqwest :: blocking :: Client , use super :: access :: AccessControl , use super :: client :: { reply , reply_with_keyboard } , use super :: keyboards :: access_request_keyboard , use super :: router :: extract_command , use super :: types :: { Message , User } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style 
 
-### `src/bot/keyboards.rs` (Role: general, Lines: 209)
+### `src/bot/keyboards.rs` (Role: general, Lines: 278)
 - **Responsibility**: Core general logic in src/bot/keyboards.rs
 - **Imports**: use super :: types :: { InlineKeyboardButton , InlineKeyboardMarkup } 
 - **Public Functions & Signatures**:
@@ -128,6 +130,8 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn access_request_keyboard (user_id : i64) -> InlineKeyboardMarkup
   fn reboot_keyboard () -> InlineKeyboardMarkup
   fn poweroff_keyboard () -> InlineKeyboardMarkup
+  fn help_keyboard () -> InlineKeyboardMarkup
+  fn action_done_keyboard (back_cb : & str , back_label : & str) -> InlineKeyboardMarkup
   ```
 
 ### `src/bot/maintenance.rs` (Role: general, Lines: 265)
@@ -144,7 +148,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn handle_bot_check () -> String
   ```
 
-### `src/bot/prompts.rs` (Role: general, Lines: 111)
+### `src/bot/prompts.rs` (Role: general, Lines: 112)
 - **Responsibility**: Core general logic in src/bot/prompts.rs
 - **Imports**: use std :: collections :: HashMap , use std :: sync :: { Arc , Mutex } , use std :: time :: Duration 
 - **Types & Enums**:
@@ -159,11 +163,11 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn spawn_timeout < F > (prompts : & Prompts , hash : & str , timeout_secs : u64 , on_timeout : F) where F : FnOnce (i64) + Send + 'static ,
   ```
 
-### `src/bot/router/commands.rs` (Role: general, Lines: 338)
+### `src/bot/router/commands.rs` (Role: general, Lines: 352)
 - **Responsibility**: Core general logic in src/bot/router/commands.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_auto_poweron , handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_library , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style 
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: actions :: { handle_auto_poweron , handle_charge_limit , handle_self_update } , use super :: super :: client :: { reply , reply_with_keyboard } , use super :: super :: keyboards :: { action_done_keyboard , help_keyboard } , use super :: super :: maintenance :: { handle_bot_audio , handle_bot_check , handle_bot_library , handle_bot_organize , handle_bot_prune , handle_bot_sync , } , use super :: super :: services :: { get_docker_containers , get_docker_logs , get_managed_services , restart_docker_container , restart_managed_service , } , use super :: super :: system :: collect_system_metrics , use super :: super :: torrents :: { handle_seedr_cmd , pause_all , render_torrent_report , resume_all } , use super :: super :: ui :: { render_docker_view , render_poweroff_confirm , render_reboot_confirm , render_services_view , render_storage_view , render_system_view , render_unified_status , } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style 
 
-### `src/bot/router.rs` (Role: general, Lines: 342)
+### `src/bot/router.rs` (Role: general, Lines: 370)
 - **Responsibility**: Core general logic in src/bot/router.rs
 - **Imports**: use reqwest :: blocking :: Client , use super :: access :: { self , AccessAction , AccessControl } , use super :: callbacks :: handle_callback_query , use super :: client :: { download_telegram_file , reply } , use super :: gate :: handle_untrusted_message , use super :: torrents :: { handle_magnet , handle_torrent_file , MagnetOutcome } , use super :: types :: { CallbackQuery , Message } , use crate :: notify :: client :: escape_html , use crate :: notify :: config :: TelegramConfig , use crate :: notify :: style , use commands :: dispatch_command 
 - **Public Functions & Signatures**:
@@ -239,7 +243,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn start_torrent_monitor (config : TelegramConfig)
   ```
 
-### `src/bot/types.rs` (Role: general, Lines: 149)
+### `src/bot/types.rs` (Role: general, Lines: 176)
 - **Responsibility**: Core general logic in src/bot/types.rs
 - **Imports**: use serde :: { Deserialize , Serialize } 
 - **Types & Enums**:
@@ -259,9 +263,12 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   ```rust
   fn display_name (& self) -> String
   fn callback (text : & str , data : & str) -> Self
+  fn primary (text : & str , data : & str) -> Self
+  fn success (text : & str , data : & str) -> Self
+  fn danger (text : & str , data : & str) -> Self
   ```
 
-### `src/bot/ui.rs` (Role: tui, Lines: 334)
+### `src/bot/ui.rs` (Role: tui, Lines: 392)
 - **Responsibility**: Core tui logic in src/bot/ui.rs
 - **Imports**: use super :: keyboards :: { docker_keyboard , maintenance_keyboard , poweroff_keyboard , reboot_keyboard , services_keyboard , status_keyboard , storage_keyboard , system_keyboard , } , use super :: services :: { ContainerInfo , ServiceInfo } , use super :: system :: { DiskMount , SystemMetrics } , use super :: types :: InlineKeyboardMarkup , use crate :: modules :: media :: disk :: format_bytes , use crate :: notify :: client :: escape_html , use crate :: notify :: style 
 - **Public Functions & Signatures**:
@@ -277,7 +284,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn make_progress_bar (pct : u8 , width : usize) -> String
   ```
 
-### `src/bot.rs` (Role: general, Lines: 57)
+### `src/bot.rs` (Role: general, Lines: 58)
 - **Responsibility**: Core general logic in src/bot.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: time :: Duration , use crate :: notify :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
@@ -541,9 +548,9 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn classify_media_ai (client : & Client , api_key : Option < & str > , raw_name : & str , probe : Option < & MediaProbe > ,) -> Result < MediaInfo >
   ```
 
-### `src/modules/media/audio/approval/notify.rs` (Role: general, Lines: 189)
+### `src/modules/media/audio/approval/notify.rs` (Role: general, Lines: 184)
 - **Responsibility**: Core general logic in src/modules/media/audio/approval/notify.rs
-- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: decisions :: { self , days_left , now_secs , DecisionRecord , PendingDecision } , use super :: super :: super :: probe :: MediaProbe , use super :: { recommend_language , resolve } , use crate :: bot :: keyboards :: language_keyboard , use crate :: notify :: client :: { escape_html , format_card , send_alert } , use crate :: notify :: config :: TelegramConfig 
+- **Imports**: use anyhow :: Result , use reqwest :: blocking :: Client , use super :: super :: super :: probe :: MediaProbe , use super :: super :: decisions :: { self , days_left , now_secs , DecisionRecord , PendingDecision } , use super :: { recommend_language , resolve } , use crate :: bot :: keyboards :: language_keyboard , use crate :: notify :: client :: { escape_html , format_card , send_alert } , use crate :: notify :: config :: TelegramConfig 
 - **Public Functions & Signatures**:
   ```rust
   fn expire_overdue (config : & TelegramConfig) -> usize
@@ -873,7 +880,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
 - **Responsibility**: Core general logic in src/modules/media/library/tests.rs
 - **Imports**: use super :: * 
 
-### `src/modules/media/library.rs` (Role: general, Lines: 381)
+### `src/modules/media/library.rs` (Role: general, Lines: 379)
 - **Responsibility**: Core general logic in src/modules/media/library.rs
 - **Imports**: use std :: fs , use std :: path :: { Path , PathBuf } , use super :: organizer :: pathing :: is_video_file , use crate :: notify :: client :: escape_html 
 - **Types & Enums**:
@@ -1394,13 +1401,14 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn heal_record_paths (hash : & str , pairs : & [(PathBuf , PathBuf)]) -> Result < () >
   ```
 
-### `src/modules/torrent/notify.rs` (Role: general, Lines: 269)
+### `src/modules/torrent/notify.rs` (Role: general, Lines: 319)
 - **Responsibility**: Core general logic in src/modules/torrent/notify.rs
-- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: thread :: sleep , use std :: time :: Duration , use super :: api :: { self , TorrentInfo } , use super :: telegram :: TelegramConfig , use crate :: modules :: media :: OrganizeResult , use crate :: notify :: client :: escape_html , use crate :: notify :: style 
+- **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: thread :: sleep , use std :: time :: Duration , use super :: api :: { self , TorrentInfo } , use super :: telegram :: TelegramConfig , use crate :: modules :: media :: OrganizeResult , use crate :: modules :: torrent :: cli :: MagnetResult , use crate :: modules :: torrent :: dedup , use crate :: notify :: client :: escape_html , use crate :: notify :: style 
 - **Public Functions & Signatures**:
   ```rust
   fn execute (event : & str , hash : & str) -> Result < () >
   fn format_size (bytes : u64) -> String
+  fn notify_magnet_queued (result : & MagnetResult , magnet : & str , config : & TelegramConfig)
   ```
 
 ### `src/modules/torrent/queue/tests.rs` (Role: general, Lines: 284)
@@ -1551,7 +1559,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn format_seedr_tasks_section (tasks : & [SeedrTaskState]) -> String
   ```
 
-### `src/modules/torrent/telegram.rs` (Role: general, Lines: 138)
+### `src/modules/torrent/telegram.rs` (Role: general, Lines: 143)
 - **Responsibility**: Core general logic in src/modules/torrent/telegram.rs
 - **Imports**: use anyhow :: Result , use std :: fs , use std :: io :: { self , Write } , use std :: path :: Path , use std :: process :: Command , pub use crate :: notify :: TelegramConfig , use crate :: runner :: Runner 
 - **Public Functions & Signatures**:
@@ -1593,7 +1601,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn run_system_check ()
   ```
 
-### `src/notify/client.rs` (Role: cli, Lines: 174)
+### `src/notify/client.rs` (Role: cli, Lines: 140)
 - **Responsibility**: Core cli logic in src/notify/client.rs
 - **Imports**: use anyhow :: { Context , Result } , use reqwest :: blocking :: Client , use std :: fmt :: Write as _ , use std :: time :: Duration 
 - **Public Functions & Signatures**:
@@ -1659,7 +1667,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn should_power_off (pct : u8 , ac_online : bool , settings : & Settings , already_fired : bool ,) -> bool
   ```
 
-### `src/notify/server.rs` (Role: general, Lines: 370)
+### `src/notify/server.rs` (Role: general, Lines: 387)
 - **Responsibility**: Core general logic in src/notify/server.rs
 - **Imports**: use anyhow :: { Context , Result } , use serde :: Deserialize , use std :: io :: { BufRead , BufReader , Read , Write } , use std :: net :: { TcpListener , TcpStream } , use std :: sync :: Arc , use std :: time :: Duration , use super :: config :: TelegramConfig , use super :: system :: send_custom_notification 
 - **Public Functions & Signatures**:
@@ -1689,7 +1697,7 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn send_shutdown_notification (config : & TelegramConfig) -> Result < () >
   ```
 
-### `src/notify/style.rs` (Role: general, Lines: 75)
+### `src/notify/style.rs` (Role: general, Lines: 138)
 - **Responsibility**: Core general logic in src/notify/style.rs
 - **Public Functions & Signatures**:
   ```rust
@@ -1699,6 +1707,10 @@ Entrypoint ──> CLI/Parser ──> Domain Logic ──> Infra/IO
   fn key (label : & str) -> String
   fn row (label : & str , value : & str) -> String
   fn accent (glyph : & str , text : & str) -> String
+  fn card (content : & str) -> String
+  fn drawer (content : & str) -> String
+  fn status_dot (pct : u8) -> & 'static str
+  fn service_dot (state : & str) -> & 'static str
   ```
 
 ### `src/notify/system.rs` (Role: general, Lines: 356)
