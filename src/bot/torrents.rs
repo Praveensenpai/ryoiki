@@ -280,6 +280,7 @@ pub fn start_torrent_monitor(config: TelegramConfig) {
                 continue;
             };
 
+            prune_removed_torrents(&mut known, &torrents);
             for t in &torrents {
                 check_torrent_event(&client, &config, (&host, &ts_ip), &mut known, t);
             }
@@ -318,5 +319,41 @@ fn check_torrent_event(
         } else if is_done {
             spawn_completed_task(t.hash.clone(), config.clone());
         }
+    }
+}
+
+fn prune_removed_torrents(known: &mut HashMap<String, bool>, torrents: &[TorrentInfo]) {
+    let active: std::collections::HashSet<&str> =
+        torrents.iter().map(|t| t.hash.as_str()).collect();
+    known.retain(|hash, _| active.contains(hash.as_str()));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_prune_removed_torrents_drops_stale_hashes() {
+        let mut known = HashMap::from([
+            ("stale-hash".to_string(), true),
+            ("active-hash".to_string(), false),
+        ]);
+        let torrents = vec![TorrentInfo {
+            hash: "active-hash".to_string(),
+            name: "Active".to_string(),
+            total_size: 100,
+            progress: 0.5,
+            dlspeed: 0,
+            upspeed: 0,
+            state: "downloading".to_string(),
+            eta: 0,
+            category: String::new(),
+            content_path: None,
+            save_path: None,
+            has_metadata: true,
+        }];
+        prune_removed_torrents(&mut known, &torrents);
+        assert!(!known.contains_key("stale-hash"));
+        assert_eq!(known.get("active-hash"), Some(&false));
     }
 }
