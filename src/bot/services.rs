@@ -19,7 +19,7 @@ pub struct ServiceInfo {
 
 const MANAGED_USER_SERVICES: &[(&str, &str)] = &[
     ("ryoiki-bot.service", "Telegram Bot Daemon"),
-    ("ryoiki-rclone.service", "Rclone Cloud Mount"),
+    ("rclone-gdrive.service", "Rclone Cloud Mount"),
     ("ryoiki-media-sync.timer", "Daily Media Sync Timer"),
     ("ryoiki-prune.timer", "Cloud Pruning Timer"),
     ("ryoiki-strip-retry.timer", "Dubstrip Retry Timer"),
@@ -250,6 +250,14 @@ mod tests {
         assert_eq!(
             resolve_managed_unit("ryoiki-bot"),
             Some(("ryoiki-bot.service", true))
+        );
+        assert_eq!(
+            resolve_managed_unit("rclone-gdrive.service"),
+            Some(("rclone-gdrive.service", true))
+        );
+        assert_eq!(
+            resolve_managed_unit("rclone-gdrive"),
+            Some(("rclone-gdrive.service", true))
         );
         assert_eq!(
             resolve_managed_unit("ryoiki-media-sync"),
