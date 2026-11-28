@@ -68,3 +68,25 @@ fn test_pick_promotion_ignores_space_when_unknown() {
         Promotion::Start(_)
     ));
 }
+
+#[test]
+fn test_demote_active_for_priority_requeues_at_front() {
+    let mut q = queue::SeedrQueue::default();
+    q.enqueue("a", "magnet:?xt=urn:btih:a", "Torrent A");
+    assert!(q.activate("a"));
+    q.enqueue("b", "magnet:?xt=urn:btih:b", "Torrent B");
+    q.enqueue("c", "magnet:?xt=urn:btih:c", "Torrent C");
+
+    let demoted = demote_active_for_priority(&mut q);
+    assert_eq!(demoted.as_ref().map(|e| e.hash.as_str()), Some("a"));
+    assert!(!q.has_active());
+
+    // Priority torrent B becomes active; previously discarded A is first in queue.
+    assert!(q.activate("b"));
+    q.finish("b", QueueState::Done);
+
+    let Promotion::Start(next) = pick_promotion(&q.entries, QueuePolicy::Fifo, None, None) else {
+        panic!("expected previously discarded torrent A to be promoted next");
+    };
+    assert_eq!(next, "a");
+}

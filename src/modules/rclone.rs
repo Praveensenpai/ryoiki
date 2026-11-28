@@ -9,7 +9,7 @@ use colored::Colorize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub use oauth::{describe_error, is_remote_configured};
+pub use oauth::{describe_error, is_remote_configured, probe_remote};
 
 /// CLI subcommands for Rclone Google Drive management.
 #[derive(Subcommand, Debug, Clone, Copy)]

@@ -98,7 +98,7 @@ fn resolve_language_text(id: &str, index: usize) -> String {
     }
 }
 
-/// Handles the Seedr queue prompt buttons: keep (default) or download first.
+/// Handles the Seedr queue prompt buttons: keep (default) or make priority.
 fn handle_seedrq_callback(
     client: &Client,
     config: &TelegramConfig,
@@ -116,12 +116,9 @@ fn handle_seedrq_callback(
     let _ = crate::bot::prompts::take(prompts, hash);
 
     let text = if action == "front" {
-        crate::modules::torrent::scheduler::promote_front(hash);
-        format!(
-            "{}\n{}",
-            style::accent("↑", "Moved to front of Seedr queue"),
-            "<i>Downloads next when the cloud slot frees.</i>"
-        )
+        format_priority_result(crate::modules::torrent::scheduler::preempt_and_start(
+            hash, config,
+        ))
     } else {
         format!(
             "{}\n{}",
@@ -138,6 +135,31 @@ fn handle_seedrq_callback(
         None,
     );
     true
+}
+
+fn format_priority_result(outcome: crate::modules::torrent::scheduler::PreemptOutcome) -> String {
+    use crate::modules::torrent::scheduler::PreemptOutcome;
+    match outcome {
+        PreemptOutcome::Started {
+            preempted: Some(prev),
+        } => format!(
+            "{}\n<i>Discarded <code>{}</code> from Seedr and re-queued it for after completion.</i>",
+            style::accent("↑", "Started as priority in Seedr"),
+            crate::notify::client::escape_html(&prev),
+        ),
+        PreemptOutcome::Started { preempted: None } => format!(
+            "{}\n<i>Caching in the Seedr cloud now.</i>",
+            style::accent("↑", "Started as priority in Seedr"),
+        ),
+        PreemptOutcome::MovedToFront => format!(
+            "{}\n<i>Downloads next when the cloud slot frees.</i>",
+            style::accent("↑", "Moved to front of Seedr queue"),
+        ),
+        PreemptOutcome::NotQueued => format!(
+            "{}\n<i>This magnet is already active or no longer queued.</i>",
+            style::accent("·", "Queue unchanged"),
+        ),
+    }
 }
 
 fn resolve_view(

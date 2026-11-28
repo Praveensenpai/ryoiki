@@ -31,13 +31,19 @@ pub(crate) struct SeedrCloudList {
     pub(crate) space_used: Option<u64>,
 }
 
-/// Remaining Seedr cloud space in bytes, or `None` when the account is unreachable.
+/// Remaining and total Seedr cloud space in bytes, or `None` when unreachable.
 #[must_use]
-pub fn seedr_available_bytes() -> Option<u64> {
+pub fn seedr_space_snapshot() -> Option<(u64, u64)> {
     let list = fetch_live_list()?;
     let max = list.space_max?;
     let used = list.space_used.unwrap_or(0);
-    Some(max.saturating_sub(used))
+    Some((max.saturating_sub(used), max))
+}
+
+/// Remaining Seedr cloud space in bytes, or `None` when the account is unreachable.
+#[must_use]
+pub fn seedr_available_bytes() -> Option<u64> {
+    seedr_space_snapshot().map(|(avail, _)| avail)
 }
 
 #[derive(Deserialize)]

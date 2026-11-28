@@ -152,7 +152,7 @@ pub fn seedr_queue_keyboard(hash: &str) -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![vec![
             InlineKeyboardButton::primary("Keep queued", &format!("cb:seedrq:keep:{hash}")),
-            InlineKeyboardButton::success("Download first", &format!("cb:seedrq:front:{hash}")),
+            InlineKeyboardButton::success("Make priority", &format!("cb:seedrq:front:{hash}")),
         ]],
     }
 }

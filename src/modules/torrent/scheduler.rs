@@ -16,6 +16,14 @@ pub enum SubmitOutcome {
     FailedStart,
 }
 
+/// Result of promoting a queued magnet to immediate Seedr priority.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PreemptOutcome {
+    Started { preempted: Option<String> },
+    MovedToFront,
+    NotQueued,
+}
+
 /// Decision produced by [`pick_promotion`].
 pub enum Promotion {
     Start(String),
@@ -95,10 +103,15 @@ fn submit_locked(hash: &str, magnet: &str, name: &str, config: &TelegramConfig) 
     }
 
     if !q.has_active() {
-        if start_entry_now(&mut q, hash, magnet, config) {
-            return SubmitOutcome::Started;
+        let space_tight = seedr::extract_magnet_size(magnet).is_some_and(|needed| {
+            super::seedr_tasks::seedr_available_bytes().is_some_and(|free| free < needed)
+        });
+        if !space_tight {
+            if start_entry_now(&mut q, hash, magnet, config) {
+                return SubmitOutcome::Started;
+            }
+            return SubmitOutcome::FailedStart;
         }
-        return SubmitOutcome::FailedStart;
     }
 
     let pos = q.position(hash);
@@ -233,17 +246,44 @@ pub fn handle_qb_completion(hash: &str, config: &TelegramConfig) {
     });
 }
 
-/// Moves a queued entry to the front so it runs next.
-pub fn promote_front(hash: &str) -> bool {
-    queue::with_lock(|| {
-        let mut q = queue::load();
-        if q.promote_front(hash) {
-            let _ = queue::save(&q);
-            true
-        } else {
-            false
-        }
-    })
+/// Demotes the currently active entry back to the front of the waiting queue.
+pub(crate) fn demote_active_for_priority(q: &mut queue::SeedrQueue) -> Option<QueueEntry> {
+    let active = q.active_entry().cloned()?;
+    q.demote_to_queued(&active.hash);
+    Some(active)
+}
+
+/// Discards the currently active Seedr download (re-queueing it for later) and
+/// starts `hash` in Seedr immediately.
+#[must_use]
+pub fn preempt_and_start(hash: &str, config: &TelegramConfig) -> PreemptOutcome {
+    queue::with_lock(|| preempt_and_start_locked(hash, config))
+}
+
+fn preempt_and_start_locked(hash: &str, config: &TelegramConfig) -> PreemptOutcome {
+    let mut q = queue::load();
+    let Some(entry) = q.entries.iter().find(|e| e.hash == hash).cloned() else {
+        return PreemptOutcome::NotQueued;
+    };
+    if entry.state != QueueState::Queued {
+        return PreemptOutcome::NotQueued;
+    }
+
+    let preempted = demote_active_for_priority(&mut q);
+    if let Some(ref active) = preempted {
+        cancel_seedr_item(active);
+        delete_seedr_cloud(active);
+    }
+
+    if start_entry_now(&mut q, hash, &entry.magnet, config) {
+        return PreemptOutcome::Started {
+            preempted: preempted.map(|a| a.name),
+        };
+    }
+
+    q.promote_front(hash);
+    let _ = queue::save(&q);
+    PreemptOutcome::MovedToFront
 }
 
 /// Marks a Seedr download complete and promotes the next queued magnet.

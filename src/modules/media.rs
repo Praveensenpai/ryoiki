@@ -134,6 +134,11 @@ pub fn handle_media_cli(action: Option<&str>) -> anyhow::Result<()> {
         return Ok(());
     };
 
+    if let Err(msg) = crate::modules::rclone::probe_remote() {
+        println!("\n  {} {msg}\n", "✖".red().bold());
+        anyhow::bail!("{msg}");
+    }
+
     if transfer::confirm_transfer(dir, &selected) {
         transfer::execute_transfer(dir, &selected, home_path)?;
     } else {

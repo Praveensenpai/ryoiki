@@ -120,29 +120,8 @@ pub fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> 
         }
     }
 
-    if let Some(size) = seedr::extract_magnet_size(magnet) {
-        // Fetch a fresh space snapshot after the reaper ran, also evicting any
-        // ryoiki-owned completed items to make room before giving up on Seedr.
-        // free_space_for returns post-eviction available bytes, or None when
-        // the Seedr API is unreachable (let the scheduler decide in that case).
-        if let Some(avail_after) = crate::modules::torrent::seedr_eviction::free_space_for(size) {
-            if avail_after < size {
-                let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
-                let sz_mb = size / 1_048_576;
-                let av_mb = avail_after / 1_048_576;
-                return MagnetOutcome::Message(event_view(
-                    "QBITTORRENT",
-                    &style::accent("↓", "Magnet queued"),
-                    &[format!(
-                        "<i>Torrent {}.{} GB exceeds Seedr space {}.{} GB; running locally.</i>",
-                        sz_mb / 1024,
-                        (sz_mb % 1024) / 100,
-                        av_mb / 1024,
-                        (av_mb % 1024) / 100
-                    )],
-                ));
-            }
-        }
+    if let Some(msg) = check_seedr_capacity(client, config, magnet) {
+        return MagnetOutcome::Message(msg);
     }
 
     match scheduler::submit(&hash, magnet, &name, config) {
@@ -167,6 +146,34 @@ pub fn handle_magnet(client: &Client, config: &TelegramConfig, magnet: &str) -> 
             ))
         }
     }
+}
+
+fn check_seedr_capacity(client: &Client, config: &TelegramConfig, magnet: &str) -> Option<String> {
+    let size = seedr::extract_magnet_size(magnet)?;
+    let max_cfg_bytes = config.seedr_max_torrent_mb.saturating_mul(1_048_576);
+    let space = crate::modules::torrent::seedr_tasks::seedr_space_snapshot();
+    let hard_cap = space.map_or(max_cfg_bytes, |(_, max)| max.min(max_cfg_bytes));
+    if size > hard_cap {
+        let _ = api::add_magnet(client, &config.qbittorrent_url, magnet);
+        let sz_mb = size / 1_048_576;
+        let cap_mb = hard_cap / 1_048_576;
+        return Some(event_view(
+            "QBITTORRENT",
+            &style::accent("↓", "Magnet queued"),
+            &[format!(
+                "<i>Torrent {}.{} GB exceeds Seedr capacity {}.{} GB; running locally.</i>",
+                sz_mb / 1024,
+                (sz_mb % 1024) / 100,
+                cap_mb / 1024,
+                (cap_mb % 1024) / 100
+            )],
+        ));
+    }
+
+    // Evict completed items to free room before submitting; if an active
+    // download still holds space, scheduler::submit will queue and prompt.
+    let _ = crate::modules::torrent::seedr_eviction::free_space_for(size);
+    None
 }
 
 fn magnet_display_name(magnet: &str) -> Option<String> {
@@ -195,11 +202,11 @@ fn duplicate_message() -> String {
 fn queued_prompt(pos: usize) -> String {
     event_view(
         "SEEDR QUEUE",
-        &style::accent("…", &format!("Queue slot busy · position {pos}")),
+        &style::accent("…", &format!("Seedr busy · queued at position {pos}")),
         &[
             "Downloading in qBittorrent meanwhile.".to_string(),
-            "<i>Seedr starts automatically when the cloud slot frees.</i>".to_string(),
-            "<i>Keep it queued, or move it to the front?</i>".to_string(),
+            "<i>Stays queued by default if no option is selected.</i>".to_string(),
+            "<i>Make priority to discard the current Seedr download and run this now (the discarded one will re-queue for after).</i>".to_string(),
         ],
     )
 }

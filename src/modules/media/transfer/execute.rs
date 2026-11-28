@@ -1,9 +1,9 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use colored::Colorize;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, ExitStatus};
 use std::time::Duration;
 
 use super::{notify, MediaItem, TransferDirection};
@@ -130,6 +130,17 @@ pub fn execute_transfer(dir: TransferDirection, items: &[MediaItem], home: &Path
     Ok(())
 }
 
+fn check_rclone_status(status: ExitStatus, op: &str, title: &str) -> Result<()> {
+    if status.success() {
+        return Ok(());
+    }
+    let code = status.code().map_or_else(
+        || "terminated by signal".to_string(),
+        |c| format!("exit code {c}"),
+    );
+    bail!("rclone {op} failed for '{title}' ({code})");
+}
+
 fn execute_single_push(item: &MediaItem, home: &Path) -> Result<()> {
     let Some(local_path) = &item.local_path else {
         return Ok(());
@@ -146,10 +157,10 @@ fn execute_single_push(item: &MediaItem, home: &Path) -> Result<()> {
         .status()
         .context("Failed to run rclone move")?;
 
-    if status.success() {
-        let base = home.join("jellyfin/media");
-        clean_empty_parents(local_path, &base);
-    }
+    check_rclone_status(status, "move", &item.title)?;
+
+    let base = home.join("jellyfin/media");
+    clean_empty_parents(local_path, &base);
     Ok(())
 }
 
@@ -178,10 +189,7 @@ fn execute_single_pull(item: &MediaItem, home: &Path) -> Result<()> {
         .status()
         .context("Failed to run rclone copy")?;
 
-    if !status.success() {
-        eprintln!("  ✖ Failed to download {}", item.title);
-    }
-    Ok(())
+    check_rclone_status(status, "copy", &item.title)
 }
 
 fn clean_empty_parents(path: &Path, base: &Path) {
@@ -246,4 +254,28 @@ fn print_cli_transfer_summary(
         );
     }
     println!("  {}\n", "─".repeat(56).dimmed());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::process::ExitStatusExt;
+
+    #[test]
+    fn test_check_rclone_status_accepts_zero() {
+        let ok = ExitStatus::from_raw(0);
+        assert!(check_rclone_status(ok, "move", "Movie").is_ok());
+    }
+
+    #[test]
+    fn test_check_rclone_status_rejects_nonzero() {
+        let fail = ExitStatus::from_raw(1 << 8);
+        let Err(err) = check_rclone_status(fail, "move", "Jailer 2 (2026)") else {
+            panic!("expected failure for non-zero exit status");
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("rclone move failed"));
+        assert!(msg.contains("Jailer 2 (2026)"));
+        assert!(msg.contains("exit code 1"));
+    }
 }
